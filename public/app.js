@@ -413,7 +413,7 @@ function renderHistory() {
 
     el.innerHTML = receipts.map(r => {
         const uploadDate = new Date(r.created_at).toISOString().split('T')[0];
-        const dateEstimated = !r.date || r.date === uploadDate;
+        const dateEstimated = !r.date;
         const isExpanded = expandedReceipt === r.created_at;
         const isEditing = editingReceipt === r.created_at;
         const items = receiptItemsCache[r.created_at] || [];
@@ -421,7 +421,8 @@ function renderHistory() {
         let detailHTML = '';
 
         if (isEditing) {
-            const dateValue = r.date || uploadDate;
+            const today = new Date().toISOString().split('T')[0];
+            const dateValue = (r.date && r.date <= today) ? r.date : uploadDate;
             detailHTML = `
                 <div class="ml-13 mt-1 mb-3 space-y-3" onclick="event.stopPropagation()">
                     <div class="flex gap-2 flex-wrap">

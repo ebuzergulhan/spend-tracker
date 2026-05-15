@@ -64,7 +64,9 @@ Total and price must be plain numbers only. No currency symbols.`
 
         receipt.total = parseFloat(receipt.total) || 0;
         const createdAt = new Date().toISOString();
-        const receiptDate = receipt.date && receipt.date !== 'null' ? receipt.date : new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
+        // Reject future dates and unreadable dates — store null so the UI shows * with upload date
+        const receiptDate = (receipt.date && receipt.date !== 'null' && receipt.date <= today) ? receipt.date : null;
 
         // Check for duplicate receipt
         const duplicate = await db.query(
