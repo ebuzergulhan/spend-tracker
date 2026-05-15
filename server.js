@@ -153,6 +153,24 @@ app.get('/stats/categories', async (req, res) => {
     res.json(result.rows);
 });
 
+// Items breakdown for a single category
+app.get('/stats/categories/:category/items', async (req, res) => {
+    const { from, to } = req.query;
+    const f = from && to;
+    const result = await db.query(`
+        SELECT item_name,
+               COUNT(*) as times_bought,
+               ROUND(AVG(item_price)::numeric, 2) as avg_price,
+               ROUND(SUM(item_price)::numeric, 2) as total_spent
+        FROM items
+        WHERE category = $1
+        ${f ? 'AND date >= $2 AND date <= $3' : ''}
+        GROUP BY item_name
+        ORDER BY total_spent DESC
+    `, f ? [req.params.category, from, to] : [req.params.category]);
+    res.json(result.rows);
+});
+
 // Most frequently bought items
 app.get('/stats/frequent-items', async (req, res) => {
     const { from, to } = req.query;

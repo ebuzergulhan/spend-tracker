@@ -309,9 +309,9 @@ async function loadDashboard() {
     } else {
         const max = Math.max(...cats.map(c => parseFloat(c.total_spent)));
         catEl.innerHTML = cats.map((c, i) => `
-            <div class="mb-3">
+            <div class="mb-3 cursor-pointer group" onclick="showCategoryDetail('${c.category.replace(/'/g, "\\'")}', '${c.total_spent}')">
                 <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>${c.category}</span>
+                    <span class="group-hover:text-purple-600 transition">${c.category}</span>
                     <span class="font-semibold text-gray-700">£${c.total_spent}</span>
                 </div>
                 <div class="bg-gray-100 rounded-full overflow-hidden">
@@ -563,6 +563,35 @@ function renderHistory() {
         </div>
         `;
     }).join('');
+}
+
+async function showCategoryDetail(category, totalSpent) {
+    const overlay = document.getElementById('cat-modal-overlay');
+    const contentEl = document.getElementById('cat-modal-content');
+
+    document.getElementById('cat-modal-title').textContent = category;
+    document.getElementById('cat-modal-sub').textContent = `£${totalSpent} total · click an item to see purchases`;
+    contentEl.innerHTML = '<p class="text-gray-400 text-sm py-4 text-center">Loading...</p>';
+    overlay.classList.remove('hidden');
+
+    const dates = getPeriodDates(dashboardPeriod);
+    const qs = dates ? `?from=${dates.from}&to=${dates.to}` : '';
+    const items = await fetch(`/stats/categories/${encodeURIComponent(category)}/items${qs}`).then(r => r.json());
+
+    if (items.length === 0) {
+        contentEl.innerHTML = '<p class="text-gray-400 text-sm py-4 text-center">No items found.</p>';
+        return;
+    }
+
+    contentEl.innerHTML = items.map(item => `
+        <div class="flex items-center justify-between py-2.5 border-b last:border-0">
+            <div>
+                <p class="text-sm font-medium text-gray-800">${item.item_name}</p>
+                <p class="text-xs text-gray-400">${item.times_bought}x bought · avg £${item.avg_price}</p>
+            </div>
+            <span class="text-sm font-semibold text-gray-700">£${item.total_spent}</span>
+        </div>
+    `).join('');
 }
 
 async function renameShop(btn) {

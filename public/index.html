@@ -204,6 +204,24 @@
 
     <div class="h-12"></div>
 
+    <!-- Category Detail Modal -->
+    <div id="cat-modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="card p-6 w-full max-w-md modal-animate" style="max-height:80vh; display:flex; flex-direction:column;">
+            <div class="flex items-start justify-between mb-4 flex-shrink-0">
+                <div>
+                    <h3 id="cat-modal-title" class="font-semibold text-gray-800"></h3>
+                    <p id="cat-modal-sub" class="text-xs text-gray-400 mt-0.5"></p>
+                </div>
+                <button onclick="document.getElementById('cat-modal-overlay').classList.add('hidden')" class="text-gray-300 hover:text-gray-500 ml-4 flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="cat-modal-content" class="overflow-y-auto"></div>
+        </div>
+    </div>
+
     <!-- Custom Modal -->
     <div id="modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
         <div id="modal-card" class="card p-6 w-full max-w-sm modal-animate">
