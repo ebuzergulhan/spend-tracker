@@ -15,6 +15,60 @@ const categoryColors = {
 
 const categories = ['Groceries', 'Vegetables', 'Fruit', 'Dairy', 'Meat & Fish', 'Bakery', 'Drinks', 'Snacks', 'Household', 'Clothing', 'Electronics', 'Fuel', 'Restaurant', 'Health', 'Other'];
 
+// ── Modal ────────────────────────────────────────────────────────────────────
+// type: 'alert' | 'confirm' | 'prompt'
+// Returns: true (alert/confirm OK), false (confirm Cancel), string|null (prompt)
+function showModal({ title, message, type = 'alert', inputDefault = '', confirmLabel = 'OK', cancelLabel = 'Cancel' }) {
+    return new Promise(resolve => {
+        const overlay  = document.getElementById('modal-overlay');
+        const card     = document.getElementById('modal-card');
+        const titleEl  = document.getElementById('modal-title');
+        const msgEl    = document.getElementById('modal-message');
+        const inputWrap= document.getElementById('modal-input-wrap');
+        const inputEl  = document.getElementById('modal-input');
+        const buttonsEl= document.getElementById('modal-buttons');
+
+        titleEl.textContent   = title || '';
+        titleEl.className     = title ? 'font-semibold text-gray-800 mb-1' : 'hidden';
+        msgEl.textContent     = message || '';
+        buttonsEl.innerHTML   = '';
+        card.className        = 'card p-6 w-full max-w-sm modal-animate';
+
+        if (type === 'prompt') {
+            inputWrap.classList.remove('hidden');
+            inputEl.value = inputDefault;
+            setTimeout(() => inputEl.focus(), 50);
+        } else {
+            inputWrap.classList.add('hidden');
+        }
+
+        const close = result => {
+            overlay.classList.add('hidden');
+            resolve(result);
+        };
+
+        if (type === 'confirm' || type === 'prompt') {
+            const cancelBtn = document.createElement('button');
+            cancelBtn.textContent = cancelLabel;
+            cancelBtn.className = 'flex-1 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-gray-50 transition';
+            cancelBtn.onclick = () => close(type === 'prompt' ? null : false);
+            buttonsEl.appendChild(cancelBtn);
+        }
+
+        const okBtn = document.createElement('button');
+        okBtn.textContent = confirmLabel;
+        okBtn.className = 'flex-1 gradient-bg text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition';
+        okBtn.onclick = () => close(type === 'prompt' ? (inputEl.value.trim() || null) : true);
+        buttonsEl.appendChild(okBtn);
+
+        // Allow Enter key in prompt input
+        inputEl.onkeydown = e => { if (e.key === 'Enter') okBtn.click(); };
+
+        overlay.classList.remove('hidden');
+    });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // "2024-01-15" → "15 Jan 2024"
 function formatDate(dateStr) {
     if (!dateStr || dateStr === 'null') return null;
@@ -79,7 +133,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
 
     const fileInput = document.getElementById('receiptImage');
     if (!fileInput.files[0]) {
-        alert('Please select an image first');
+        await showModal({ title: 'No file selected', message: 'Please choose a receipt image before scanning.' });
         return;
     }
 
@@ -95,7 +149,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
 
         if (receipt.error) {
             document.getElementById('loadingMsg').classList.add('hidden');
-            alert(receipt.error);
+            await showModal({ title: 'Scan failed', message: receipt.error });
             return;
         }
 
@@ -127,7 +181,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
 
     } catch (error) {
         document.getElementById('loadingMsg').classList.add('hidden');
-        alert('Something went wrong. Check the console.');
+        await showModal({ title: 'Something went wrong', message: 'Could not scan the receipt. Please try again.' });
         console.error(error);
     }
 });
@@ -163,7 +217,7 @@ document.getElementById('manualForm').addEventListener('submit', async function 
     const rows = document.getElementById('manualItems').children;
 
     if (!shop || !date || rows.length === 0) {
-        alert('Please fill in shop name, date and at least one item.');
+        await showModal({ title: 'Missing details', message: 'Please fill in the shop name, date, and at least one item.' });
         return;
     }
 
@@ -173,7 +227,7 @@ document.getElementById('manualForm').addEventListener('submit', async function 
     }).filter(i => i.name && i.price);
 
     if (items.length === 0) {
-        alert('Please add at least one item with a name and price.');
+        await showModal({ title: 'No items', message: 'Please add at least one item with a name and price.' });
         return;
     }
 
@@ -186,13 +240,13 @@ document.getElementById('manualForm').addEventListener('submit', async function 
         const result = await response.json();
 
         if (result.success) {
-            alert('Entry saved!');
+            await showModal({ title: 'Saved', message: 'Your entry has been saved successfully.' });
             document.getElementById('manualForm').reset();
             document.getElementById('manualItems').innerHTML = '';
             addManualItem();
         }
     } catch (error) {
-        alert('Something went wrong.');
+        await showModal({ title: 'Something went wrong', message: 'Could not save the entry. Please try again.' });
         console.error(error);
     }
 });
@@ -356,7 +410,7 @@ function addEditItem() {
         <select class="edit-category border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
             ${categories.map(c => `<option>${c}</option>`).join('')}
         </select>
-        <button type="button" onclick="this.closest('.edit-item-row').remove()" class="text-red-400 hover:text-red-600 text-lg font-bold">×</button>
+        <button type="button" onclick="this.closest('.edit-item-row').remove()" class="text-red-400 hover:text-red-600 text-lg font-bold flex-shrink-0">×</button>
     `;
     container.appendChild(div);
 }
@@ -373,7 +427,7 @@ async function saveReceiptEdit() {
     })).filter(i => i.name && i.price);
 
     if (!shop || items.length === 0) {
-        alert('Please fill in shop name and at least one item.');
+        await showModal({ title: 'Missing details', message: 'Please fill in the shop name and at least one item.' });
         return;
     }
 
@@ -391,7 +445,7 @@ async function saveReceiptEdit() {
             await loadHistory();
         }
     } catch (error) {
-        alert('Something went wrong.');
+        await showModal({ title: 'Something went wrong', message: 'Could not save changes. Please try again.' });
         console.error(error);
     }
 }
@@ -405,7 +459,6 @@ function renderHistory() {
         r.shop_name.toLowerCase().includes(filterText)
     );
 
-    // Sort by purchase date (r.date), fall back to upload date (created_at)
     const getDate = r => new Date(r.date || r.created_at);
     if (sortBy === 'newest') receipts.sort((a, b) => getDate(b) - getDate(a));
     if (sortBy === 'oldest') receipts.sort((a, b) => getDate(a) - getDate(b));
@@ -516,19 +569,32 @@ function renderHistory() {
 
 async function renameShop(btn) {
     const oldName = btn.dataset.shop;
-    const newName = prompt(`Rename "${oldName}" to:`, oldName);
-    if (!newName || newName.trim() === oldName) return;
+    const newName = await showModal({
+        title: 'Rename shop',
+        message: `All receipts for "${oldName}" will be updated.`,
+        type: 'prompt',
+        inputDefault: oldName,
+        confirmLabel: 'Rename'
+    });
+    if (!newName || newName === oldName) return;
     await fetch('/shops/rename', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ old_name: oldName, new_name: newName.trim() })
+        body: JSON.stringify({ old_name: oldName, new_name: newName })
     });
-    receiptItemsCache && Object.keys(receiptItemsCache).forEach(k => delete receiptItemsCache[k]);
+    Object.keys(receiptItemsCache).forEach(k => delete receiptItemsCache[k]);
     loadDashboard();
 }
 
 async function deleteReceipt(createdAt) {
-    if (!confirm('Delete this receipt?')) return;
+    const confirmed = await showModal({
+        title: 'Delete receipt',
+        message: 'This will permanently remove the receipt and all its items.',
+        type: 'confirm',
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel'
+    });
+    if (!confirmed) return;
     await fetch('/receipts/' + encodeURIComponent(createdAt), { method: 'DELETE' });
     delete receiptItemsCache[createdAt];
     if (expandedReceipt === createdAt) expandedReceipt = null;
