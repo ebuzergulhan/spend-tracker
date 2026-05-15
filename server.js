@@ -20,6 +20,25 @@ const db = new Pool({
 app.use(express.static('public'));
 app.use(express.json());
 
+// If the new shop name matches or contains an existing canonical name, use the canonical one.
+// This merges "ALDI STORES Edgbaston Road Birmingham" → "ALDI STORES" automatically.
+async function normalizeShopName(name) {
+    const { rows } = await db.query('SELECT DISTINCT shop_name FROM items');
+    const lower = name.toLowerCase().trim();
+
+    // Exact case-insensitive match
+    const exact = rows.find(r => r.shop_name.toLowerCase() === lower);
+    if (exact) return exact.shop_name;
+
+    // New name contains an existing name — pick the longest match to be most specific
+    const match = rows
+        .filter(r => r.shop_name.length >= 4 && lower.includes(r.shop_name.toLowerCase()))
+        .sort((a, b) => b.shop_name.length - a.shop_name.length)[0];
+    if (match) return match.shop_name;
+
+    return name;
+}
+
 // Upload and scan a receipt
 app.post('/upload', upload.single('receiptImage'), async (req, res) => {
     try {
@@ -64,6 +83,7 @@ Total and price must be plain numbers only. No currency symbols.`
         const receipt = JSON.parse(cleanText);
 
         receipt.total = parseFloat(receipt.total) || 0;
+        receipt.shop_name = await normalizeShopName(receipt.shop_name);
         const createdAt = new Date().toISOString();
         const today = new Date().toISOString().split('T')[0];
         // Reject future dates and unreadable dates — store null so the UI shows * with upload date
