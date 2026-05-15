@@ -214,6 +214,14 @@ app.put('/receipts/:created_at', async (req, res) => {
     }
 });
 
+// Rename a shop across all items
+app.put('/shops/rename', async (req, res) => {
+    const { old_name, new_name } = req.body;
+    if (!old_name || !new_name) return res.status(400).json({ error: 'Missing names' });
+    await db.query('UPDATE items SET shop_name = $1 WHERE shop_name = $2', [new_name.trim(), old_name]);
+    res.json({ success: true });
+});
+
 // Export one row per receipt (summary)
 app.get('/export/receipts/csv', async (req, res) => {
     const result = await db.query(`
