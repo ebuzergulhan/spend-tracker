@@ -15,12 +15,11 @@ const categoryColors = {
 
 const categories = ['Groceries', 'Vegetables', 'Fruit', 'Dairy', 'Meat & Fish', 'Bakery', 'Drinks', 'Snacks', 'Household', 'Clothing', 'Electronics', 'Fuel', 'Restaurant', 'Health', 'Other'];
 
-// "2024-01-15" → "15-01-2024"
+// "2024-01-15" → "15 Jan 2024"
 function formatDate(dateStr) {
     if (!dateStr || dateStr === 'null') return null;
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    const [year, month, day] = dateStr.split('-');
+    return new Date(year, parseInt(month) - 1, day).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // "2024-01" → "Jan 2024"
@@ -405,6 +404,7 @@ function renderHistory() {
     if (sortBy === 'oldest') receipts.sort((a, b) => getDate(a) - getDate(b));
     if (sortBy === 'expensive') receipts.sort((a, b) => parseFloat(b.receipt_total) - parseFloat(a.receipt_total));
     if (sortBy === 'cheapest') receipts.sort((a, b) => parseFloat(a.receipt_total) - parseFloat(b.receipt_total));
+    if (sortBy === 'uploaded') receipts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (receipts.length === 0) {
         el.innerHTML = '<p class="text-gray-400 text-sm">No receipts found.</p>';
