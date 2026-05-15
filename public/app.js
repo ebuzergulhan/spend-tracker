@@ -102,8 +102,8 @@ async function loadDashboard() {
     ]);
 
     // Stat cards
-    const totalAll = shops.reduce((s, r) => s + r.total_spent, 0);
-    const thisMonth = monthly[0]?.total_spent || 0;
+    const totalAll = shops.reduce((s, r) => s + parseFloat(r.total_spent), 0);
+    const thisMonth = parseFloat(monthly[0]?.total_spent) || 0;
     const receiptsCount = await fetch('/receipts').then(r => r.json()).then(d => d.length);
 
     document.getElementById('stat-month').textContent = '£' + thisMonth.toFixed(2);
@@ -116,7 +116,7 @@ async function loadDashboard() {
     if (monthly.length === 0) {
         monthlyEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
     } else {
-        const max = Math.max(...monthly.map(m => m.total_spent));
+        const max = Math.max(...monthly.map(m => parseFloat(m.total_spent)));
         monthlyEl.innerHTML = monthly.map(m => `
             <div class="mb-3">
                 <div class="flex justify-between text-xs text-gray-500 mb-1">
@@ -136,7 +136,7 @@ async function loadDashboard() {
     if (categories.length === 0) {
         catEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
     } else {
-        const max = Math.max(...categories.map(c => c.total_spent));
+        const max = Math.max(...categories.map(c => parseFloat(c.total_spent)));
         catEl.innerHTML = categories.map((c, i) => `
             <div class="mb-3">
                 <div class="flex justify-between text-xs text-gray-500 mb-1">
