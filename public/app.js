@@ -530,7 +530,10 @@ function renderHistory() {
                         `).join('')}
                     </div>
                     <p class="text-xs text-gray-300 mb-2">Added ${addedLabel}${dateEstimated ? ' · <span class="text-orange-400">* date not on receipt</span>' : ''}</p>
-                    <button onclick="startEdit('${r.created_at}')" class="text-xs text-purple-600 font-medium hover:text-purple-800">Edit receipt</button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="startEdit('${r.created_at}')" class="text-xs text-purple-600 font-medium hover:text-purple-800">Edit receipt</button>
+                        <button onclick="deleteReceipt('${r.created_at}')" class="text-xs text-red-400 font-medium hover:text-red-600">Delete</button>
+                    </div>
                 </div>
             `;
         }
@@ -551,11 +554,6 @@ function renderHistory() {
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="text-base font-bold text-gray-800">£${r.receipt_total}</span>
-                    <button onclick="deleteReceipt('${r.created_at}'); event.stopPropagation();" class="text-red-400 hover:text-red-600 transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                    </button>
                     <svg class="w-4 h-4 text-gray-400 transition-transform ${isExpanded || isEditing ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
