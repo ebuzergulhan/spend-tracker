@@ -18,6 +18,7 @@ const db = new Pool({
 
 
 app.use(express.static('public'));
+app.use(express.json());
 
 // Upload and scan a receipt
 app.post('/upload', upload.single('receiptImage'), async (req, res) => {
@@ -207,7 +208,6 @@ app.delete('/receipts/:created_at', async (req, res) => {
 });
 
 // Manual entry
-app.use(express.json());
 app.post('/manual', async (req, res) => {
     try {
         const { shop_name, date, items } = req.body;
