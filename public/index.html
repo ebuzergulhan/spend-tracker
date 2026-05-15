@@ -32,22 +32,22 @@
                 </div>
             </div>
             <!-- Nav -->
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-wrap">
                 <button onclick="showTab('upload')" id="tab-upload" class="nav-btn active px-5 py-2 rounded-full text-sm font-medium">Upload</button>
+                <button onclick="showTab('manual')" id="tab-manual" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Manual Entry</button>
                 <button onclick="showTab('dashboard')" id="tab-dashboard" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Dashboard</button>
                 <button onclick="showTab('history')" id="tab-history" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">History</button>
             </div>
         </div>
     </div>
 
-    <!-- Content (overlaps header) -->
+    <!-- Content -->
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
         <!-- Upload Tab -->
         <div id="page-upload">
             <div class="card p-8 max-w-lg mx-auto">
                 <h2 class="text-lg font-semibold text-gray-800 mb-6">Scan a Receipt</h2>
-
                 <form id="uploadForm">
                     <label class="upload-area rounded-2xl p-8 flex flex-col items-center cursor-pointer block mb-4">
                         <div class="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center mb-3">
@@ -60,21 +60,16 @@
                         <p class="text-gray-400 text-sm mt-1">JPG, PNG up to 10MB</p>
                         <input type="file" id="receiptImage" accept="image/*" class="hidden" />
                     </label>
-
                     <p id="fileName" class="text-center text-sm text-purple-600 font-medium mb-4 hidden"></p>
-
                     <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
                         Scan Receipt
                     </button>
                 </form>
-
                 <div id="loadingMsg" class="hidden mt-6 flex flex-col items-center">
                     <div class="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3" style="border-width:3px"></div>
                     <p class="text-gray-500 text-sm">Reading your receipt...</p>
                 </div>
             </div>
-
-            <!-- Result card -->
             <div id="resultCard" class="card p-6 max-w-lg mx-auto mt-4 hidden">
                 <div class="flex items-center gap-2 mb-4">
                     <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -88,10 +83,35 @@
             </div>
         </div>
 
+        <!-- Manual Entry Tab -->
+        <div id="page-manual" class="hidden">
+            <div class="card p-8 max-w-lg mx-auto">
+                <h2 class="text-lg font-semibold text-gray-800 mb-6">Manual Entry</h2>
+                <form id="manualForm" class="space-y-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Shop Name</label>
+                        <input type="text" id="m-shop" placeholder="e.g. Tesco" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 block mb-1">Date</label>
+                        <input type="date" id="m-date" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 block mb-2">Items</label>
+                        <div id="manualItems" class="space-y-2"></div>
+                        <button type="button" onclick="addManualItem()" class="mt-2 text-sm text-purple-600 font-medium hover:text-purple-800">+ Add item</button>
+                    </div>
+
+                    <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
+                        Save Entry
+                    </button>
+                </form>
+            </div>
+        </div>
+
         <!-- Dashboard Tab -->
         <div id="page-dashboard" class="hidden">
-
-            <!-- Stat cards -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
@@ -110,8 +130,6 @@
                     <p class="text-lg font-bold text-gray-800 mt-1 truncate" id="stat-topshop">—</p>
                 </div>
             </div>
-
-            <!-- Monthly + Categories -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="card p-6">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">Monthly Spending</h3>
@@ -122,8 +140,6 @@
                     <div id="categoryStats"></div>
                 </div>
             </div>
-
-            <!-- Shops + Frequent items -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="card p-6">
                     <h3 class="text-sm font-semibold text-gray-700 mb-4">By Shop</h3>

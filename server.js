@@ -151,6 +151,34 @@ app.get('/receipts', async (req, res) => {
     res.json(result.rows);
 });
 
+// Delete a receipt by created_at
+app.delete('/receipts/:created_at', async (req, res) => {
+    await db.query(`DELETE FROM items WHERE created_at = $1`, [req.params.created_at]);
+    res.json({ success: true });
+});
+
+// Manual entry
+app.use(express.json());
+app.post('/manual', async (req, res) => {
+    try {
+        const { shop_name, date, items } = req.body;
+        const createdAt = new Date().toISOString();
+        const receiptTotal = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
+
+        for (const item of items) {
+            await db.query(
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [date, shop_name, item.category, item.name, parseFloat(item.price) || 0, receiptTotal, createdAt]
+            );
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Manual entry error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });

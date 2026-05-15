@@ -1,6 +1,23 @@
+const TABS = ['upload', 'manual', 'dashboard', 'history'];
+
+const categoryColors = {
+    'Vegetables': 'bg-green-100 text-green-700',
+    'Fruit': 'bg-orange-100 text-orange-700',
+    'Dairy': 'bg-blue-100 text-blue-700',
+    'Meat & Fish': 'bg-red-100 text-red-700',
+    'Bakery': 'bg-yellow-100 text-yellow-700',
+    'Drinks': 'bg-cyan-100 text-cyan-700',
+    'Snacks': 'bg-pink-100 text-pink-700',
+    'Household': 'bg-gray-100 text-gray-700',
+    'Groceries': 'bg-emerald-100 text-emerald-700',
+    'Health': 'bg-teal-100 text-teal-700',
+};
+
+const categories = ['Groceries', 'Vegetables', 'Fruit', 'Dairy', 'Meat & Fish', 'Bakery', 'Drinks', 'Snacks', 'Household', 'Clothing', 'Electronics', 'Fuel', 'Restaurant', 'Health', 'Other'];
+
 // Tab navigation
 function showTab(tab) {
-    ['upload', 'dashboard', 'history'].forEach(t => {
+    TABS.forEach(t => {
         document.getElementById('page-' + t).classList.add('hidden');
         document.getElementById('tab-' + t).classList.remove('active');
     });
@@ -9,6 +26,7 @@ function showTab(tab) {
 
     if (tab === 'dashboard') loadDashboard();
     if (tab === 'history') loadHistory();
+    if (tab === 'manual') initManualForm();
 }
 
 // Show selected filename
@@ -51,19 +69,6 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
         document.getElementById('uploadForm').reset();
         document.getElementById('fileName').classList.add('hidden');
 
-        const categoryColors = {
-            'Vegetables': 'bg-green-100 text-green-700',
-            'Fruit': 'bg-orange-100 text-orange-700',
-            'Dairy': 'bg-blue-100 text-blue-700',
-            'Meat & Fish': 'bg-red-100 text-red-700',
-            'Bakery': 'bg-yellow-100 text-yellow-700',
-            'Drinks': 'bg-cyan-100 text-cyan-700',
-            'Snacks': 'bg-pink-100 text-pink-700',
-            'Household': 'bg-gray-100 text-gray-700',
-            'Groceries': 'bg-emerald-100 text-emerald-700',
-            'Health': 'bg-teal-100 text-teal-700',
-        };
-
         document.getElementById('resultContent').innerHTML = `
             <div class="flex justify-between items-start mb-4">
                 <div>
@@ -92,16 +97,80 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
     }
 });
 
+// Manual entry
+function initManualForm() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('m-date').value = today;
+    const container = document.getElementById('manualItems');
+    if (container.children.length === 0) addManualItem();
+}
+
+function addManualItem() {
+    const container = document.getElementById('manualItems');
+    const div = document.createElement('div');
+    div.className = 'flex gap-2 items-center';
+    div.innerHTML = `
+        <input type="text" placeholder="Item name" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+        <input type="number" placeholder="£0.00" step="0.01" class="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+        <select class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+            ${categories.map(c => `<option>${c}</option>`).join('')}
+        </select>
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 text-lg font-bold">×</button>
+    `;
+    container.appendChild(div);
+}
+
+document.getElementById('manualForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const shop = document.getElementById('m-shop').value.trim();
+    const date = document.getElementById('m-date').value;
+    const rows = document.getElementById('manualItems').children;
+
+    if (!shop || !date || rows.length === 0) {
+        alert('Please fill in shop name, date and at least one item.');
+        return;
+    }
+
+    const items = Array.from(rows).map(row => {
+        const inputs = row.querySelectorAll('input, select');
+        return { name: inputs[0].value, price: inputs[1].value, category: inputs[2].value };
+    }).filter(i => i.name && i.price);
+
+    if (items.length === 0) {
+        alert('Please add at least one item with a name and price.');
+        return;
+    }
+
+    try {
+        const response = await fetch('/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop_name: shop, date, items })
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Entry saved!');
+            document.getElementById('manualForm').reset();
+            document.getElementById('manualItems').innerHTML = '';
+            addManualItem();
+        }
+    } catch (error) {
+        alert('Something went wrong.');
+        console.error(error);
+    }
+});
+
 // Dashboard
 async function loadDashboard() {
-    const [shops, categories, frequent, monthly] = await Promise.all([
+    const [shops, cats, frequent, monthly] = await Promise.all([
         fetch('/stats/shops').then(r => r.json()),
         fetch('/stats/categories').then(r => r.json()),
         fetch('/stats/frequent-items').then(r => r.json()),
         fetch('/stats/monthly').then(r => r.json())
     ]);
 
-    // Stat cards
     const totalAll = shops.reduce((s, r) => s + parseFloat(r.total_spent), 0);
     const thisMonth = parseFloat(monthly[0]?.total_spent) || 0;
     const receiptsCount = await fetch('/receipts').then(r => r.json()).then(d => d.length);
@@ -111,7 +180,6 @@ async function loadDashboard() {
     document.getElementById('stat-receipts').textContent = receiptsCount;
     document.getElementById('stat-topshop').textContent = shops[0]?.shop_name || '—';
 
-    // Monthly bars
     const monthlyEl = document.getElementById('monthlyStats');
     if (monthly.length === 0) {
         monthlyEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
@@ -124,33 +192,31 @@ async function loadDashboard() {
                     <span class="font-semibold text-gray-700">£${m.total_spent}</span>
                 </div>
                 <div class="bg-gray-100 rounded-full overflow-hidden">
-                    <div class="bar gradient-bg" style="width:${(m.total_spent / max * 100).toFixed(0)}%"></div>
+                    <div class="bar gradient-bg" style="width:${(parseFloat(m.total_spent) / max * 100).toFixed(0)}%"></div>
                 </div>
             </div>
         `).join('');
     }
 
-    // Category bars
     const catEl = document.getElementById('categoryStats');
     const catColors = ['#667eea','#48bb78','#ed8936','#e53e3e','#38b2ac','#9f7aea','#f6ad55','#fc8181'];
-    if (categories.length === 0) {
+    if (cats.length === 0) {
         catEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
     } else {
-        const max = Math.max(...categories.map(c => parseFloat(c.total_spent)));
-        catEl.innerHTML = categories.map((c, i) => `
+        const max = Math.max(...cats.map(c => parseFloat(c.total_spent)));
+        catEl.innerHTML = cats.map((c, i) => `
             <div class="mb-3">
                 <div class="flex justify-between text-xs text-gray-500 mb-1">
                     <span>${c.category}</span>
                     <span class="font-semibold text-gray-700">£${c.total_spent}</span>
                 </div>
                 <div class="bg-gray-100 rounded-full overflow-hidden">
-                    <div class="bar" style="width:${(c.total_spent / max * 100).toFixed(0)}%; background:${catColors[i % catColors.length]}"></div>
+                    <div class="bar" style="width:${(parseFloat(c.total_spent) / max * 100).toFixed(0)}%; background:${catColors[i % catColors.length]}"></div>
                 </div>
             </div>
         `).join('');
     }
 
-    // Shops
     const shopEl = document.getElementById('shopStats');
     if (shops.length === 0) {
         shopEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
@@ -169,7 +235,6 @@ async function loadDashboard() {
         `).join('');
     }
 
-    // Frequent items
     const freqEl = document.getElementById('frequentItems');
     if (frequent.length === 0) {
         freqEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
@@ -189,7 +254,7 @@ async function loadDashboard() {
     }
 }
 
-// History
+// History with delete
 async function loadHistory() {
     const receipts = await fetch('/receipts').then(r => r.json());
     const el = document.getElementById('historyContent');
@@ -212,7 +277,20 @@ async function loadHistory() {
                     <p class="text-xs text-gray-400">${r.date || 'Date unknown'} · ${new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
             </div>
-            <span class="text-base font-bold text-gray-800">£${r.receipt_total}</span>
+            <div class="flex items-center gap-3">
+                <span class="text-base font-bold text-gray-800">£${r.receipt_total}</span>
+                <button onclick="deleteReceipt('${r.created_at}')" class="text-red-400 hover:text-red-600 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     `).join('');
+}
+
+async function deleteReceipt(createdAt) {
+    if (!confirm('Delete this receipt?')) return;
+    await fetch('/receipts/' + encodeURIComponent(createdAt), { method: 'DELETE' });
+    loadHistory();
 }
