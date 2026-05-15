@@ -454,12 +454,9 @@ function renderHistory() {
                 </div>
             `;
         } else if (isExpanded) {
-            const dateLabel = dateEstimated
-                ? `<span class="text-orange-400 font-semibold">*</span> ${formatDate(r.date || uploadDate)} <span class="text-orange-400 text-xs">(date not on receipt)</span>`
-                : formatDate(r.date);
+            const addedLabel = new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
             detailHTML = `
                 <div class="ml-13 mt-1 mb-3" onclick="event.stopPropagation()">
-                    <p class="text-xs text-gray-400 mb-2">${dateLabel}</p>
                     <div class="space-y-1.5 mb-3">
                         ${items.map(item => `
                             <div class="flex justify-between items-center text-xs">
@@ -471,6 +468,7 @@ function renderHistory() {
                             </div>
                         `).join('')}
                     </div>
+                    <p class="text-xs text-gray-300 mb-2">Added ${addedLabel}${dateEstimated ? ' · <span class="text-orange-400">* date not on receipt</span>' : ''}</p>
                     <button onclick="startEdit('${r.created_at}')" class="text-xs text-purple-600 font-medium hover:text-purple-800">Edit receipt</button>
                 </div>
             `;
@@ -487,7 +485,7 @@ function renderHistory() {
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-800">${r.shop_name}</p>
-                        <p class="text-xs text-gray-400">${new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        <p class="text-xs text-gray-400">${dateEstimated ? `<span class="text-orange-400 font-semibold">*</span> ${formatDate(r.date || uploadDate)}` : formatDate(r.date)}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
