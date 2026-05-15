@@ -201,6 +201,32 @@ app.put('/receipts/:created_at', async (req, res) => {
     }
 });
 
+// Export all items as CSV
+app.get('/export/csv', async (req, res) => {
+    const result = await db.query(`
+        SELECT date, shop_name, category, item_name, item_price, receipt_total, created_at
+        FROM items
+        ORDER BY date DESC NULLS LAST, created_at DESC
+    `);
+
+    const escape = v => `"${String(v || '').replace(/"/g, '""')}"`;
+    const headers = ['Date', 'Shop', 'Category', 'Item', 'Price (£)', 'Receipt Total (£)', 'Added'];
+    const rows = result.rows.map(r => [
+        r.date || '',
+        escape(r.shop_name),
+        escape(r.category),
+        escape(r.item_name),
+        r.item_price,
+        r.receipt_total,
+        r.created_at ? r.created_at.split('T')[0] : ''
+    ].join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="spend-tracker.csv"');
+    res.send(csv);
+});
+
 // Delete a receipt by created_at
 app.delete('/receipts/:created_at', async (req, res) => {
     await db.query(`DELETE FROM items WHERE created_at = $1`, [req.params.created_at]);
