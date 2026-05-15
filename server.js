@@ -7,16 +7,19 @@ const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3001;
 
 const Anthropic = require('@anthropic-ai/sdk');
-const Database = require('better-sqlite3');
+const { Pool } = require('pg');
 const fs = require('fs');
 
 const anthropic = new Anthropic();
-const db = new Database('receipts.db');
 
-// One row per item — makes filtering and analysis easy
-db.exec(`
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL
+});
+
+// Create table if it doesn't exist
+db.query(`
     CREATE TABLE IF NOT EXISTS items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         date TEXT,
         shop_name TEXT,
         category TEXT,
@@ -75,25 +78,15 @@ Total and price must be plain numbers only. No currency symbols.`
         receipt.total = parseFloat(receipt.total) || 0;
         const createdAt = new Date().toISOString();
 
-        const stmt = db.prepare(`
-            INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `);
-
         for (const item of receipt.items) {
-            stmt.run(
-                receipt.date,
-                receipt.shop_name,
-                item.category,
-                item.name,
-                parseFloat(item.price) || 0,
-                receipt.total,
-                createdAt
+            await db.query(
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [receipt.date, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
             );
         }
 
         fs.unlinkSync(req.file.path);
-
         res.json(receipt);
 
     } catch (error) {
@@ -103,60 +96,60 @@ Total and price must be plain numbers only. No currency symbols.`
 });
 
 // Spending by shop
-app.get('/stats/shops', (req, res) => {
-    const rows = db.prepare(`
-        SELECT shop_name, ROUND(SUM(item_price), 2) as total_spent, COUNT(*) as item_count
+app.get('/stats/shops', async (req, res) => {
+    const result = await db.query(`
+        SELECT shop_name, ROUND(SUM(item_price)::numeric, 2) as total_spent, COUNT(*) as item_count
         FROM items
         GROUP BY shop_name
         ORDER BY total_spent DESC
-    `).all();
-    res.json(rows);
+    `);
+    res.json(result.rows);
 });
 
 // Spending by category
-app.get('/stats/categories', (req, res) => {
-    const rows = db.prepare(`
-        SELECT category, ROUND(SUM(item_price), 2) as total_spent, COUNT(*) as item_count
+app.get('/stats/categories', async (req, res) => {
+    const result = await db.query(`
+        SELECT category, ROUND(SUM(item_price)::numeric, 2) as total_spent, COUNT(*) as item_count
         FROM items
         GROUP BY category
         ORDER BY total_spent DESC
-    `).all();
-    res.json(rows);
+    `);
+    res.json(result.rows);
 });
 
 // Most frequently bought items
-app.get('/stats/frequent-items', (req, res) => {
-    const rows = db.prepare(`
-        SELECT item_name, category, COUNT(*) as times_bought, ROUND(SUM(item_price), 2) as total_spent
+app.get('/stats/frequent-items', async (req, res) => {
+    const result = await db.query(`
+        SELECT item_name, category, COUNT(*) as times_bought, ROUND(SUM(item_price)::numeric, 2) as total_spent
         FROM items
-        GROUP BY item_name
+        GROUP BY item_name, category
         ORDER BY times_bought DESC
         LIMIT 20
-    `).all();
-    res.json(rows);
+    `);
+    res.json(result.rows);
 });
 
 // Spending by month
-app.get('/stats/monthly', (req, res) => {
-    const rows = db.prepare(`
-        SELECT strftime('%Y-%m', date) as month, ROUND(SUM(item_price), 2) as total_spent
+app.get('/stats/monthly', async (req, res) => {
+    const result = await db.query(`
+        SELECT TO_CHAR(date::date, 'YYYY-MM') as month, ROUND(SUM(item_price)::numeric, 2) as total_spent
         FROM items
-        WHERE date IS NOT NULL
+        WHERE date IS NOT NULL AND date != 'null'
         GROUP BY month
         ORDER BY month DESC
-    `).all();
-    res.json(rows);
+    `);
+    res.json(result.rows);
 });
 
 // All receipts grouped for history display
-app.get('/receipts', (req, res) => {
-    const rows = db.prepare(`
+app.get('/receipts', async (req, res) => {
+    const result = await db.query(`
         SELECT created_at, shop_name, date, receipt_total
         FROM items
-        GROUP BY created_at
+        GROUP BY created_at, shop_name, date, receipt_total
         ORDER BY created_at DESC
-    `).all();
-    res.json(rows);
+    `);
+    res.json(result.rows);
 });
 
 app.listen(PORT, () => {
