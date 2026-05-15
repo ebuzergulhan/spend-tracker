@@ -97,14 +97,22 @@ Total and price must be plain numbers only. No currency symbols.`
     }
 });
 
-// Spending by shop
+// Spending by shop — sum receipt_total once per receipt, not item prices
 app.get('/stats/shops', async (req, res) => {
     const { from, to } = req.query;
     const f = from && to;
     const result = await db.query(`
-        SELECT shop_name, ROUND(SUM(item_price)::numeric, 2) as total_spent, COUNT(*) as item_count
-        FROM items
-        ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
+        SELECT shop_name,
+               ROUND(SUM(receipt_total)::numeric, 2) as total_spent,
+               SUM(item_count) as item_count
+        FROM (
+            SELECT shop_name, created_at,
+                   MAX(receipt_total) as receipt_total,
+                   COUNT(*) as item_count
+            FROM items
+            ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
+            GROUP BY shop_name, created_at
+        ) t
         GROUP BY shop_name
         ORDER BY total_spent DESC
     `, f ? [from, to] : []);
@@ -140,15 +148,20 @@ app.get('/stats/frequent-items', async (req, res) => {
     res.json(result.rows);
 });
 
-// Spending by month
+// Spending by month — sum receipt_total once per receipt
 app.get('/stats/monthly', async (req, res) => {
     const { from, to } = req.query;
     const f = from && to;
     const result = await db.query(`
-        SELECT TO_CHAR(date::date, 'YYYY-MM') as month, ROUND(SUM(item_price)::numeric, 2) as total_spent
-        FROM items
-        WHERE date IS NOT NULL AND date != 'null'
-        ${f ? 'AND date >= $1 AND date <= $2' : ''}
+        SELECT month, ROUND(SUM(receipt_total)::numeric, 2) as total_spent
+        FROM (
+            SELECT TO_CHAR(date::date, 'YYYY-MM') as month,
+                   created_at, MAX(receipt_total) as receipt_total
+            FROM items
+            WHERE date IS NOT NULL AND date != 'null'
+            ${f ? 'AND date >= $1 AND date <= $2' : ''}
+            GROUP BY month, created_at
+        ) t
         GROUP BY month
         ORDER BY month DESC
     `, f ? [from, to] : []);
