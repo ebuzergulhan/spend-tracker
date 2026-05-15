@@ -66,6 +66,17 @@ Total and price must be plain numbers only. No currency symbols.`
         const createdAt = new Date().toISOString();
         const receiptDate = receipt.date && receipt.date !== 'null' ? receipt.date : new Date().toISOString().split('T')[0];
 
+        // Check for duplicate receipt
+        const duplicate = await db.query(
+            `SELECT id FROM items WHERE shop_name = $1 AND date = $2 AND receipt_total = $3 LIMIT 1`,
+            [receipt.shop_name, receiptDate, receipt.total]
+        );
+
+        if (duplicate.rows.length > 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(409).json({ error: 'This receipt has already been scanned.' });
+        }
+
         for (const item of receipt.items) {
             await db.query(
                 `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)

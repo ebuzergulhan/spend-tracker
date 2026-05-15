@@ -41,8 +41,8 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
         const receipt = await response.json();
 
         if (receipt.error) {
-            alert('Error: ' + receipt.error);
             document.getElementById('loadingMsg').classList.add('hidden');
+            alert(receipt.error);
             return;
         }
 
