@@ -16,19 +16,6 @@ const db = new Pool({
     connectionString: process.env.DATABASE_URL
 });
 
-// Create table if it doesn't exist
-db.query(`
-    CREATE TABLE IF NOT EXISTS items (
-        id SERIAL PRIMARY KEY,
-        date TEXT,
-        shop_name TEXT,
-        category TEXT,
-        item_name TEXT,
-        item_price REAL,
-        receipt_total REAL,
-        created_at TEXT
-    )
-`);
 
 app.use(express.static('public'));
 
