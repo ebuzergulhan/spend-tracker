@@ -18,6 +18,7 @@
         .upload-area:hover { border-color: #667eea; background: #f8f7ff; }
         .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; }
         .bar { height: 8px; border-radius: 999px; transition: width 0.6s ease; }
+        .ml-13 { margin-left: 52px; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -112,9 +113,20 @@
 
         <!-- Dashboard Tab -->
         <div id="page-dashboard" class="hidden">
+            <div class="flex justify-end mb-4">
+                <select id="dashPeriod" onchange="setDashboardPeriod(this.value)" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400 bg-white shadow-sm">
+                    <option value="all">All Time</option>
+                    <option value="this-month">This Month</option>
+                    <option value="last-month">Last Month</option>
+                    <option value="last-3-months">Last 3 Months</option>
+                    <option value="last-6-months">Last 6 Months</option>
+                    <option value="this-year">This Year</option>
+                    <option value="last-year">Last Year</option>
+                </select>
+            </div>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div class="card p-4">
-                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
+                    <p id="stat-month-label" class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
                     <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
                 </div>
                 <div class="card p-4">
