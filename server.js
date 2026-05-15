@@ -64,12 +64,13 @@ Total and price must be plain numbers only. No currency symbols.`
 
         receipt.total = parseFloat(receipt.total) || 0;
         const createdAt = new Date().toISOString();
+        const receiptDate = receipt.date && receipt.date !== 'null' ? receipt.date : new Date().toISOString().split('T')[0];
 
         for (const item of receipt.items) {
             await db.query(
                 `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [receipt.date, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
+                [receiptDate, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
             );
         }
 
