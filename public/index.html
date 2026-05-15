@@ -154,6 +154,15 @@
 
         <!-- History Tab -->
         <div id="page-history" class="hidden">
+            <div class="card p-4 mb-4 flex flex-wrap gap-3 items-center">
+                <input type="text" id="filterShop" placeholder="Filter by shop..." oninput="renderHistory()" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400 flex-1 min-w-40"/>
+                <select id="sortBy" onchange="renderHistory()" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="expensive">Most expensive</option>
+                    <option value="cheapest">Cheapest first</option>
+                </select>
+            </div>
             <div class="card p-6 mb-6">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Receipt History</h2>
                 <div id="historyContent"></div>

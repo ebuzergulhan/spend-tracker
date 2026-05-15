@@ -254,13 +254,30 @@ async function loadDashboard() {
     }
 }
 
-// History with delete
+// History with sort and filter
+let allReceipts = [];
+
 async function loadHistory() {
-    const receipts = await fetch('/receipts').then(r => r.json());
+    allReceipts = await fetch('/receipts').then(r => r.json());
+    renderHistory();
+}
+
+function renderHistory() {
     const el = document.getElementById('historyContent');
+    const filterText = document.getElementById('filterShop').value.toLowerCase();
+    const sortBy = document.getElementById('sortBy').value;
+
+    let receipts = allReceipts.filter(r =>
+        r.shop_name.toLowerCase().includes(filterText)
+    );
+
+    if (sortBy === 'newest') receipts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (sortBy === 'oldest') receipts.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (sortBy === 'expensive') receipts.sort((a, b) => parseFloat(b.receipt_total) - parseFloat(a.receipt_total));
+    if (sortBy === 'cheapest') receipts.sort((a, b) => parseFloat(a.receipt_total) - parseFloat(b.receipt_total));
 
     if (receipts.length === 0) {
-        el.innerHTML = '<p class="text-gray-300 text-sm">No receipts yet.</p>';
+        el.innerHTML = '<p class="text-gray-400 text-sm">No receipts found.</p>';
         return;
     }
 
