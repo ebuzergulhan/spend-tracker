@@ -201,6 +201,31 @@ app.put('/receipts/:created_at', async (req, res) => {
     }
 });
 
+// Export one row per receipt (summary)
+app.get('/export/receipts/csv', async (req, res) => {
+    const result = await db.query(`
+        SELECT date, shop_name, receipt_total, COUNT(*) as item_count, created_at
+        FROM items
+        GROUP BY date, shop_name, receipt_total, created_at
+        ORDER BY date DESC NULLS LAST, created_at DESC
+    `);
+
+    const escape = v => `"${String(v || '').replace(/"/g, '""')}"`;
+    const headers = ['Date', 'Shop', 'Total (£)', 'Items', 'Added'];
+    const rows = result.rows.map(r => [
+        r.date || '',
+        escape(r.shop_name),
+        r.receipt_total,
+        r.item_count,
+        r.created_at ? r.created_at.split('T')[0] : ''
+    ].join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="receipts-summary.csv"');
+    res.send(csv);
+});
+
 // Export all items as CSV
 app.get('/export/csv', async (req, res) => {
     const result = await db.query(`
