@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .modal-animate { animation: modalIn 0.18s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="gradient-bg">
+        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold text-white">Finance Home</h1>
+                <p id="month-label" class="text-purple-200 text-sm mt-0.5">Loading...</p>
+            </div>
+            <div class="flex gap-2 flex-wrap overflow-x-auto" id="shared-nav"></div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 -mt-8">
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Groceries</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-groceries">—</p>
+                <a href="index.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Fixed Costs</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-fixed">—</p>
+                <a href="fixed.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Bills</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-bills">—</p>
+                <a href="bills.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Fuel</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-fuel">—</p>
+                <a href="fuel.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Transport</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-transport">—</p>
+                <a href="transport.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Subscriptions</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="sum-subscriptions">—</p>
+                <a href="subscriptions.html" class="text-xs text-purple-500 hover:text-purple-700 mt-1 block">View →</a>
+            </div>
+        </div>
+
+        <!-- Total this month -->
+        <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500">Total this month</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-1" id="sum-total">—</p>
+                </div>
+                <div class="w-14 h-14 rounded-full gradient-bg flex items-center justify-center">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown bar -->
+        <div class="card p-6 mb-6">
+            <h3 class="text-sm font-semibold text-gray-700 mb-4">Breakdown</h3>
+            <div id="breakdown-bars"></div>
+        </div>
+
+    </div>
+
+    <div class="h-12"></div>
+    <script src="shared.js"></script>
+    <script>
+        initSharedPage('home');
+
+        const SECTIONS = [
+            { key: 'groceries',     label: 'Groceries',     color: '#667eea' },
+            { key: 'fixed',         label: 'Fixed Costs',   color: '#f59e0b' },
+            { key: 'bills',         label: 'Bills',         color: '#10b981' },
+            { key: 'fuel',          label: 'Fuel',          color: '#ef4444' },
+            { key: 'transport',     label: 'Transport',     color: '#3b82f6' },
+            { key: 'subscriptions', label: 'Subscriptions', color: '#8b5cf6' },
+        ];
+
+        async function load() {
+            const data = await fetch('/summary/home').then(r => r.json());
+            document.getElementById('month-label').textContent = data.month;
+
+            let total = 0;
+            SECTIONS.forEach(s => {
+                const val = data[s.key] || 0;
+                total += val;
+                document.getElementById('sum-' + s.key).textContent = fmt(val);
+            });
+            document.getElementById('sum-total').textContent = fmt(total);
+
+            const bars = document.getElementById('breakdown-bars');
+            bars.innerHTML = '';
+            SECTIONS.forEach(s => {
+                const val = data[s.key] || 0;
+                const pct = total > 0 ? (val / total * 100).toFixed(1) : 0;
+                bars.insertAdjacentHTML('beforeend', `
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-sm text-gray-600 w-32 shrink-0">${s.label}</span>
+                        <div class="flex-1 bg-gray-100 rounded-full h-2">
+                            <div class="h-2 rounded-full transition-all duration-700" style="width:${pct}%; background:${s.color}"></div>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 w-20 text-right">${fmt(val)}</span>
+                    </div>
+                `);
+            });
+        }
+
+        load();
+    </script>
+</body>
+</html>

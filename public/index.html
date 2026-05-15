@@ -34,7 +34,9 @@
                     <p class="text-purple-200 text-sm mt-0.5">Track every penny you spend</p>
                 </div>
             </div>
-            <!-- Nav -->
+            <!-- Cross-page nav -->
+            <div class="flex gap-2 flex-wrap overflow-x-auto mb-3" id="shared-nav"></div>
+            <!-- Tab nav -->
             <div class="flex gap-2 flex-wrap">
                 <button onclick="showTab('upload')" id="tab-upload" class="nav-btn active px-5 py-2 rounded-full text-sm font-medium">Upload</button>
                 <button onclick="showTab('manual')" id="tab-manual" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Manual Entry</button>
@@ -234,6 +236,8 @@
         </div>
     </div>
 
+    <script src="shared.js"></script>
     <script src="app.js"></script>
+    <script>initSharedPage('groceries');</script>
 </body>
 </html>

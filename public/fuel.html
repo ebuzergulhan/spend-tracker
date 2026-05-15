@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .modal-animate { animation: modalIn 0.18s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="gradient-bg">
+        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold text-white">Fuel</h1>
+                <p class="text-purple-200 text-sm mt-0.5">Track every fuel fill-up</p>
+            </div>
+            <div class="flex gap-2 flex-wrap overflow-x-auto" id="shared-nav"></div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 -mt-8">
+
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Year</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Fill-ups (Year)</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-count">—</p>
+            </div>
+        </div>
+
+        <!-- Add form -->
+        <div class="card p-6 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Log Fuel</h2>
+            <form id="addForm" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Station / Description</label>
+                    <input type="text" id="f-name" placeholder="e.g. BP Motorway" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
+                    <input type="number" id="f-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
+                    <input type="date" id="f-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes (litres, pence/L etc.)</label>
+                    <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
+            </form>
+        </div>
+
+        <!-- List -->
+        <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-gray-700">Fill-up History</h2>
+                <select id="yearFilter" onchange="load()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                    <option value="">All time</option>
+                </select>
+            </div>
+            <div id="list"></div>
+        </div>
+
+    </div>
+
+    <div class="h-12"></div>
+    <script src="shared.js"></script>
+    <script>
+        initSharedPage('fuel');
+
+        const now = new Date();
+        const yearSel = document.getElementById('yearFilter');
+        for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) {
+            yearSel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
+        }
+        yearSel.value = String(now.getFullYear());
+
+        async function load() {
+            const y = yearSel.value;
+            const from = y ? `${y}-01-01` : '';
+            const to   = y ? `${y}-12-31` : '';
+            const qs   = from ? `?category=fuel&from=${from}&to=${to}` : '?category=fuel';
+            const items = await fetch('/expense-log' + qs).then(r => r.json());
+
+            const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+            const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+            const monthItems = await fetch(`/expense-log?category=fuel&from=${monthStart}&to=${monthEnd}`).then(r => r.json());
+
+            document.getElementById('stat-month').textContent = fmt(monthItems.reduce((s,i) => s + parseFloat(i.amount), 0));
+            document.getElementById('stat-year').textContent  = fmt(items.reduce((s,i) => s + parseFloat(i.amount), 0));
+            document.getElementById('stat-count').textContent = items.length;
+
+            const el = document.getElementById('list');
+            if (!items.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No fuel logged yet.</p>'; return; }
+            el.innerHTML = items.map(i => `
+                <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-800">${i.name}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' · ' + i.notes : ''}</p>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
+                    <button onclick="deleteItem(${i.id})" class="text-gray-300 hover:text-red-400 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('addForm').onsubmit = async e => {
+            e.preventDefault();
+            await fetch('/expense-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category: 'fuel',
+                    name: document.getElementById('f-name').value.trim(),
+                    amount: document.getElementById('f-amount').value,
+                    date: document.getElementById('f-date').value,
+                    notes: document.getElementById('f-notes').value.trim() || null
+                })
+            });
+            e.target.reset();
+            document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+            load();
+        };
+
+        async function deleteItem(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this fuel entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/expense-log/' + id, { method: 'DELETE' });
+            load();
+        }
+
+        document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+        load();
+    </script>
+</body>
+</html>

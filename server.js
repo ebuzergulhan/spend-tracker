@@ -338,6 +338,168 @@ app.post('/manual', async (req, res) => {
     }
 });
 
+// ─── New Finance Sections ────────────────────────────────────────────────────
+
+// Create tables on startup
+(async () => {
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS recurring_expenses (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            amount NUMERIC(10,2) NOT NULL,
+            frequency TEXT NOT NULL DEFAULT 'monthly',
+            start_date DATE,
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS expense_log (
+            id SERIAL PRIMARY KEY,
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            amount NUMERIC(10,2) NOT NULL,
+            date DATE NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+})();
+
+// Recurring expenses (fixed costs + subscriptions)
+app.get('/recurring', async (req, res) => {
+    const { category } = req.query;
+    const result = category
+        ? await db.query('SELECT * FROM recurring_expenses WHERE category = $1 ORDER BY name', [category])
+        : await db.query('SELECT * FROM recurring_expenses ORDER BY category, name');
+    res.json(result.rows);
+});
+
+app.post('/recurring', async (req, res) => {
+    try {
+        const { name, category, amount, frequency, start_date, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO recurring_expenses (name, category, amount, frequency, start_date, notes)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [name, category, parseFloat(amount) || 0, frequency || 'monthly', start_date || null, notes || null]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/recurring/:id', async (req, res) => {
+    try {
+        const { name, category, amount, frequency, start_date, notes } = req.body;
+        const result = await db.query(
+            `UPDATE recurring_expenses SET name=$1, category=$2, amount=$3, frequency=$4, start_date=$5, notes=$6
+             WHERE id=$7 RETURNING *`,
+            [name, category, parseFloat(amount) || 0, frequency || 'monthly', start_date || null, notes || null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/recurring/:id', async (req, res) => {
+    await db.query('DELETE FROM recurring_expenses WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+});
+
+// Expense log (bills, fuel, transport one-off payments)
+app.get('/expense-log', async (req, res) => {
+    const { category, from, to } = req.query;
+    let where = [];
+    let params = [];
+    if (category) { params.push(category); where.push(`category = $${params.length}`); }
+    if (from)     { params.push(from);     where.push(`date >= $${params.length}`); }
+    if (to)       { params.push(to);       where.push(`date <= $${params.length}`); }
+    const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const result = await db.query(
+        `SELECT * FROM expense_log ${whereClause} ORDER BY date DESC, created_at DESC`,
+        params
+    );
+    res.json(result.rows);
+});
+
+app.post('/expense-log', async (req, res) => {
+    try {
+        const { category, name, amount, date, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO expense_log (category, name, amount, date, notes)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [category, name, parseFloat(amount) || 0, date, notes || null]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/expense-log/:id', async (req, res) => {
+    try {
+        const { category, name, amount, date, notes } = req.body;
+        const result = await db.query(
+            `UPDATE expense_log SET category=$1, name=$2, amount=$3, date=$4, notes=$5
+             WHERE id=$6 RETURNING *`,
+            [category, name, parseFloat(amount) || 0, date, notes || null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/expense-log/:id', async (req, res) => {
+    await db.query('DELETE FROM expense_log WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+});
+
+// Home summary — this month totals per section
+app.get('/summary/home', async (req, res) => {
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    const [groceries, logs, recurring] = await Promise.all([
+        db.query(`
+            SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
+            FROM (
+                SELECT created_at, MAX(receipt_total) as receipt_total
+                FROM items
+                WHERE date >= $1 AND date <= $2
+                GROUP BY created_at
+            ) t
+        `, [monthStart, monthEnd]),
+        db.query(`
+            SELECT category, ROUND(SUM(amount)::numeric, 2) as total
+            FROM expense_log
+            WHERE date >= $1 AND date <= $2
+            GROUP BY category
+        `, [monthStart, monthEnd]),
+        db.query(`SELECT category, ROUND(SUM(amount)::numeric, 2) as total FROM recurring_expenses GROUP BY category`)
+    ]);
+
+    const logMap = {};
+    logs.rows.forEach(r => { logMap[r.category] = parseFloat(r.total) || 0; });
+
+    const recurringMap = {};
+    recurring.rows.forEach(r => { recurringMap[r.category] = parseFloat(r.total) || 0; });
+
+    res.json({
+        month: now.toLocaleString('en-GB', { month: 'long', year: 'numeric' }),
+        groceries: parseFloat(groceries.rows[0]?.total) || 0,
+        bills: logMap['bill'] || 0,
+        fuel: logMap['fuel'] || 0,
+        transport: logMap['transport'] || 0,
+        fixed: recurringMap['fixed'] || 0,
+        subscriptions: recurringMap['subscription'] || 0
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
