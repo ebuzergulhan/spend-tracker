@@ -88,10 +88,50 @@
         initSharedPage('debts');
 
         let debts = [];
+        let editingId = null;
+        const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
+        const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
 
         async function load() {
             debts = await fetch('/debts').then(r => r.json());
             render();
+        }
+
+        function editForm(d) {
+            const sd = d.start_date ? d.start_date.split('T')[0] : '';
+            return `
+                <div class="card p-4">
+                    <form onsubmit="saveDebt(event,${d.id})" class="space-y-2">
+                        <div class="flex flex-wrap gap-2">
+                            <input id="ed-name" value="${d.name}" placeholder="Name" required class="flex-1 min-w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-total" type="number" step="0.01" value="${d.total_amount}" placeholder="Total amount" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-monthly" type="number" step="0.01" value="${d.monthly_payment}" placeholder="Monthly payment" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-start" type="date" value="${sd}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-notes" value="${d.notes||''}" placeholder="Notes" class="flex-1 min-w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
+                            <button type="button" onclick="editingId=null;render()" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                        </div>
+                    </form>
+                </div>`;
+        }
+
+        async function saveDebt(e, id) {
+            e.preventDefault();
+            await fetch('/debts/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('ed-name').value.trim(),
+                    total_amount: document.getElementById('ed-total').value,
+                    monthly_payment: document.getElementById('ed-monthly').value,
+                    start_date: document.getElementById('ed-start').value,
+                    notes: document.getElementById('ed-notes').value.trim() || null
+                })
+            });
+            editingId = null;
+            load();
         }
 
         function calcDebt(d) {
@@ -136,6 +176,7 @@
             }
 
             el.innerHTML = debts.map(d => {
+                if (editingId === d.id) return editForm(d);
                 const c = calcDebt(d);
                 const finishStr = c.finishDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
                 return `
@@ -148,11 +189,10 @@
                                 </div>
                                 ${d.notes ? `<p class="text-xs text-gray-400 mt-0.5">${d.notes}</p>` : ''}
                             </div>
-                            <button onclick="deleteDebt(${d.id})" class="text-gray-300 hover:text-red-400 transition ml-4 shrink-0">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                            </button>
+                            <div class="flex items-center gap-2 ml-4 shrink-0">
+                                <button onclick="editingId=${d.id};render()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
+                                <button onclick="deleteDebt(${d.id})" class="text-gray-300 hover:text-red-400 transition">${TRASH}</button>
+                            </div>
                         </div>
 
                         <!-- Progress bar -->

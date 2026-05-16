@@ -470,11 +470,12 @@ app.post('/expense-log', async (req, res) => {
 
 app.put('/expense-log/:id', async (req, res) => {
     try {
-        const { category, name, amount, date, notes } = req.body;
+        const { category, name, amount, date, notes, litres } = req.body;
         const result = await db.query(
-            `UPDATE expense_log SET category=$1, name=$2, amount=$3, date=$4, notes=$5
-             WHERE id=$6 RETURNING *`,
-            [category, name, parseFloat(amount) || 0, date, notes || null, req.params.id]
+            `UPDATE expense_log SET category=$1, name=$2, amount=$3, date=$4, notes=$5, litres=$6
+             WHERE id=$7 RETURNING *`,
+            [category, name, parseFloat(amount) || 0, date, notes || null,
+             litres ? parseFloat(litres) : null, req.params.id]
         );
         res.json(result.rows[0]);
     } catch (error) {
