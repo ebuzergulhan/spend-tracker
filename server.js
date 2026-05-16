@@ -720,6 +720,34 @@ app.delete('/debt-documents/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── Exchange Rate ───────────────────────────────────────────────────────────
+
+app.get('/api/exchange-rate', async (req, res) => {
+    const from = (req.query.from || 'TRY').toUpperCase();
+    const to   = (req.query.to   || 'GBP').toUpperCase();
+    try {
+        // Primary: TCMB (Central Bank of Turkey) — gives TRY per foreign currency
+        const xml = await fetch('https://www.tcmb.gov.tr/kurlar/today.xml').then(r => r.text());
+        const re = new RegExp(`<Currency[^>]*CurrencyCode="${to}"[^>]*>[\\s\\S]*?<ForexSelling>([\\d.]+)<\\/ForexSelling>`, 'i');
+        const match = xml.match(re);
+        if (!match) throw new Error(`${to} not found in TCMB response`);
+        const tryPerForeign = parseFloat(match[1]);
+        // tryPerForeign = how many TRY to buy 1 GBP
+        // rate we want = 1 TRY → X GBP = 1 / tryPerForeign
+        const rate = 1 / tryPerForeign;
+        return res.json({ rate, inverse: tryPerForeign, source: 'TCMB', date: new Date().toISOString().split('T')[0] });
+    } catch (tcmbErr) {
+        try {
+            // Fallback: Frankfurter open API
+            const data = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`).then(r => r.json());
+            const rate = data.rates[to];
+            return res.json({ rate, inverse: 1 / rate, source: 'Frankfurter', date: data.date });
+        } catch (fallbackErr) {
+            res.status(503).json({ error: 'Exchange rate unavailable. Try again or enter manually.' });
+        }
+    }
+});
+
 // ─── Debt Actual Payments ────────────────────────────────────────────────────
 
 app.get('/debts/:id/actual-payments', async (req, res) => {
