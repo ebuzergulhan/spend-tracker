@@ -64,11 +64,11 @@ function initSharedPage(activePage) {
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
         { id: 'shopping',      href: 'shopping.html',      label: 'Shopping' },
         { id: 'debts',         href: 'debts.html',         label: 'Debts' },
-        { id: 'monthly',       href: 'monthly.html',       label: 'Monthly Report' },
+        { id: 'monthly',       href: 'monthly.html',       label: 'Report' },
     ];
 
     const navHtml = navLinks.map(l =>
-        `<a href="${l.href}" class="nav-btn px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap${l.id === activePage ? ' active' : ''}">${l.label}</a>`
+        `<a href="${l.href}" class="nav-btn px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap${l.id === activePage ? ' active' : ''}">${l.label}</a>`
     ).join('');
 
     const navContainer = document.getElementById('shared-nav');
