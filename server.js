@@ -378,6 +378,19 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE debts ADD COLUMN IF NOT EXISTS payment_currency TEXT DEFAULT 'GBP'`);
     await db.query(`ALTER TABLE debts ADD COLUMN IF NOT EXISTS monthly_payment_foreign NUMERIC(10,2)`);
     await db.query(`
+        CREATE TABLE IF NOT EXISTS debt_actual_payments (
+            id SERIAL PRIMARY KEY,
+            debt_id INTEGER REFERENCES debts(id) ON DELETE CASCADE,
+            payment_date DATE NOT NULL,
+            amount_try NUMERIC(12,2),
+            amount_gbp NUMERIC(10,2) NOT NULL,
+            notes TEXT,
+            receipt_filename TEXT,
+            receipt_original_name TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    await db.query(`
         CREATE TABLE IF NOT EXISTS debt_payment_schedule (
             id SERIAL PRIMARY KEY,
             debt_id INTEGER REFERENCES debts(id) ON DELETE CASCADE,
@@ -619,14 +632,25 @@ app.get('/summary/home', async (req, res) => {
 app.get('/debts', async (req, res) => {
     const result = await db.query(`
         SELECT d.*,
-            COUNT(s.id)::int AS schedule_count,
-            COUNT(CASE WHEN s.is_paid THEN 1 END)::int AS paid_count,
-            COALESCE(SUM(CASE WHEN s.is_paid THEN s.amount_gbp END), 0) AS paid_scheduled,
-            COALESCE(SUM(s.amount_gbp), 0) AS total_scheduled,
-            MAX(s.due_date) AS last_due_date
+            COALESCE(s.schedule_count, 0) AS schedule_count,
+            COALESCE(s.total_scheduled, 0) AS total_scheduled,
+            s.last_due_date,
+            COALESCE(ap.actual_payment_count, 0) AS actual_payment_count,
+            COALESCE(ap.actual_paid_gbp, 0) AS actual_paid_gbp
         FROM debts d
-        LEFT JOIN debt_payment_schedule s ON s.debt_id = d.id
-        GROUP BY d.id
+        LEFT JOIN (
+            SELECT debt_id,
+                COUNT(*)::int AS schedule_count,
+                SUM(amount_gbp) AS total_scheduled,
+                MAX(due_date) AS last_due_date
+            FROM debt_payment_schedule GROUP BY debt_id
+        ) s ON s.debt_id = d.id
+        LEFT JOIN (
+            SELECT debt_id,
+                COUNT(*)::int AS actual_payment_count,
+                SUM(amount_gbp) AS actual_paid_gbp
+            FROM debt_actual_payments GROUP BY debt_id
+        ) ap ON ap.debt_id = d.id
         ORDER BY d.created_at DESC
     `);
     res.json(result.rows);
@@ -692,6 +716,45 @@ app.delete('/debt-documents/:id', async (req, res) => {
             if (fs.existsSync(fp)) fs.unlinkSync(fp);
         }
         await db.query(`DELETE FROM debt_documents WHERE id = $1`, [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── Debt Actual Payments ────────────────────────────────────────────────────
+
+app.get('/debts/:id/actual-payments', async (req, res) => {
+    const result = await db.query(
+        `SELECT * FROM debt_actual_payments WHERE debt_id = $1 ORDER BY payment_date DESC, created_at DESC`,
+        [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.post('/debts/:id/actual-payments', paymentReceiptUpload.single('receipt'), async (req, res) => {
+    try {
+        const { payment_date, amount_try, amount_gbp, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO debt_actual_payments (debt_id, payment_date, amount_try, amount_gbp, notes, receipt_filename, receipt_original_name)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [req.params.id, payment_date,
+             amount_try ? parseFloat(amount_try) : null,
+             parseFloat(amount_gbp),
+             notes || null,
+             req.file ? req.file.filename : null,
+             req.file ? req.file.originalname : null]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/debt-actual-payments/:id', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT receipt_filename FROM debt_actual_payments WHERE id = $1`, [req.params.id]);
+        if (row.rows[0]?.receipt_filename) {
+            const fp = `uploads/debt-receipts/${row.rows[0].receipt_filename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+        await db.query(`DELETE FROM debt_actual_payments WHERE id = $1`, [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
