@@ -409,26 +409,52 @@
 
         function schedulePlanHtml(debtId) {
             const rows = scheduleCache[debtId] || [];
-            const todayStr = new Date().toISOString().split('T')[0];
-            const firstUnpaid = rows.find(r => !r.is_paid);
+            const debt = debts.find(d => d.id === debtId);
+            const actualPaid = parseFloat(debt?.actual_paid_gbp) || 0;
+
+            let cumulative = 0;
+            let currentSeq = null;
 
             const rowsHtml = rows.map(r => {
-                const dueDateYMD = toYMD(r.due_date);
-                const isPast  = dueDateYMD < todayStr;
-                const isCur   = firstUnpaid && r.id === firstUnpaid.id;
-                const rowCls  = isCur ? 'row-current' : '';
+                const prev = cumulative;
+                cumulative += parseFloat(r.amount_gbp);
+
+                const isCovered = cumulative <= actualPaid + 0.005;
+                const isCurrent = !isCovered && prev < actualPaid - 0.005;
+                if (isCurrent && currentSeq === null) currentSeq = r.seq;
+
                 const dateStr = fmtDate(r.due_date);
+                let rowCls = '', statusCell = '';
+
+                if (isCovered) {
+                    rowCls = 'opacity-30';
+                    statusCell = `<span class="text-green-500">✓</span>`;
+                } else if (isCurrent) {
+                    rowCls = 'row-current';
+                    const partialPct = Math.round((actualPaid - prev) / parseFloat(r.amount_gbp) * 100);
+                    const partialAmt = fmt(actualPaid - prev);
+                    statusCell = `<span class="text-purple-600 text-xs font-semibold">${partialPct}% covered (${partialAmt})</span>`;
+                }
+
                 return `<tr class="${rowCls}">
                     <td class="text-gray-400 text-xs">${r.seq}</td>
                     <td class="text-sm">${dateStr}</td>
                     <td class="text-right text-sm font-medium">${fmt(r.amount_gbp)}</td>
-                    <td class="text-xs text-center">${isCur ? '<span class="text-purple-600 font-semibold">Next due</span>' : isPast ? '<span class="text-gray-300">Past</span>' : ''}</td>
+                    <td class="text-xs pl-2">${statusCell}</td>
                 </tr>`;
             }).join('');
 
+            const coveredCount = rows.filter((r, i) => {
+                let c = 0; for (let j = 0; j <= i; j++) c += parseFloat(rows[j].amount_gbp);
+                return c <= actualPaid + 0.005;
+            }).length;
+            const summaryLine = actualPaid > 0
+                ? `<p class="text-xs text-gray-500 mb-2">${coveredCount} of ${rows.length} payments fully covered · currently on payment #${currentSeq || coveredCount + 1}</p>`
+                : `<p class="text-xs text-gray-400 mb-2">No payments recorded yet — add them in "Payments Made" to track progress here.</p>`;
+
             return `
                 <div class="overflow-x-auto mt-3 border-t border-gray-100 pt-3">
-                    <p class="text-xs text-gray-400 mb-2">Bank payment schedule — for reference only. Use "Payments Made" to track actual payments.</p>
+                    ${summaryLine}
                     <table class="sched-table w-full text-sm border-collapse">
                         <thead><tr class="border-b border-gray-100 text-left">
                             <th class="text-gray-400 text-xs font-medium">#</th>
