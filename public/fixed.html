@@ -82,6 +82,10 @@
                     <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
                     <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
+                <div class="flex-1 min-w-48">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Link (optional)</label>
+                    <input type="url" id="f-link" placeholder="https://..." class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
                 <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
             </form>
         </div>
@@ -164,6 +168,7 @@
                             <div class="flex items-center gap-2">
                                 <p class="text-sm font-medium text-gray-800">${i.name}</p>
                                 ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
+                                ${i.link ? `<a href="${i.link}" target="_blank" rel="noopener" title="Open link" class="text-gray-300 hover:text-purple-500 transition" onclick="event.stopPropagation()"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>` : ''}
                             </div>
                             <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
                             ${progressBar}
@@ -229,7 +234,8 @@
                     frequency: document.getElementById('f-frequency').value,
                     start_date: document.getElementById('f-start').value || null,
                     notes: document.getElementById('f-notes').value.trim() || null,
-                    total_installments: installments ? parseInt(installments) : null
+                    total_installments: installments ? parseInt(installments) : null,
+                    link: document.getElementById('f-link').value.trim() || null
                 })
             });
             e.target.reset();

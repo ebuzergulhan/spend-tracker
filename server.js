@@ -356,6 +356,7 @@ app.post('/manual', async (req, res) => {
         )
     `);
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS total_installments INTEGER`);
+    await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS link TEXT`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,
@@ -380,12 +381,12 @@ app.get('/recurring', async (req, res) => {
 
 app.post('/recurring', async (req, res) => {
     try {
-        const { name, category, amount, frequency, start_date, notes, total_installments } = req.body;
+        const { name, category, amount, frequency, start_date, notes, total_installments, link } = req.body;
         const result = await db.query(
-            `INSERT INTO recurring_expenses (name, category, amount, frequency, start_date, notes, total_installments)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            `INSERT INTO recurring_expenses (name, category, amount, frequency, start_date, notes, total_installments, link)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
             [name, category, parseFloat(amount) || 0, frequency || 'monthly', start_date || null, notes || null,
-             total_installments ? parseInt(total_installments) : null]
+             total_installments ? parseInt(total_installments) : null, link || null]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -395,12 +396,12 @@ app.post('/recurring', async (req, res) => {
 
 app.put('/recurring/:id', async (req, res) => {
     try {
-        const { name, category, amount, frequency, start_date, notes, total_installments } = req.body;
+        const { name, category, amount, frequency, start_date, notes, total_installments, link } = req.body;
         const result = await db.query(
-            `UPDATE recurring_expenses SET name=$1, category=$2, amount=$3, frequency=$4, start_date=$5, notes=$6, total_installments=$7
-             WHERE id=$8 RETURNING *`,
+            `UPDATE recurring_expenses SET name=$1, category=$2, amount=$3, frequency=$4, start_date=$5, notes=$6, total_installments=$7, link=$8
+             WHERE id=$9 RETURNING *`,
             [name, category, parseFloat(amount) || 0, frequency || 'monthly', start_date || null, notes || null,
-             total_installments ? parseInt(total_installments) : null, req.params.id]
+             total_installments ? parseInt(total_installments) : null, link || null, req.params.id]
         );
         res.json(result.rows[0]);
     } catch (error) {
