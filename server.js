@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const app = express();
+const path = require('path');
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
 const debtDocUpload = multer({ dest: 'uploads/debt-docs/' });
@@ -22,8 +23,30 @@ const db = new Pool({
 
 
 app.use(express.static('public'));
-app.use('/uploads/debt-docs', express.static('uploads/debt-docs'));
-app.use('/uploads/debt-receipts', express.static('uploads/debt-receipts'));
+// Serve debt docs with original filename so browser can display/download correctly
+const MIME = { '.pdf':'application/pdf', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.png':'image/png', '.doc':'application/msword', '.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+app.get('/uploads/debt-docs/:filename', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT original_name FROM debt_documents WHERE filename=$1`, [req.params.filename]);
+        const name = row.rows[0]?.original_name || req.params.filename;
+        const ext  = path.extname(name).toLowerCase();
+        res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${name}"`);
+        res.sendFile(path.resolve('uploads/debt-docs', req.params.filename));
+    } catch { res.status(404).send('Not found'); }
+});
+app.get('/uploads/debt-receipts/:filename', async (req, res) => {
+    try {
+        const fn = req.params.filename;
+        const r1 = await db.query(`SELECT receipt_original_name FROM debt_actual_payments WHERE receipt_filename=$1`, [fn]);
+        const r2 = r1.rows[0] ? r1 : await db.query(`SELECT receipt_original_name FROM debt_payment_schedule WHERE receipt_filename=$1`, [fn]);
+        const name = r2.rows[0]?.receipt_original_name || fn;
+        const ext  = path.extname(name).toLowerCase();
+        res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${name}"`);
+        res.sendFile(path.resolve('uploads/debt-receipts', fn));
+    } catch { res.status(404).send('Not found'); }
+});
 app.use(express.json());
 
 // If the new shop name matches or contains an existing canonical name, use the canonical one.
