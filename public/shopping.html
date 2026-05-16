@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .tab-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .tab-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .tab-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .upload-area { border: 2px dashed #e2e8f0; transition: all 0.2s ease; }
+        .upload-area:hover { border-color: #667eea; background: #f8f7ff; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .modal-animate { animation: modalIn 0.18s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="gradient-bg">
+        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-white">Shopping</h1>
+                <p class="text-purple-200 text-sm mt-0.5">Amazon, IKEA, clothing &amp; online/in-store purchases</p>
+            </div>
+            <div class="flex gap-2 flex-wrap overflow-x-auto mb-4" id="shared-nav"></div>
+            <div class="flex gap-2">
+                <button onclick="showTab('upload')" id="tab-upload" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
+                <button onclick="showTab('history')" id="tab-history" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">History</button>
+                <button onclick="showTab('stats')" id="tab-stats" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">Stats</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 -mt-8">
+
+        <!-- Upload Tab -->
+        <div id="page-upload">
+            <div class="card p-8 max-w-lg mx-auto">
+                <h2 class="text-lg font-semibold text-gray-800 mb-6">Scan a Receipt</h2>
+                <form id="uploadForm">
+                    <label class="upload-area rounded-2xl p-8 flex flex-col items-center cursor-pointer block mb-4">
+                        <div class="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center mb-3">
+                            <svg class="w-7 h-7 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                        </div>
+                        <p class="text-gray-700 font-medium">Choose a receipt photo</p>
+                        <p class="text-gray-400 text-sm mt-1">JPG, PNG up to 10MB</p>
+                        <input type="file" id="receiptImage" accept="image/*" class="hidden"/>
+                    </label>
+                    <p id="fileName" class="text-center text-sm text-purple-600 font-medium mb-4 hidden"></p>
+                    <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">Scan Receipt</button>
+                </form>
+                <div id="loadingMsg" class="hidden mt-6 flex flex-col items-center">
+                    <div class="w-8 h-8 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3" style="border-width:3px; border-style:solid;"></div>
+                    <p class="text-gray-500 text-sm">Reading your receipt...</p>
+                </div>
+            </div>
+            <div id="resultCard" class="card p-6 max-w-lg mx-auto mt-4 hidden">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-lg font-semibold text-gray-800">Receipt Scanned</h2>
+                </div>
+                <div id="resultContent"></div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="page-history" class="hidden">
+            <div class="card p-6 mb-6">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Purchase History</h2>
+                <div id="historyContent"></div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="page-stats" class="hidden">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="card p-4">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
+                </div>
+                <div class="card p-4">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Spent</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
+                </div>
+                <div class="card p-4">
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Orders</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-orders">—</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4">By Category</h3>
+                    <div id="categoryStats"></div>
+                </div>
+                <div class="card p-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-4">By Store</h3>
+                    <div id="placeStats"></div>
+                </div>
+            </div>
+            <div class="card p-6 mb-6">
+                <h3 class="text-sm font-semibold text-gray-700 mb-4">Monthly Spending</h3>
+                <div id="monthlyStats"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Installment Plans section (always visible, below tabs) -->
+    <div class="max-w-5xl mx-auto px-6 mt-6">
+
+        <!-- Add installment form -->
+        <div class="card p-6 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Add Installment Plan</h2>
+            <form id="instForm" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Item name</label>
+                    <input type="text" id="if-name" placeholder="e.g. Samsung TV (Amazon)" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Payment (£)</label>
+                    <input type="number" id="if-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">No. of payments</label>
+                    <input type="number" id="if-installments" min="1" placeholder="e.g. 6" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">First payment date</label>
+                    <input type="date" id="if-start" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
+                    <input type="text" id="if-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-48">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Link (optional)</label>
+                    <input type="url" id="if-link" placeholder="https://..." class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
+            </form>
+        </div>
+
+        <!-- Installment list -->
+        <div id="inst-section" class="hidden card p-6 mb-6">
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Installment Plans</h2>
+            <div id="inst-list"></div>
+        </div>
+
+    </div>
+
+    <div class="h-12"></div>
+    <script src="shared.js"></script>
+    <script>
+        initSharedPage('shopping');
+
+        function showTab(name) {
+            ['upload','history','stats'].forEach(t => {
+                document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
+                document.getElementById('tab-' + t).classList.toggle('active', t === name);
+            });
+            if (name === 'history') loadHistory();
+            if (name === 'stats')   loadStats();
+        }
+
+        // ── Upload ─────────────────────────────────────────────────────────────
+        const fileInput = document.getElementById('receiptImage');
+        fileInput.onchange = () => {
+            const el = document.getElementById('fileName');
+            if (fileInput.files[0]) { el.textContent = fileInput.files[0].name; el.classList.remove('hidden'); }
+        };
+
+        document.getElementById('uploadForm').onsubmit = async e => {
+            e.preventDefault();
+            if (!fileInput.files[0]) { await showModal({ title: 'No file', message: 'Please choose a receipt photo first.', type: 'alert' }); return; }
+            document.getElementById('loadingMsg').classList.remove('hidden');
+            document.getElementById('resultCard').classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append('receiptImage', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/upload/shopping', { method: 'POST', body: formData });
+                const data = await res.json();
+                document.getElementById('loadingMsg').classList.add('hidden');
+
+                if (!res.ok) {
+                    await showModal({ title: 'Error', message: data.error || 'Something went wrong.', type: 'alert' });
+                    return;
+                }
+
+                const card = document.getElementById('resultCard');
+                const content = document.getElementById('resultContent');
+                card.classList.remove('hidden');
+                content.innerHTML = `
+                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}</p>
+                    <div class="space-y-1">
+                        ${(data.items || []).map(i => `
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-700">${i.name} <span class="text-gray-400 text-xs">${i.category}</span></span>
+                                <span class="font-medium text-gray-800">${fmt(i.price)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                e.target.reset();
+                document.getElementById('fileName').classList.add('hidden');
+            } catch (err) {
+                document.getElementById('loadingMsg').classList.add('hidden');
+                await showModal({ title: 'Error', message: err.message, type: 'alert' });
+            }
+        };
+
+        // ── History ────────────────────────────────────────────────────────────
+        let receipts = [];
+        let expandedReceipt = null;
+        const itemsCache = {};
+
+        async function loadHistory() {
+            receipts = await fetch('/shopping').then(r => r.json());
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const el = document.getElementById('historyContent');
+            if (!receipts.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No purchases yet.</p>'; return; }
+
+            el.innerHTML = receipts.map(r => {
+                const dateStr = r.date ? formatDate(r.date) : '<span class="text-gray-400">* Date unread</span>';
+                const isExpanded = expandedReceipt === r.created_at;
+                return `
+                    <div class="border-b border-gray-50 last:border-0">
+                        <div class="flex items-center gap-3 py-3 cursor-pointer hover:bg-gray-50 rounded-xl px-2 -mx-2 transition" onclick="toggleReceipt('${r.created_at}')">
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-800">${r.place_name}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${dateStr}</p>
+                            </div>
+                            <p class="text-sm font-semibold text-gray-800">${fmt(r.receipt_total)}</p>
+                            <svg class="w-4 h-4 text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
+                        ${isExpanded ? expandedHtml(r) : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function expandedHtml(r) {
+            const items = itemsCache[r.created_at];
+            if (!items) return '<div class="py-3 px-2 text-xs text-gray-400">Loading...</div>';
+            const addedDate = new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            return `
+                <div class="ml-2 pb-3 space-y-1">
+                    ${items.map(i => `
+                        <div class="flex justify-between text-sm py-1">
+                            <span class="text-gray-600">${i.item_name} <span class="text-gray-400 text-xs">${i.category}</span></span>
+                            <span class="text-gray-700">${fmt(i.item_price)}</span>
+                        </div>
+                    `).join('')}
+                    <p class="text-xs text-gray-400 pt-2">Added ${addedDate}</p>
+                    <button onclick="deleteReceipt('${r.created_at}')" class="mt-2 flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Delete
+                    </button>
+                </div>
+            `;
+        }
+
+        async function toggleReceipt(createdAt) {
+            if (expandedReceipt === createdAt) { expandedReceipt = null; renderHistory(); return; }
+            expandedReceipt = createdAt;
+            renderHistory();
+            if (!itemsCache[createdAt]) {
+                itemsCache[createdAt] = await fetch('/shopping/' + encodeURIComponent(createdAt) + '/items').then(r => r.json());
+                renderHistory();
+            }
+        }
+
+        async function deleteReceipt(createdAt) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this purchase?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/shopping/' + encodeURIComponent(createdAt), { method: 'DELETE' });
+            delete itemsCache[createdAt];
+            expandedReceipt = null;
+            loadHistory();
+        }
+
+        // ── Installments ───────────────────────────────────────────────────────
+        let instItems = [];
+        let instEditingId = null;
+
+        const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
+        const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+
+        function freqMonths(freq) {
+            if (freq === 'annual')    return 12;
+            if (freq === 'quarterly') return 3;
+            if (freq === 'weekly')    return 1 / 4.33;
+            return 1;
+        }
+
+        function paidCount(item) {
+            if (!item.start_date) return 0;
+            const start = new Date(item.start_date);
+            const now   = new Date();
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            const paid = Math.floor(monthsElapsed / freqMonths(item.frequency)) + 1;
+            return Math.max(0, Math.min(paid, parseInt(item.total_installments)));
+        }
+
+        function instEditForm(i) {
+            const sd = i.start_date ? i.start_date.split('T')[0] : '';
+            return `
+                <div class="py-3 border-b border-gray-50 last:border-0">
+                    <form onsubmit="saveInst(event,${i.id})" class="bg-gray-50 rounded-xl p-3 space-y-2">
+                        <div class="flex flex-wrap gap-2">
+                            <input id="ii-name" value="${i.name}" placeholder="Name" required class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ii-amount" type="number" step="0.01" value="${i.amount}" placeholder="Payment" required class="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ii-inst" type="number" min="1" value="${i.total_installments||''}" placeholder="Payments" required class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ii-start" type="date" value="${sd}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ii-notes" value="${i.notes||''}" placeholder="Notes" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ii-link" value="${i.link||''}" placeholder="Link (optional)" class="flex-1 min-w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
+                            <button type="button" onclick="instEditingId=null;renderInst()" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                        </div>
+                    </form>
+                </div>`;
+        }
+
+        async function saveInst(e, id) {
+            e.preventDefault();
+            await fetch('/recurring/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('ii-name').value.trim(),
+                    category: 'shopping',
+                    amount: document.getElementById('ii-amount').value,
+                    frequency: 'monthly',
+                    start_date: document.getElementById('ii-start').value || null,
+                    notes: document.getElementById('ii-notes').value.trim() || null,
+                    total_installments: parseInt(document.getElementById('ii-inst').value),
+                    link: document.getElementById('ii-link').value.trim() || null
+                })
+            });
+            instEditingId = null;
+            loadInst();
+        }
+
+        function instRow(i) {
+            if (instEditingId === i.id) return instEditForm(i);
+            const paid      = paidCount(i);
+            const total     = parseInt(i.total_installments);
+            const done      = paid >= total;
+            const remaining = total - paid;
+            const pct       = Math.round(paid / total * 100);
+            return `
+                <div class="py-3 border-b border-gray-50 last:border-0 ${done ? 'opacity-50' : ''}">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-medium text-gray-800">${i.name}</p>
+                                ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
+                                ${i.link ? `<a href="${i.link}" target="_blank" rel="noopener" title="Open link" class="text-gray-300 hover:text-purple-500 transition" onclick="event.stopPropagation()"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>` : ''}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-0.5">Monthly${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
+                            <div class="mt-2">
+                                <div class="flex justify-between text-xs text-gray-400 mb-1">
+                                    <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                                    <span>${remaining > 0 ? remaining + ' left' : ''}</span>
+                                </div>
+                                <div class="w-full bg-gray-100 rounded-full h-1.5">
+                                    <div class="h-1.5 rounded-full transition-all duration-700 ${done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${pct}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}<span class="text-xs text-gray-400 font-normal">/mo</span></p>
+                        </div>
+                        <button onclick="instEditingId=${i.id};renderInst()" class="text-gray-300 hover:text-purple-400 transition ml-2 shrink-0">${PENCIL}</button>
+                        <button onclick="deleteInst(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-1 shrink-0">${TRASH}</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderInst() {
+            const sec  = document.getElementById('inst-section');
+            const list = document.getElementById('inst-list');
+            if (!instItems.length) { sec.classList.add('hidden'); return; }
+            sec.classList.remove('hidden');
+            list.innerHTML = instItems.map(instRow).join('');
+        }
+
+        async function loadInst() {
+            instItems = await fetch('/recurring?category=shopping').then(r => r.json());
+            renderInst();
+        }
+
+        document.getElementById('instForm').onsubmit = async e => {
+            e.preventDefault();
+            await fetch('/recurring', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('if-name').value.trim(),
+                    category: 'shopping',
+                    amount: document.getElementById('if-amount').value,
+                    frequency: 'monthly',
+                    start_date: document.getElementById('if-start').value || null,
+                    notes: document.getElementById('if-notes').value.trim() || null,
+                    total_installments: parseInt(document.getElementById('if-installments').value),
+                    link: document.getElementById('if-link').value.trim() || null
+                })
+            });
+            e.target.reset();
+            loadInst();
+        };
+
+        async function deleteInst(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this installment plan?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/recurring/' + id, { method: 'DELETE' });
+            loadInst();
+        }
+
+        loadInst();
+
+        // ── Stats ──────────────────────────────────────────────────────────────
+        async function loadStats() {
+            const now = new Date();
+            const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+            const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+
+            const [allReceipts, monthCats, cats, places] = await Promise.all([
+                fetch('/shopping').then(r => r.json()),
+                fetch(`/stats/shopping/categories?from=${monthStart}&to=${monthEnd}`).then(r => r.json()),
+                fetch('/stats/shopping/categories').then(r => r.json()),
+                fetch('/stats/shopping/places').then(r => r.json())
+            ]);
+
+            const monthTotal = monthCats.reduce((s, c) => s + parseFloat(c.total_spent), 0);
+            const allTotal   = allReceipts.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
+            document.getElementById('stat-month').textContent  = fmt(monthTotal);
+            document.getElementById('stat-total').textContent  = fmt(allTotal);
+            document.getElementById('stat-orders').textContent = allReceipts.length;
+
+            const maxCat = Math.max(...cats.map(c => parseFloat(c.total_spent)), 1);
+            document.getElementById('categoryStats').innerHTML = cats.length ? cats.map(c => `
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-sm text-gray-600 w-32 shrink-0 truncate">${c.category}</span>
+                    <div class="flex-1 bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full bg-purple-500 transition-all duration-700" style="width:${(parseFloat(c.total_spent)/maxCat*100).toFixed(1)}%"></div>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 w-16 text-right">${fmt(c.total_spent)}</span>
+                </div>
+            `).join('') : '<p class="text-gray-400 text-sm">No data yet.</p>';
+
+            const maxPlace = Math.max(...places.map(p => parseFloat(p.total_spent)), 1);
+            document.getElementById('placeStats').innerHTML = places.length ? places.map(p => `
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-sm text-gray-600 w-32 shrink-0 truncate">${p.place_name}</span>
+                    <div class="flex-1 bg-gray-100 rounded-full h-2">
+                        <div class="h-2 rounded-full bg-indigo-400 transition-all duration-700" style="width:${(parseFloat(p.total_spent)/maxPlace*100).toFixed(1)}%"></div>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 w-16 text-right">${fmt(p.total_spent)}</span>
+                </div>
+            `).join('') : '<p class="text-gray-400 text-sm">No data yet.</p>';
+
+            // Monthly spending grouped from allReceipts
+            const monthMap = {};
+            allReceipts.forEach(r => {
+                const m = (r.date || r.created_at || '').slice(0, 7);
+                if (m) monthMap[m] = (monthMap[m] || 0) + parseFloat(r.receipt_total);
+            });
+            const monthlyArr = Object.entries(monthMap).sort((a,b) => b[0].localeCompare(a[0]));
+            const maxMonth = Math.max(...monthlyArr.map(([,v]) => v), 1);
+            document.getElementById('monthlyStats').innerHTML = monthlyArr.length ? monthlyArr.map(([m, v]) => {
+                const [y, mo] = m.split('-');
+                const label = new Date(y, mo - 1).toLocaleString('en-GB', { month: 'short', year: 'numeric' });
+                return `
+                    <div class="flex items-center gap-3 mb-3">
+                        <span class="text-sm text-gray-600 w-20 shrink-0">${label}</span>
+                        <div class="flex-1 bg-gray-100 rounded-full h-2">
+                            <div class="h-2 rounded-full bg-purple-400 transition-all duration-700" style="width:${(v/maxMonth*100).toFixed(1)}%"></div>
+                        </div>
+                        <span class="text-sm font-medium text-gray-700 w-16 text-right">${fmt(v)}</span>
+                    </div>
+                `;
+            }).join('') : '<p class="text-gray-400 text-sm">No data yet.</p>';
+        }
+    </script>
+</body>
+</html>

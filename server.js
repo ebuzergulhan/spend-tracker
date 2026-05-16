@@ -370,6 +370,18 @@ app.post('/manual', async (req, res) => {
         )
     `);
     await db.query(`
+        CREATE TABLE IF NOT EXISTS shopping_items (
+            id SERIAL PRIMARY KEY,
+            date DATE,
+            place_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            item_price NUMERIC(10,2) DEFAULT 0,
+            receipt_total NUMERIC(10,2) DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL
+        )
+    `);
+    await db.query(`
         CREATE TABLE IF NOT EXISTS outing_items (
             id SERIAL PRIMARY KEY,
             date DATE,
@@ -494,7 +506,7 @@ app.get('/summary/home', async (req, res) => {
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    const [groceries, outabout, logs, allRecurring] = await Promise.all([
+    const [groceries, outabout, shopping, logs, allRecurring] = await Promise.all([
         db.query(`
             SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
             FROM (
@@ -509,6 +521,15 @@ app.get('/summary/home', async (req, res) => {
             FROM (
                 SELECT created_at, MAX(receipt_total) as receipt_total
                 FROM outing_items
+                WHERE date >= $1 AND date <= $2
+                GROUP BY created_at
+            ) t
+        `, [monthStart, monthEnd]),
+        db.query(`
+            SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
+            FROM (
+                SELECT created_at, MAX(receipt_total) as receipt_total
+                FROM shopping_items
                 WHERE date >= $1 AND date <= $2
                 GROUP BY created_at
             ) t
@@ -554,6 +575,7 @@ app.get('/summary/home', async (req, res) => {
         month: now.toLocaleString('en-GB', { month: 'long', year: 'numeric' }),
         groceries: parseFloat(groceries.rows[0]?.total) || 0,
         outabout: parseFloat(outabout.rows[0]?.total) || 0,
+        shopping: (parseFloat(shopping.rows[0]?.total) || 0) + (recurringMap['shopping'] || 0),
         bills: logMap['bill'] || 0,
         transport: (recurringMap['transport'] || 0) + (logMap['transport'] || 0) + (logMap['fuel'] || 0),
         fixed: recurringMap['fixed'] || 0,
@@ -599,6 +621,166 @@ app.put('/debts/:id', async (req, res) => {
 app.delete('/debts/:id', async (req, res) => {
     await db.query('DELETE FROM debts WHERE id = $1', [req.params.id]);
     res.json({ success: true });
+});
+
+// ─── Shopping ────────────────────────────────────────────────────────────────
+
+app.post('/upload/shopping', upload.single('receiptImage'), async (req, res) => {
+    try {
+        const imageData = fs.readFileSync(req.file.path);
+        const base64Image = imageData.toString('base64');
+        const response = await anthropic.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 2048,
+            messages: [{
+                role: 'user',
+                content: [
+                    { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: base64Image } },
+                    { type: 'text', text: `Extract the receipt details and return ONLY a valid JSON object:
+{
+  "place_name": "shop or website name",
+  "date": "YYYY-MM-DD or null",
+  "total": 0.00,
+  "items": [
+    { "name": "item name", "price": 0.00, "category": "one of: Amazon, IKEA, Clothing, Electronics, Books, Sports, Home & Garden, Health & Beauty, Toys & Games, Food & Drink, Other" }
+  ]
+}
+Total and price must be plain numbers only. No currency symbols.` }
+                ]
+            }]
+        });
+        const receipt = JSON.parse(response.content[0].text.replace(/```json\n?|\n?```/g, '').trim());
+        receipt.total = parseFloat(receipt.total) || 0;
+        const createdAt = new Date().toISOString();
+        const today = new Date().toISOString().split('T')[0];
+        const receiptDate = (receipt.date && receipt.date !== 'null' && receipt.date <= today) ? receipt.date : null;
+
+        const dup = await db.query(`SELECT id FROM shopping_items WHERE place_name=$1 AND date=$2 AND receipt_total=$3 LIMIT 1`,
+            [receipt.place_name, receiptDate, receipt.total]);
+        if (dup.rows.length > 0) { fs.unlinkSync(req.file.path); return res.status(409).json({ error: 'Already scanned.' }); }
+
+        for (const item of receipt.items) {
+            await db.query(`INSERT INTO shopping_items (date,place_name,category,item_name,item_price,receipt_total,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price)||0, receipt.total, createdAt]);
+        }
+        fs.unlinkSync(req.file.path);
+        res.json(receipt);
+    } catch (error) { console.error('Shopping upload error:', error.message); res.status(500).json({ error: error.message }); }
+});
+
+app.get('/shopping', async (req, res) => {
+    const result = await db.query(`SELECT created_at,place_name,date,receipt_total FROM shopping_items GROUP BY created_at,place_name,date,receipt_total ORDER BY created_at DESC`);
+    res.json(result.rows);
+});
+app.get('/shopping/:created_at/items', async (req, res) => {
+    const result = await db.query(`SELECT item_name,item_price,category FROM shopping_items WHERE created_at=$1 ORDER BY id`, [req.params.created_at]);
+    res.json(result.rows);
+});
+app.delete('/shopping/:created_at', async (req, res) => {
+    await db.query(`DELETE FROM shopping_items WHERE created_at=$1`, [req.params.created_at]);
+    res.json({ success: true });
+});
+app.get('/stats/shopping/categories', async (req, res) => {
+    const { from, to } = req.query; const f = from && to;
+    const result = await db.query(`SELECT category, ROUND(SUM(item_price)::numeric,2) as total_spent, COUNT(*) as item_count FROM shopping_items ${f?'WHERE date>=$1 AND date<=$2':''} GROUP BY category ORDER BY total_spent DESC`, f?[from,to]:[]);
+    res.json(result.rows);
+});
+app.get('/stats/shopping/places', async (req, res) => {
+    const { from, to } = req.query; const f = from && to;
+    const result = await db.query(`SELECT place_name, ROUND(SUM(receipt_total)::numeric,2) as total_spent, COUNT(*) as order_count FROM (SELECT place_name,created_at,MAX(receipt_total) as receipt_total FROM shopping_items ${f?'WHERE date>=$1 AND date<=$2':''} GROUP BY place_name,created_at) t GROUP BY place_name ORDER BY total_spent DESC`, f?[from,to]:[]);
+    res.json(result.rows);
+});
+
+// ─── Monthly Report ───────────────────────────────────────────────────────────
+
+app.get('/report/monthly', async (req, res) => {
+    const [grocRows, outRows, shopRows, logRows, recurRows] = await Promise.all([
+        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM outing_items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM shopping_items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, category, SUM(amount) t FROM expense_log WHERE date IS NOT NULL GROUP BY m,category`),
+        db.query(`SELECT * FROM recurring_expenses`)
+    ]);
+
+    function toMonthly(amount, freq) {
+        if (freq==='annual') return amount/12; if (freq==='weekly') return amount*52/12;
+        if (freq==='quarterly') return amount/3; return amount;
+    }
+    function freqMonths(freq) {
+        if (freq==='annual') return 12; if (freq==='quarterly') return 3;
+        if (freq==='weekly') return 1/4.33; return 1;
+    }
+
+    // Collect all months
+    const months = new Set();
+    [...grocRows.rows,...outRows.rows,...shopRows.rows].forEach(r => months.add(r.m));
+    logRows.rows.forEach(r => months.add(r.m));
+
+    // Sum receipt-based tables by month
+    const sumByMonth = (rows) => {
+        const map = {};
+        rows.forEach(r => { map[r.m] = (map[r.m]||0) + parseFloat(r.t); });
+        return map;
+    };
+    const groc = sumByMonth(grocRows.rows);
+    const out  = sumByMonth(outRows.rows);
+    const shop = sumByMonth(shopRows.rows);
+
+    // Sum expense_log by month+category
+    const logMap = {};
+    logRows.rows.forEach(r => {
+        if (!logMap[r.m]) logMap[r.m] = {};
+        logMap[r.m][r.category] = (logMap[r.m][r.category]||0) + parseFloat(r.t);
+    });
+
+    // Recurring monthly equivalent per month (check if installment was active)
+    const now = new Date();
+    const recurByCategory = {};
+    recurRows.rows.forEach(r => {
+        if (r.total_installments) {
+            const start = new Date(r.start_date);
+            const endMonth = new Date(start);
+            endMonth.setMonth(endMonth.getMonth() + parseInt(r.total_installments) - 1);
+            // Add to every month it was active
+            const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+            while (cur <= endMonth && cur <= now) {
+                const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+                months.add(key);
+                if (!recurByCategory[key]) recurByCategory[key] = {};
+                recurByCategory[key][r.category] = (recurByCategory[key][r.category]||0) + toMonthly(parseFloat(r.amount), r.frequency);
+                cur.setMonth(cur.getMonth()+1);
+            }
+        } else {
+            // Ongoing — add from start_date (or creation) to now
+            const start = r.start_date ? new Date(r.start_date) : new Date(r.created_at);
+            const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+            while (cur <= now) {
+                const key = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
+                months.add(key);
+                if (!recurByCategory[key]) recurByCategory[key] = {};
+                recurByCategory[key][r.category] = (recurByCategory[key][r.category]||0) + toMonthly(parseFloat(r.amount), r.frequency);
+                cur.setMonth(cur.getMonth()+1);
+            }
+        }
+    });
+
+    const sorted = [...months].sort().reverse();
+    const report = sorted.map(m => {
+        const log = logMap[m] || {};
+        const rec = recurByCategory[m] || {};
+        return {
+            month: m,
+            groceries:     Math.round((groc[m]||0)*100)/100,
+            outabout:      Math.round((out[m]||0)*100)/100,
+            shopping:      Math.round((shop[m]||0)*100)/100,
+            bills:         Math.round((log.bill||0)*100)/100,
+            fuel:          Math.round((log.fuel||0)*100)/100,
+            transport:     Math.round(((log.transport||0)+(rec.transport||0))*100)/100,
+            fixed:         Math.round((rec.fixed||0)*100)/100,
+            subscriptions: Math.round((rec.subscription||0)*100)/100,
+        };
+    });
+    res.json(report);
 });
 
 // ─── Out & About ─────────────────────────────────────────────────────────────
