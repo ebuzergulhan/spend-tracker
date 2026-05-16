@@ -853,6 +853,19 @@ Total and price must be plain numbers only. No currency symbols.`
     }
 });
 
+app.post('/outings/manual', async (req, res) => {
+    try {
+        const { place_name, amount, category, date, trip_name } = req.body;
+        const createdAt = new Date().toISOString();
+        await db.query(
+            `INSERT INTO outing_items (date, place_name, category, item_name, item_price, receipt_total, created_at, trip_name)
+             VALUES ($1, $2, $3, $4, $5, $5, $6, $7)`,
+            [date || null, place_name, category, place_name, parseFloat(amount) || 0, createdAt, (trip_name || '').trim() || null]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/outings', async (req, res) => {
     const result = await db.query(`
         SELECT created_at, place_name, date, receipt_total, trip_name

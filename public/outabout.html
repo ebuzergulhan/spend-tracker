@@ -35,6 +35,7 @@
             <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
             <div class="flex gap-2">
                 <button onclick="showTab('upload')" id="tab-upload" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
+                <button onclick="showTab('manual')" id="tab-manual" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">Manual</button>
                 <button onclick="showTab('history')" id="tab-history" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">History</button>
                 <button onclick="showTab('stats')" id="tab-stats" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">Stats</button>
             </div>
@@ -81,6 +82,49 @@
                     <h2 class="text-lg font-semibold text-gray-800">Receipt Scanned</h2>
                 </div>
                 <div id="resultContent"></div>
+            </div>
+        </div>
+
+        <!-- Manual Tab -->
+        <div id="page-manual" class="hidden">
+            <div class="card p-6 max-w-lg mx-auto">
+                <h2 class="text-lg font-semibold text-gray-800 mb-6">Add Expense Manually</h2>
+                <form id="manualForm" class="space-y-4">
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Place / Description</label>
+                        <input type="text" id="m-name" placeholder="e.g. Nando's" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
+                            <input type="number" id="m-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div class="flex-1">
+                            <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
+                            <input type="date" id="m-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Category</label>
+                        <select id="m-category" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+                            <option>Restaurant</option>
+                            <option>Fast Food</option>
+                            <option>Coffee & Drinks</option>
+                            <option>Parking</option>
+                            <option>Entertainment</option>
+                            <option>Shopping</option>
+                            <option>Health & Beauty</option>
+                            <option>Hotel</option>
+                            <option>Transport</option>
+                            <option>Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Trip / Event name <span class="text-gray-400 font-normal">(optional)</span></label>
+                        <input type="text" id="m-trip" placeholder="e.g. Oxford Trip" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">Add Expense</button>
+                </form>
             </div>
         </div>
 
@@ -132,7 +176,7 @@
         initSharedPage('outabout');
 
         function showTab(name) {
-            ['upload','history','stats'].forEach(t => {
+            ['upload','manual','history','stats'].forEach(t => {
                 document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
                 document.getElementById('tab-' + t).classList.toggle('active', t === name);
             });
@@ -188,6 +232,27 @@
                 document.getElementById('loadingMsg').classList.add('hidden');
                 await showModal({ title: 'Error', message: err.message, type: 'alert' });
             }
+        };
+
+        // ── Manual entry ───────────────────────────────────────────────────────
+        document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+
+        document.getElementById('manualForm').onsubmit = async e => {
+            e.preventDefault();
+            await fetch('/outings/manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    place_name: document.getElementById('m-name').value.trim(),
+                    amount:     document.getElementById('m-amount').value,
+                    category:   document.getElementById('m-category').value,
+                    date:       document.getElementById('m-date').value,
+                    trip_name:  document.getElementById('m-trip').value.trim() || null
+                })
+            });
+            e.target.reset();
+            document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+            await showModal({ title: 'Added', message: 'Expense saved.', type: 'alert', confirmLabel: 'OK' });
         };
 
         // ── History ────────────────────────────────────────────────────────────
