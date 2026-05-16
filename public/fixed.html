@@ -33,7 +33,7 @@
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
         <!-- Summary cards -->
-        <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="grid grid-cols-3 gap-4 mb-6">
             <div class="card p-4">
                 <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly Total</p>
                 <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">—</p>
@@ -41,6 +41,10 @@
             <div class="card p-4">
                 <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Annual Total</p>
                 <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-annual">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Installments Active</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-installments">—</p>
             </div>
         </div>
 
@@ -69,6 +73,11 @@
                     <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
                     <input type="date" id="f-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">No. of payments</label>
+                    <input type="number" id="f-installments" min="1" placeholder="e.g. 5" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <p class="text-xs text-gray-400 mt-1">Leave blank = ongoing</p>
+                </div>
                 <div class="flex-1 min-w-36">
                     <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
                     <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
@@ -77,9 +86,15 @@
             </form>
         </div>
 
-        <!-- List -->
+        <!-- Active installments -->
+        <div id="installments-section" class="hidden card p-6 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Installment Payments</h2>
+            <div id="installments-list"></div>
+        </div>
+
+        <!-- Ongoing list -->
         <div class="card p-6 mb-6">
-            <h2 class="text-sm font-semibold text-gray-700 mb-4">All Fixed Costs</h2>
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Ongoing Fixed Costs</h2>
             <div id="list"></div>
         </div>
 
@@ -105,37 +120,105 @@
             return amount;
         }
 
-        function render() {
-            const monthly = items.reduce((s, i) => s + toMonthly(i.amount, i.frequency), 0);
-            document.getElementById('stat-monthly').textContent = fmt(monthly);
-            document.getElementById('stat-annual').textContent  = fmt(monthly * 12);
+        function freqMonths(freq) {
+            if (freq === 'annual')    return 12;
+            if (freq === 'quarterly') return 3;
+            if (freq === 'weekly')    return 1 / 4.33;
+            return 1;
+        }
 
-            const el = document.getElementById('list');
-            if (!items.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No fixed costs added yet.</p>'; return; }
-
-            el.innerHTML = items.map(i => `
-                <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
-                        ${i.frequency !== 'monthly' ? `<p class="text-xs text-gray-400">${fmt(toMonthly(i.amount, i.frequency))}/mo</p>` : ''}
-                    </div>
-                    <button onclick="deleteItem(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                    </button>
-                </div>
-            `).join('');
+        function paidCount(item) {
+            if (!item.start_date) return 0;
+            const start = new Date(item.start_date);
+            const now   = new Date();
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            const paid = Math.floor(monthsElapsed / freqMonths(item.frequency)) + 1;
+            return Math.max(0, Math.min(paid, item.total_installments));
         }
 
         function capitalise(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+        function itemRow(i, isInstallment) {
+            const paid  = isInstallment ? paidCount(i) : null;
+            const total = isInstallment ? parseInt(i.total_installments) : null;
+            const done  = isInstallment && paid >= total;
+            const remaining = isInstallment ? (total - paid) : null;
+            const pct   = isInstallment ? Math.round(paid / total * 100) : null;
+
+            const progressBar = isInstallment ? `
+                <div class="mt-2">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                        <span>${remaining > 0 ? remaining + ' left' : ''}</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full transition-all duration-700 ${done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            ` : '';
+
+            return `
+                <div class="py-3 border-b border-gray-50 last:border-0 ${done ? 'opacity-50' : ''}">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-medium text-gray-800">${i.name}</p>
+                                ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
+                            ${progressBar}
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
+                            ${i.frequency !== 'monthly' ? `<p class="text-xs text-gray-400">${fmt(toMonthly(i.amount, i.frequency))}/mo</p>` : ''}
+                        </div>
+                        <button onclick="deleteItem(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-2 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const installments = items.filter(i => i.total_installments);
+            const ongoing      = items.filter(i => !i.total_installments);
+            const activeInstallments = installments.filter(i => paidCount(i) < parseInt(i.total_installments));
+
+            // Only count active (not finished) installments in monthly total
+            const monthly = [
+                ...ongoing.map(i => toMonthly(i.amount, i.frequency)),
+                ...activeInstallments.map(i => toMonthly(i.amount, i.frequency))
+            ].reduce((s, v) => s + v, 0);
+
+            document.getElementById('stat-monthly').textContent     = fmt(monthly);
+            document.getElementById('stat-annual').textContent       = fmt(monthly * 12);
+            document.getElementById('stat-installments').textContent = activeInstallments.length;
+
+            // Installments section
+            const instSec = document.getElementById('installments-section');
+            const instList = document.getElementById('installments-list');
+            if (installments.length) {
+                instSec.classList.remove('hidden');
+                instList.innerHTML = installments.map(i => itemRow(i, true)).join('');
+            } else {
+                instSec.classList.add('hidden');
+            }
+
+            // Ongoing section
+            const el = document.getElementById('list');
+            if (!ongoing.length) {
+                el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No ongoing fixed costs added yet.</p>';
+            } else {
+                el.innerHTML = ongoing.map(i => itemRow(i, false)).join('');
+            }
+        }
+
         document.getElementById('addForm').onsubmit = async e => {
             e.preventDefault();
+            const installments = document.getElementById('f-installments').value;
             await fetch('/recurring', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -145,7 +228,8 @@
                     amount: document.getElementById('f-amount').value,
                     frequency: document.getElementById('f-frequency').value,
                     start_date: document.getElementById('f-start').value || null,
-                    notes: document.getElementById('f-notes').value.trim() || null
+                    notes: document.getElementById('f-notes').value.trim() || null,
+                    total_installments: installments ? parseInt(installments) : null
                 })
             });
             e.target.reset();
