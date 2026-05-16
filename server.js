@@ -393,6 +393,7 @@ app.post('/manual', async (req, res) => {
             created_at TIMESTAMPTZ NOT NULL
         )
     `);
+    await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,
@@ -835,11 +836,12 @@ Total and price must be plain numbers only. No currency symbols.`
             return res.status(409).json({ error: 'This receipt has already been scanned.' });
         }
 
+        const tripName = (req.body.trip_name || '').trim() || null;
         for (const item of receipt.items) {
             await db.query(
-                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
+                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, receipt_total, created_at, trip_name)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt, tripName]
             );
         }
 
@@ -853,9 +855,9 @@ Total and price must be plain numbers only. No currency symbols.`
 
 app.get('/outings', async (req, res) => {
     const result = await db.query(`
-        SELECT created_at, place_name, date, receipt_total
+        SELECT created_at, place_name, date, receipt_total, trip_name
         FROM outing_items
-        GROUP BY created_at, place_name, date, receipt_total
+        GROUP BY created_at, place_name, date, receipt_total, trip_name
         ORDER BY created_at DESC
     `);
     res.json(result.rows);

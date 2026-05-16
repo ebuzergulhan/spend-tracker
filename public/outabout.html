@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -60,6 +60,10 @@
                         <input type="file" id="receiptImage" accept="image/*" class="hidden"/>
                     </label>
                     <p id="fileName" class="text-center text-sm text-purple-600 font-medium mb-4 hidden"></p>
+                    <div class="mb-4">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Trip / Event name <span class="text-gray-400 font-normal">(optional — groups receipts together)</span></label>
+                        <input type="text" id="tripName" placeholder="e.g. Oxford Trip" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
                     <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">Scan Receipt</button>
                 </form>
                 <div id="loadingMsg" class="hidden mt-6 flex flex-col items-center">
@@ -127,7 +131,6 @@
     <script>
         initSharedPage('outabout');
 
-        // â”€â”€ Tab switching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function showTab(name) {
             ['upload','history','stats'].forEach(t => {
                 document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
@@ -137,7 +140,7 @@
             if (name === 'stats')   loadStats();
         }
 
-        // â”€â”€ Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Upload ─────────────────────────────────────────────────────────────
         const fileInput = document.getElementById('receiptImage');
         fileInput.onchange = () => {
             const el = document.getElementById('fileName');
@@ -152,6 +155,8 @@
 
             const formData = new FormData();
             formData.append('receiptImage', fileInput.files[0]);
+            const tripName = document.getElementById('tripName').value.trim();
+            if (tripName) formData.append('trip_name', tripName);
 
             try {
                 const res = await fetch('/upload/outing', { method: 'POST', body: formData });
@@ -167,7 +172,7 @@
                 const content = document.getElementById('resultContent');
                 card.classList.remove('hidden');
                 content.innerHTML = `
-                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' Â· ' + formatDate(data.date) : ''} Â· ${fmt(data.total)}</p>
+                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}${tripName ? ' · <span class="text-purple-500 font-medium">' + tripName + '</span>' : ''}</p>
                     <div class="space-y-1">
                         ${(data.items || []).map(i => `
                             <div class="flex justify-between text-sm">
@@ -185,9 +190,10 @@
             }
         };
 
-        // â”€â”€ History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── History ────────────────────────────────────────────────────────────
         let outings = [];
         let expandedOuting = null;
+        let expandedTrip = null;
         const outingItemsCache = {};
 
         async function loadHistory() {
@@ -199,30 +205,86 @@
             const el = document.getElementById('historyContent');
             if (!outings.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No outings yet.</p>'; return; }
 
-            el.innerHTML = outings.map(r => {
-                const dateStr = r.date ? formatDate(r.date) : '<span class="text-gray-400">* Date unread</span>';
-                const isExpanded = expandedOuting === r.created_at;
-                return `
-                    <div class="border-b border-gray-50 last:border-0">
-                        <div class="flex items-center gap-3 py-3 cursor-pointer hover:bg-gray-50 rounded-xl px-2 -mx-2 transition" onclick="toggleOuting('${r.created_at}')">
-                            <div class="flex-1">
-                                <p class="text-sm font-medium text-gray-800">${r.place_name}</p>
-                                <p class="text-xs text-gray-400 mt-0.5">${dateStr}</p>
+            // Split into trips (grouped) and individual (no trip_name)
+            const tripMap = {};
+            const individuals = [];
+            outings.forEach(r => {
+                if (r.trip_name) {
+                    if (!tripMap[r.trip_name]) tripMap[r.trip_name] = [];
+                    tripMap[r.trip_name].push(r);
+                } else {
+                    individuals.push(r);
+                }
+            });
+
+            let html = '';
+
+            // Render trip groups
+            Object.entries(tripMap).forEach(([tripName, receipts]) => {
+                const tripTotal = receipts.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
+                const dates = receipts.map(r => r.date).filter(Boolean).sort();
+                const dateStr = dates.length
+                    ? (dates[0] === dates[dates.length-1] ? formatDate(dates[0]) : formatDate(dates[0]) + ' – ' + formatDate(dates[dates.length-1]))
+                    : '';
+                const isOpen = expandedTrip === tripName;
+                html += `
+                    <div class="mb-3">
+                        <div class="flex items-center gap-3 py-3 cursor-pointer hover:bg-purple-50 rounded-xl px-3 -mx-1 transition" onclick="toggleTrip('${tripName.replace(/'/g, "\\'")}')">
+                            <div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             </div>
-                            <p class="text-sm font-semibold text-gray-800">${fmt(r.receipt_total)}</p>
-                            <svg class="w-4 h-4 text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-gray-800">${tripName}</p>
+                                <p class="text-xs text-gray-400 mt-0.5">${dateStr} · ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''}</p>
+                            </div>
+                            <p class="text-sm font-bold text-purple-600">${fmt(tripTotal)}</p>
+                            <svg class="w-4 h-4 text-gray-300 transition-transform ${isOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </div>
-                        ${isExpanded ? expandedHtml(r) : ''}
+                        ${isOpen ? `
+                            <div class="ml-4 border-l-2 border-purple-100 pl-4 mb-2">
+                                ${receipts.map(r => receiptRow(r, true)).join('')}
+                            </div>
+                        ` : ''}
                     </div>
                 `;
-            }).join('');
+            });
+
+            // Render individual receipts
+            if (individuals.length) {
+                if (Object.keys(tripMap).length) {
+                    html += `<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-4 mb-2">Individual</p>`;
+                }
+                html += individuals.map(r => `<div class="border-b border-gray-50 last:border-0">${receiptRow(r, false)}</div>`).join('');
+            }
+
+            el.innerHTML = html;
+        }
+
+        function receiptRow(r, inTrip) {
+            const dateStr = r.date ? formatDate(r.date) : '<span class="text-gray-400">* Date unread</span>';
+            const isExpanded = expandedOuting === r.created_at;
+            return `
+                <div>
+                    <div class="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-gray-50 rounded-xl px-2 -mx-2 transition" onclick="toggleOuting('${r.created_at}')">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-800">${r.place_name}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${dateStr}</p>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-700">${fmt(r.receipt_total)}</p>
+                        <svg class="w-4 h-4 text-gray-300 transition-transform ${isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </div>
+                    ${isExpanded ? expandedHtml(r) : ''}
+                </div>
+            `;
         }
 
         function expandedHtml(r) {
             const items = outingItemsCache[r.created_at];
-            if (!items) return '<div class="py-3 px-2 text-xs text-gray-400">Loading...</div>';
+            if (!items) return '<div class="py-2 px-2 text-xs text-gray-400">Loading...</div>';
             const addedDate = new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
             return `
                 <div class="ml-2 pb-3 space-y-1">
@@ -241,6 +303,11 @@
                     </button>
                 </div>
             `;
+        }
+
+        function toggleTrip(tripName) {
+            expandedTrip = expandedTrip === tripName ? null : tripName;
+            renderHistory();
         }
 
         async function toggleOuting(createdAt) {
@@ -262,7 +329,7 @@
             loadHistory();
         }
 
-        // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Stats ──────────────────────────────────────────────────────────────
         async function loadStats() {
             const now = new Date();
             const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
@@ -322,4 +389,3 @@
     </script>
 </body>
 </html>
-
