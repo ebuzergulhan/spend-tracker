@@ -5,6 +5,7 @@ const dir = path.join(__dirname, 'public');
 // Each entry: [mojibake string, correct string]
 // mojibake happened when PowerShell read UTF-8 files as CP1252
 const fixes = [
+    ['Â·', '·'],   // Â· → · (middle dot)
     ['â€”', '—'],  // â€" → —  (em dash)
     ['â†’', '→'],  // â†' → →  (right arrow)
     ['Â£',       '£'],  // Â£  → £   (pound sign)

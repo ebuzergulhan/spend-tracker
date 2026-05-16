@@ -297,7 +297,7 @@
             const progressBar = isInstallment ? `
                 <div class="mt-2">
                     <div class="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>${paid} of ${total} paid${done ? ' Â· <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                        <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
                         <span>${total - paid > 0 ? (total - paid) + ' left' : ''}</span>
                     </div>
                     <div class="w-full bg-gray-100 rounded-full h-1.5">
@@ -314,7 +314,7 @@
                                 <p class="text-sm font-medium text-gray-800">${i.name}</p>
                                 ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
                             </div>
-                            <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' Â· from ' + formatDate(i.start_date) : ''}${i.notes ? ' Â· ' + i.notes : ''}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
                             ${progressBar}
                         </div>
                         <div class="text-right shrink-0">
@@ -438,7 +438,7 @@
                 <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
                     <div class="flex-1">
                         <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' Â· ' + i.notes : ''}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' · ' + i.notes : ''}</p>
                     </div>
                     <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
                     <button onclick="editingOneoffId=${i.id};loadOneoff()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
@@ -531,13 +531,13 @@
             if (!fuelItems.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No fuel logged yet.</p>'; return; }
             el.innerHTML = fuelItems.map(i => {
                 if (editingFuelId === i.id) return editFuelForm(i);
-                const litresStr = i.litres ? ` Â· ${parseFloat(i.litres).toFixed(1)}L` : '';
-                const pplStr    = i.litres ? ` Â· ${(parseFloat(i.amount) / parseFloat(i.litres) * 100).toFixed(1)}p/L` : '';
+                const litresStr = i.litres ? ` · ${parseFloat(i.litres).toFixed(1)}L` : '';
+                const pplStr    = i.litres ? ` · ${(parseFloat(i.amount) / parseFloat(i.litres) * 100).toFixed(1)}p/L` : '';
                 return `
                     <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
                         <div class="flex-1">
                             <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${litresStr}${pplStr}${i.notes ? ' Â· ' + i.notes : ''}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${litresStr}${pplStr}${i.notes ? ' · ' + i.notes : ''}</p>
                         </div>
                         <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
                         <button onclick="editingFuelId=${i.id};loadFuel()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>

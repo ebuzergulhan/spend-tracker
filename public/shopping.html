@@ -209,7 +209,7 @@
                 const content = document.getElementById('resultContent');
                 card.classList.remove('hidden');
                 content.innerHTML = `
-                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' Â· ' + formatDate(data.date) : ''} Â· ${fmt(data.total)}</p>
+                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}</p>
                     <div class="space-y-1">
                         ${(data.items || []).map(i => `
                             <div class="flex justify-between text-sm">
@@ -384,10 +384,10 @@
                                 ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
                                 ${i.link ? `<a href="${i.link}" target="_blank" rel="noopener" title="Open link" class="text-gray-300 hover:text-purple-500 transition" onclick="event.stopPropagation()"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>` : ''}
                             </div>
-                            <p class="text-xs text-gray-400 mt-0.5">Monthly${i.start_date ? ' Â· from ' + formatDate(i.start_date) : ''}${i.notes ? ' Â· ' + i.notes : ''}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Monthly${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
                             <div class="mt-2">
                                 <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                    <span>${paid} of ${total} paid${done ? ' Â· <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                                    <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
                                     <span>${remaining > 0 ? remaining + ' left' : ''}</span>
                                 </div>
                                 <div class="w-full bg-gray-100 rounded-full h-1.5">

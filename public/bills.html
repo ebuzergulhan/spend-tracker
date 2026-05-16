@@ -144,7 +144,7 @@
                 <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
                     <div class="flex-1">
                         <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' Â· ' + i.notes : ''}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' · ' + i.notes : ''}</p>
                     </div>
                     <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
                     <button onclick="editingId=${i.id};renderList()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
