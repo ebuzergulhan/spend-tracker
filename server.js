@@ -4,11 +4,15 @@ const express = require('express');
 const app = express();
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
+const debtDocUpload = multer({ dest: 'uploads/debt-docs/' });
+const paymentReceiptUpload = multer({ dest: 'uploads/debt-receipts/' });
 const PORT = process.env.PORT || 3001;
 
 const Anthropic = require('@anthropic-ai/sdk');
 const { Pool } = require('pg');
 const fs = require('fs');
+if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
+if (!fs.existsSync('uploads/debt-receipts')) fs.mkdirSync('uploads/debt-receipts', { recursive: true });
 
 const anthropic = new Anthropic();
 
@@ -18,6 +22,8 @@ const db = new Pool({
 
 
 app.use(express.static('public'));
+app.use('/uploads/debt-docs', express.static('uploads/debt-docs'));
+app.use('/uploads/debt-receipts', express.static('uploads/debt-receipts'));
 app.use(express.json());
 
 // If the new shop name matches or contains an existing canonical name, use the canonical one.
@@ -369,6 +375,30 @@ app.post('/manual', async (req, res) => {
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     `);
+    await db.query(`ALTER TABLE debts ADD COLUMN IF NOT EXISTS payment_currency TEXT DEFAULT 'GBP'`);
+    await db.query(`ALTER TABLE debts ADD COLUMN IF NOT EXISTS monthly_payment_foreign NUMERIC(10,2)`);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS debt_payment_schedule (
+            id SERIAL PRIMARY KEY,
+            debt_id INTEGER REFERENCES debts(id) ON DELETE CASCADE,
+            seq INTEGER NOT NULL,
+            due_date DATE NOT NULL,
+            amount_gbp NUMERIC(10,2) NOT NULL,
+            is_paid BOOLEAN DEFAULT FALSE,
+            receipt_filename TEXT,
+            receipt_original_name TEXT,
+            paid_at TIMESTAMPTZ
+        )
+    `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS debt_documents (
+            id SERIAL PRIMARY KEY,
+            debt_id INTEGER REFERENCES debts(id) ON DELETE CASCADE,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            uploaded_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
     await db.query(`
         CREATE TABLE IF NOT EXISTS shopping_items (
             id SERIAL PRIMARY KEY,
@@ -587,17 +617,29 @@ app.get('/summary/home', async (req, res) => {
 // ─── Debts ───────────────────────────────────────────────────────────────────
 
 app.get('/debts', async (req, res) => {
-    const result = await db.query('SELECT * FROM debts ORDER BY created_at DESC');
+    const result = await db.query(`
+        SELECT d.*,
+            COUNT(s.id)::int AS schedule_count,
+            COUNT(CASE WHEN s.is_paid THEN 1 END)::int AS paid_count,
+            COALESCE(SUM(CASE WHEN s.is_paid THEN s.amount_gbp END), 0) AS paid_scheduled,
+            COALESCE(SUM(s.amount_gbp), 0) AS total_scheduled,
+            MAX(s.due_date) AS last_due_date
+        FROM debts d
+        LEFT JOIN debt_payment_schedule s ON s.debt_id = d.id
+        GROUP BY d.id
+        ORDER BY d.created_at DESC
+    `);
     res.json(result.rows);
 });
 
 app.post('/debts', async (req, res) => {
     try {
-        const { name, total_amount, monthly_payment, start_date, notes } = req.body;
+        const { name, total_amount, monthly_payment, start_date, notes, payment_currency, monthly_payment_foreign } = req.body;
         const result = await db.query(
-            `INSERT INTO debts (name, total_amount, monthly_payment, start_date, notes)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null]
+            `INSERT INTO debts (name, total_amount, monthly_payment, start_date, notes, payment_currency, monthly_payment_foreign)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null,
+             payment_currency || 'GBP', monthly_payment_foreign ? parseFloat(monthly_payment_foreign) : null]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -607,11 +649,12 @@ app.post('/debts', async (req, res) => {
 
 app.put('/debts/:id', async (req, res) => {
     try {
-        const { name, total_amount, monthly_payment, start_date, notes } = req.body;
+        const { name, total_amount, monthly_payment, start_date, notes, payment_currency, monthly_payment_foreign } = req.body;
         const result = await db.query(
-            `UPDATE debts SET name=$1, total_amount=$2, monthly_payment=$3, start_date=$4, notes=$5
-             WHERE id=$6 RETURNING *`,
-            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null, req.params.id]
+            `UPDATE debts SET name=$1, total_amount=$2, monthly_payment=$3, start_date=$4, notes=$5,
+             payment_currency=$6, monthly_payment_foreign=$7 WHERE id=$8 RETURNING *`,
+            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null,
+             payment_currency || 'GBP', monthly_payment_foreign ? parseFloat(monthly_payment_foreign) : null, req.params.id]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -622,6 +665,98 @@ app.put('/debts/:id', async (req, res) => {
 app.delete('/debts/:id', async (req, res) => {
     await db.query('DELETE FROM debts WHERE id = $1', [req.params.id]);
     res.json({ success: true });
+});
+
+app.post('/debts/:id/upload', debtDocUpload.single('document'), async (req, res) => {
+    try {
+        const result = await db.query(
+            `INSERT INTO debt_documents (debt_id, filename, original_name) VALUES ($1, $2, $3) RETURNING *`,
+            [req.params.id, req.file.filename, req.file.originalname]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/debts/:id/documents', async (req, res) => {
+    const result = await db.query(
+        `SELECT * FROM debt_documents WHERE debt_id = $1 ORDER BY uploaded_at DESC`, [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.delete('/debt-documents/:id', async (req, res) => {
+    try {
+        const doc = await db.query(`SELECT filename FROM debt_documents WHERE id = $1`, [req.params.id]);
+        if (doc.rows[0]) {
+            const fp = `uploads/debt-docs/${doc.rows[0].filename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+        await db.query(`DELETE FROM debt_documents WHERE id = $1`, [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── Debt Payment Schedule ───────────────────────────────────────────────────
+
+app.post('/debts/:id/payment-schedule', async (req, res) => {
+    try {
+        const { payments } = req.body; // [{seq, due_date, amount_gbp}]
+        await db.query(`DELETE FROM debt_payment_schedule WHERE debt_id = $1`, [req.params.id]);
+        for (const p of payments) {
+            await db.query(
+                `INSERT INTO debt_payment_schedule (debt_id, seq, due_date, amount_gbp) VALUES ($1, $2, $3, $4)`,
+                [req.params.id, p.seq, p.due_date, parseFloat(p.amount_gbp)]
+            );
+        }
+        const total = payments.reduce((s, p) => s + parseFloat(p.amount_gbp), 0);
+        await db.query(`UPDATE debts SET total_amount = $1 WHERE id = $2`, [Math.round(total * 100) / 100, req.params.id]);
+        res.json({ success: true, count: payments.length });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/debts/:id/payment-schedule', async (req, res) => {
+    const result = await db.query(
+        `SELECT * FROM debt_payment_schedule WHERE debt_id = $1 ORDER BY seq`,
+        [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.patch('/debt-payment-schedule/:id/paid', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT is_paid FROM debt_payment_schedule WHERE id = $1`, [req.params.id]);
+        const current = row.rows[0]?.is_paid;
+        const result = await db.query(
+            `UPDATE debt_payment_schedule SET is_paid = $1, paid_at = $2 WHERE id = $3 RETURNING *`,
+            [!current, !current ? new Date() : null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/debt-payment-schedule/:id/receipt', paymentReceiptUpload.single('receipt'), async (req, res) => {
+    try {
+        const result = await db.query(
+            `UPDATE debt_payment_schedule SET receipt_filename=$1, receipt_original_name=$2 WHERE id=$3 RETURNING *`,
+            [req.file.filename, req.file.originalname, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/debt-payment-schedule/:id/receipt', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT receipt_filename FROM debt_payment_schedule WHERE id = $1`, [req.params.id]);
+        if (row.rows[0]?.receipt_filename) {
+            const fp = `uploads/debt-receipts/${row.rows[0].receipt_filename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+        const result = await db.query(
+            `UPDATE debt_payment_schedule SET receipt_filename=NULL, receipt_original_name=NULL WHERE id=$1 RETURNING *`,
+            [req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ─── Shopping ────────────────────────────────────────────────────────────────

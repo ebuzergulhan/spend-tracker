@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -17,6 +17,11 @@
         .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
         @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
         .modal-animate { animation: modalIn 0.18s ease-out; }
+        .sched-table td, .sched-table th { padding: 5px 8px; }
+        .row-paid td { opacity: 0.4; }
+        .row-paid td:first-child { opacity: 1; }
+        .row-current { background: #f3f0ff; }
+        .row-current td { font-weight: 600; color: #6d28d9; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -52,28 +57,46 @@
         <!-- Add form -->
         <div class="card p-6 mb-4">
             <h2 class="text-sm font-semibold text-gray-700 mb-4">Add a Debt</h2>
-            <form id="addForm" class="flex flex-wrap gap-3 items-end">
-                <div class="flex-1 min-w-40">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
-                    <input type="text" id="f-name" placeholder="e.g. Turkish Ministry Loan" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+            <form id="addForm" class="space-y-3">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div class="flex-1 min-w-40">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
+                        <input type="text" id="f-name" placeholder="e.g. TC Central Bank Loan" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Total Amount (£)</label>
+                        <input type="number" id="f-total" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Payment (£)</label>
+                        <input type="number" id="f-monthly" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">First Payment Date</label>
+                        <input type="date" id="f-start" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-32">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Pay Currency</label>
+                        <select id="f-currency" onchange="toggleAddForeign()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                            <option value="GBP">GBP (£)</option>
+                            <option value="TRY">TRY (₺)</option>
+                            <option value="USD">USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                        </select>
+                    </div>
+                    <div class="flex-1 min-w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
+                        <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
                 </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Total Amount (£)</label>
-                    <input type="number" id="f-total" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                <div id="f-foreign-wrap" class="hidden flex flex-wrap gap-3 items-end">
+                    <div class="w-56">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Monthly amount in foreign currency</label>
+                        <input type="number" id="f-monthly-foreign" step="0.01" min="0" placeholder="0.00" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <p class="text-xs text-gray-400 pb-2">The bank converts this to £ each month.</p>
                 </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Payment (£)</label>
-                    <input type="number" id="f-monthly" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">First Payment Date</label>
-                    <input type="date" id="f-start" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
-                    <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
             </form>
         </div>
 
@@ -89,25 +112,346 @@
 
         let debts = [];
         let editingId = null;
+        const scheduleCache = {}; // debtId → array of schedule rows
+        const docsCache = {};     // debtId → array of docs
+        const planOpen = new Set();
+        const docsOpenSet = new Set();
+
         const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
         const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+
+        function currencySymbol(c) {
+            return { GBP: '£', TRY: '₺', USD: '$', EUR: '€' }[c] || c;
+        }
+
+        function toggleAddForeign() {
+            const c = document.getElementById('f-currency').value;
+            document.getElementById('f-foreign-wrap').classList.toggle('hidden', c === 'GBP');
+        }
 
         async function load() {
             debts = await fetch('/debts').then(r => r.json());
             render();
         }
 
+        // ── Calc ──────────────────────────────────────────────────────────────
+
+        function calcDebt(d) {
+            if (parseInt(d.schedule_count) > 0) {
+                const paidAmt   = parseFloat(d.paid_scheduled) || 0;
+                const total     = parseFloat(d.total_scheduled) || parseFloat(d.total_amount);
+                const remaining = Math.max(0, total - paidAmt);
+                const pct       = total > 0 ? Math.round(paidAmt / total * 100) : 0;
+                const paymentsLeft = d.schedule_count - d.paid_count;
+                const finishDate   = d.last_due_date ? new Date(d.last_due_date + 'T12:00:00') : null;
+                return { paidAmt, remaining, totalPayments: d.schedule_count, paymentsLeft, pct, finishDate, done: remaining <= 0.005, isScheduled: true };
+            }
+            const start    = new Date(d.start_date);
+            const now      = new Date();
+            const total    = parseFloat(d.total_amount);
+            const monthly  = parseFloat(d.monthly_payment);
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            const paid     = Math.max(0, monthsElapsed + 1);
+            const paidAmt  = Math.min(paid * monthly, total);
+            const remaining = Math.max(0, total - paidAmt);
+            const totalPayments = Math.ceil(total / monthly);
+            const paymentsLeft  = Math.max(0, totalPayments - paid);
+            const pct      = Math.round(paidAmt / total * 100);
+            const finishDate = new Date(start);
+            finishDate.setMonth(finishDate.getMonth() + totalPayments - 1);
+            return { paidAmt, remaining, totalPayments, paymentsLeft, pct, finishDate, done: remaining === 0, isScheduled: false };
+        }
+
+        // ── Payment schedule rendering ────────────────────────────────────────
+
+        function schedulePlanHtml(debtId) {
+            const rows = scheduleCache[debtId];
+            if (!rows) return '<p class="text-sm text-gray-400 mt-3">Loading…</p>';
+
+            const debt = debts.find(d => d.id === debtId);
+            const cur = debt?.payment_currency || 'GBP';
+            const sym = currencySymbol(cur);
+            const foreignAmt = parseFloat(debt?.monthly_payment_foreign) || null;
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            const rowsHtml = rows.map(r => {
+                const isPast  = r.due_date < todayStr;
+                const isCur   = !r.is_paid && r.due_date >= todayStr && (rows.find(x => !x.is_paid)?.id === r.id);
+                const rowCls  = r.is_paid ? 'row-paid' : isCur ? 'row-current' : '';
+
+                const receiptBtn = r.is_paid
+                    ? r.receipt_filename
+                        ? `<span class="flex items-center gap-1">
+                            <a href="/uploads/debt-receipts/${r.receipt_filename}" target="_blank" class="text-xs text-purple-600 hover:underline">${r.receipt_original_name}</a>
+                            <button onclick="removePaymentReceipt(${r.id},${debtId})" class="text-gray-300 hover:text-red-400 ml-1" title="Remove">✕</button>
+                           </span>`
+                        : `<label class="cursor-pointer text-xs text-gray-400 hover:text-purple-500 transition">
+                            + receipt
+                            <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="hidden" onchange="uploadPaymentReceipt(this,${r.id},${debtId})"/>
+                           </label>`
+                    : '';
+
+                const paidBtn = `<button onclick="togglePaid(${r.id},${debtId})"
+                    class="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition
+                    ${r.is_paid ? 'bg-green-400 border-green-400 text-white' : 'border-gray-300 hover:border-purple-400'}"
+                    title="${r.is_paid ? 'Mark as unpaid' : 'Mark as paid'}">
+                    ${r.is_paid ? '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}
+                </button>`;
+
+                const dateStr = new Date(r.due_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                const foreignCell = foreignAmt
+                    ? `<td class="text-right text-gray-400 text-xs">${sym}${foreignAmt.toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>`
+                    : '';
+
+                return `<tr class="${rowCls}">
+                    <td class="text-gray-400 text-xs">${r.seq}</td>
+                    <td class="text-sm">${dateStr}</td>
+                    <td class="text-right text-sm font-medium">${fmt(r.amount_gbp)}</td>
+                    ${foreignCell}
+                    <td class="text-center">${paidBtn}</td>
+                    <td class="text-left text-xs">${receiptBtn}</td>
+                </tr>`;
+            }).join('');
+
+            const foreignHeader = foreignAmt ? `<th class="text-right text-gray-400 text-xs font-medium">In ${cur}</th>` : '';
+
+            return `
+                <div class="overflow-x-auto mt-3 border-t border-gray-100 pt-3">
+                    <table class="sched-table w-full text-sm border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-100 text-left">
+                                <th class="text-gray-400 text-xs font-medium">#</th>
+                                <th class="text-gray-400 text-xs font-medium">Due Date</th>
+                                <th class="text-right text-gray-400 text-xs font-medium">Amount (£)</th>
+                                ${foreignHeader}
+                                <th class="text-center text-gray-400 text-xs font-medium">Paid</th>
+                                <th class="text-gray-400 text-xs font-medium">Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-50">${rowsHtml}</tbody>
+                    </table>
+                </div>`;
+        }
+
+        function importScheduleHtml(debtId) {
+            return `
+                <div class="mt-3 border-t border-gray-100 pt-3">
+                    <p class="text-xs text-gray-400 mb-2">No schedule imported yet. Paste the payment table from your bank (tab-separated, with columns: #, date (DD.MM.YYYY), amount).</p>
+                    <textarea id="sched-paste-${debtId}" rows="6" placeholder="1\t20.04.2026\t100.00\tGBP..." class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-400 resize-none"></textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button onclick="doImportSchedule(${debtId})" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Import Schedule</button>
+                        <button onclick="planOpen.delete(${debtId});renderPlanDiv(${debtId})" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                    </div>
+                </div>`;
+        }
+
+        function renderPlanDiv(debtId) {
+            const el = document.getElementById('plan-' + debtId);
+            if (!el) return;
+            if (!planOpen.has(debtId)) { el.innerHTML = ''; el.classList.add('hidden'); return; }
+            el.classList.remove('hidden');
+            const d = debts.find(x => x.id === debtId);
+            if (!d) return;
+            if (scheduleCache[debtId]) {
+                el.innerHTML = schedulePlanHtml(debtId);
+            } else if (parseInt(d.schedule_count) > 0) {
+                el.innerHTML = '<p class="text-sm text-gray-400 mt-3">Loading…</p>';
+                fetch('/debts/' + debtId + '/payment-schedule').then(r => r.json()).then(rows => {
+                    scheduleCache[debtId] = rows;
+                    el.innerHTML = schedulePlanHtml(debtId);
+                });
+            } else {
+                el.innerHTML = importScheduleHtml(debtId);
+            }
+        }
+
+        async function togglePlan(debtId) {
+            if (planOpen.has(debtId)) {
+                planOpen.delete(debtId);
+            } else {
+                planOpen.add(debtId);
+            }
+            renderPlanDiv(debtId);
+        }
+
+        // ── Import schedule ───────────────────────────────────────────────────
+
+        function parseSchedulePaste(text) {
+            return text.trim().split('\n').map(line => {
+                const parts = line.trim().split(/\t|  +/);
+                if (parts.length < 3) return null;
+                const seq = parseInt(parts[0]);
+                const dateParts = parts[1].trim().split('.');
+                if (dateParts.length !== 3) return null;
+                const due_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+                const amount_gbp = parseFloat(parts[2].replace(/,/g, ''));
+                if (isNaN(seq) || isNaN(amount_gbp)) return null;
+                return { seq, due_date, amount_gbp };
+            }).filter(Boolean);
+        }
+
+        async function doImportSchedule(debtId) {
+            const ta = document.getElementById('sched-paste-' + debtId);
+            const payments = parseSchedulePaste(ta.value);
+            if (!payments.length) {
+                await showModal({ title: 'Parse error', message: 'Could not read any payment rows. Check the format.', type: 'alert' });
+                return;
+            }
+            const ok = await showModal({
+                title: 'Import ' + payments.length + ' payments?',
+                message: 'This will replace any existing schedule for this debt.',
+                type: 'confirm', confirmLabel: 'Import'
+            });
+            if (!ok) return;
+            const res = await fetch('/debts/' + debtId + '/payment-schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ payments })
+            });
+            if (!res.ok) { await showModal({ title: 'Error', message: 'Import failed.', type: 'alert' }); return; }
+            delete scheduleCache[debtId];
+            await load(); // reload debts to get updated total/counts
+            planOpen.add(debtId);
+            renderPlanDiv(debtId);
+        }
+
+        // ── Toggle paid / receipt ─────────────────────────────────────────────
+
+        async function togglePaid(schedId, debtId) {
+            const res = await fetch('/debt-payment-schedule/' + schedId + '/paid', { method: 'PATCH' });
+            const updated = await res.json();
+            if (scheduleCache[debtId]) {
+                const idx = scheduleCache[debtId].findIndex(r => r.id === schedId);
+                if (idx !== -1) scheduleCache[debtId][idx] = updated;
+            }
+            // Refresh debt stats from server (paid_scheduled changed)
+            const debtsRes = await fetch('/debts').then(r => r.json());
+            debts = debtsRes;
+            updateStats();
+            // Re-render just this debt card's progress area
+            const statEl = document.getElementById('progress-' + debtId);
+            if (statEl) {
+                const d = debts.find(x => x.id === debtId);
+                if (d) statEl.outerHTML = progressHtml(d);
+            }
+            renderPlanDiv(debtId);
+        }
+
+        async function uploadPaymentReceipt(input, schedId, debtId) {
+            if (!input.files[0]) return;
+            const fd = new FormData();
+            fd.append('receipt', input.files[0]);
+            const res = await fetch('/debt-payment-schedule/' + schedId + '/receipt', { method: 'POST', body: fd });
+            if (!res.ok) { await showModal({ title: 'Upload failed', message: 'Could not upload receipt.', type: 'alert' }); return; }
+            const updated = await res.json();
+            if (scheduleCache[debtId]) {
+                const idx = scheduleCache[debtId].findIndex(r => r.id === schedId);
+                if (idx !== -1) scheduleCache[debtId][idx] = updated;
+            }
+            renderPlanDiv(debtId);
+        }
+
+        async function removePaymentReceipt(schedId, debtId) {
+            const ok = await showModal({ title: 'Remove receipt', message: 'Delete this receipt?', type: 'confirm', confirmLabel: 'Delete' });
+            if (!ok) return;
+            const res = await fetch('/debt-payment-schedule/' + schedId + '/receipt', { method: 'DELETE' });
+            const updated = await res.json();
+            if (scheduleCache[debtId]) {
+                const idx = scheduleCache[debtId].findIndex(r => r.id === schedId);
+                if (idx !== -1) scheduleCache[debtId][idx] = updated;
+            }
+            renderPlanDiv(debtId);
+        }
+
+        // ── Documents ─────────────────────────────────────────────────────────
+
+        async function toggleDocs(id) {
+            const el = document.getElementById('docs-' + id);
+            if (docsOpenSet.has(id)) {
+                docsOpenSet.delete(id);
+                el.classList.add('hidden');
+                return;
+            }
+            docsOpenSet.add(id);
+            if (!docsCache[id]) {
+                docsCache[id] = await fetch('/debts/' + id + '/documents').then(r => r.json());
+            }
+            el.innerHTML = docsHtml(id);
+            el.classList.remove('hidden');
+        }
+
+        function docsHtml(id) {
+            const docs = docsCache[id] || [];
+            const listHtml = docs.length
+                ? docs.map(doc => `
+                    <div class="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                        <a href="/uploads/debt-docs/${doc.filename}" target="_blank" class="text-sm text-purple-600 hover:underline truncate max-w-xs">${doc.original_name}</a>
+                        <div class="flex items-center gap-2 ml-3 shrink-0">
+                            <span class="text-xs text-gray-400">${formatDate(doc.uploaded_at)}</span>
+                            <button onclick="deleteDoc(${doc.id},${id})" class="text-gray-300 hover:text-red-400 transition text-xs">Remove</button>
+                        </div>
+                    </div>`).join('')
+                : '<p class="text-sm text-gray-400">No statements uploaded yet.</p>';
+            return `
+                <div class="mt-3 border-t border-gray-100 pt-3">
+                    ${listHtml}
+                    <label class="mt-3 inline-flex items-center gap-2 cursor-pointer gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                        Upload Statement
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" class="hidden" onchange="uploadDoc(this,${id})"/>
+                    </label>
+                </div>`;
+        }
+
+        async function uploadDoc(input, debtId) {
+            if (!input.files[0]) return;
+            const fd = new FormData();
+            fd.append('document', input.files[0]);
+            const res = await fetch('/debts/' + debtId + '/upload', { method: 'POST', body: fd });
+            if (!res.ok) { await showModal({ title: 'Upload failed', message: 'Could not upload document.', type: 'alert' }); return; }
+            const doc = await res.json();
+            if (!docsCache[debtId]) docsCache[debtId] = [];
+            docsCache[debtId].push(doc);
+            document.getElementById('docs-' + debtId).innerHTML = docsHtml(debtId);
+        }
+
+        async function deleteDoc(docId, debtId) {
+            const ok = await showModal({ title: 'Remove document', message: 'Delete this document?', type: 'confirm', confirmLabel: 'Delete' });
+            if (!ok) return;
+            await fetch('/debt-documents/' + docId, { method: 'DELETE' });
+            if (docsCache[debtId]) docsCache[debtId] = docsCache[debtId].filter(d => d.id !== docId);
+            document.getElementById('docs-' + debtId).innerHTML = docsHtml(debtId);
+        }
+
+        // ── Edit form ─────────────────────────────────────────────────────────
+
         function editForm(d) {
             const sd = d.start_date ? d.start_date.split('T')[0] : '';
+            const cur = d.payment_currency || 'GBP';
+            const foreignHidden = cur === 'GBP' ? 'hidden' : '';
             return `
                 <div class="card p-4">
                     <form onsubmit="saveDebt(event,${d.id})" class="space-y-2">
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-2 items-end">
                             <input id="ed-name" value="${d.name}" placeholder="Name" required class="flex-1 min-w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ed-total" type="number" step="0.01" value="${d.total_amount}" placeholder="Total amount" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ed-monthly" type="number" step="0.01" value="${d.monthly_payment}" placeholder="Monthly payment" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-total" type="number" step="0.01" value="${d.total_amount}" placeholder="Total (£)" required class="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ed-monthly" type="number" step="0.01" value="${d.monthly_payment}" placeholder="Monthly (£)" required class="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
                             <input id="ed-start" type="date" value="${sd}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ed-notes" value="${d.notes||''}" placeholder="Notes" class="flex-1 min-w-40 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <select id="ed-currency" onchange="toggleEditForeign()" class="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                                <option value="GBP" ${cur==='GBP'?'selected':''}>GBP (£)</option>
+                                <option value="TRY" ${cur==='TRY'?'selected':''}>TRY (₺)</option>
+                                <option value="USD" ${cur==='USD'?'selected':''}>USD ($)</option>
+                                <option value="EUR" ${cur==='EUR'?'selected':''}>EUR (€)</option>
+                            </select>
+                            <input id="ed-notes" value="${d.notes||''}" placeholder="Notes" class="flex-1 min-w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div id="ed-foreign-wrap" class="${foreignHidden} flex gap-2 items-end">
+                            <div class="w-56">
+                                <label class="text-xs text-gray-400 block mb-1">Monthly in foreign currency</label>
+                                <input id="ed-monthly-foreign" type="number" step="0.01" value="${d.monthly_payment_foreign||''}" placeholder="0.00" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            </div>
                         </div>
                         <div class="flex gap-2">
                             <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
@@ -117,8 +461,14 @@
                 </div>`;
         }
 
+        function toggleEditForeign() {
+            const c = document.getElementById('ed-currency').value;
+            document.getElementById('ed-foreign-wrap').classList.toggle('hidden', c === 'GBP');
+        }
+
         async function saveDebt(e, id) {
             e.preventDefault();
+            const cur = document.getElementById('ed-currency').value;
             await fetch('/debts/' + id, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -127,47 +477,52 @@
                     total_amount: document.getElementById('ed-total').value,
                     monthly_payment: document.getElementById('ed-monthly').value,
                     start_date: document.getElementById('ed-start').value,
-                    notes: document.getElementById('ed-notes').value.trim() || null
+                    notes: document.getElementById('ed-notes').value.trim() || null,
+                    payment_currency: cur,
+                    monthly_payment_foreign: cur !== 'GBP' ? (document.getElementById('ed-monthly-foreign').value || null) : null
                 })
             });
             editingId = null;
             load();
         }
 
-        function calcDebt(d) {
-            const start    = new Date(d.start_date);
-            const now      = new Date();
-            const total    = parseFloat(d.total_amount);
-            const monthly  = parseFloat(d.monthly_payment);
+        // ── Progress HTML (re-usable) ─────────────────────────────────────────
 
-            // Number of payments made so far (inclusive of first month)
-            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-            const paid     = Math.max(0, monthsElapsed + 1);
-            const paidAmt  = Math.min(paid * monthly, total);
-            const remaining = Math.max(0, total - paidAmt);
-            const totalPayments = Math.ceil(total / monthly);
-            const paymentsLeft  = Math.max(0, totalPayments - paid);
-            const pct      = Math.round(paidAmt / total * 100);
-
-            // Estimated finish date
-            const finishDate = new Date(start);
-            finishDate.setMonth(finishDate.getMonth() + totalPayments - 1);
-
-            return { paidAmt, remaining, totalPayments, paymentsLeft, pct, finishDate, done: remaining === 0 };
+        function progressHtml(d) {
+            const c = calcDebt(d);
+            const total = parseInt(d.schedule_count) > 0 ? parseFloat(d.total_scheduled) : parseFloat(d.total_amount);
+            return `
+                <div id="progress-${d.id}" class="mb-3">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1.5">
+                        <span>${fmt(c.paidAmt)} paid of ${fmt(total)}</span>
+                        <span>${c.pct}%</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-2.5">
+                        <div class="h-2.5 rounded-full transition-all duration-700 ${c.done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${c.pct}%"></div>
+                    </div>
+                </div>`;
         }
 
-        function render() {
+        // ── Stats ─────────────────────────────────────────────────────────────
+
+        function updateStats() {
             let totalRemaining = 0, totalOriginal = 0, totalMonthly = 0;
             debts.forEach(d => {
                 const c = calcDebt(d);
+                const total = parseInt(d.schedule_count) > 0 ? parseFloat(d.total_scheduled) : parseFloat(d.total_amount);
                 if (!c.done) totalMonthly += parseFloat(d.monthly_payment);
                 totalRemaining += c.remaining;
-                totalOriginal  += parseFloat(d.total_amount);
+                totalOriginal  += total;
             });
-
             document.getElementById('stat-remaining').textContent = fmt(totalRemaining);
             document.getElementById('stat-original').textContent  = fmt(totalOriginal);
             document.getElementById('stat-monthly').textContent   = fmt(totalMonthly);
+        }
+
+        // ── Main render ───────────────────────────────────────────────────────
+
+        function render() {
+            updateStats();
 
             const el = document.getElementById('debtList');
             if (!debts.length) {
@@ -178,16 +533,34 @@
             el.innerHTML = debts.map(d => {
                 if (editingId === d.id) return editForm(d);
                 const c = calcDebt(d);
-                const finishStr = c.finishDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+                const finishStr = c.finishDate
+                    ? c.finishDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
+                    : '—';
+                const cur = d.payment_currency || 'GBP';
+                const sym = currencySymbol(cur);
+                const foreignBadge = cur !== 'GBP'
+                    ? `<span class="text-xs bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-medium ml-1">${cur}</span>`
+                    : '';
+                const scheduleBadge = c.isScheduled
+                    ? `<span class="text-xs bg-purple-50 text-purple-500 px-2 py-0.5 rounded-full font-medium ml-1">Custom plan</span>`
+                    : '';
+                const foreignLine = (cur !== 'GBP' && d.monthly_payment_foreign)
+                    ? `<p class="text-xs text-gray-400 mt-0.5">Paid as ${sym}${parseFloat(d.monthly_payment_foreign).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2})} / month · converted to £ by bank</p>`
+                    : '';
+
+                const total = c.isScheduled ? parseFloat(d.total_scheduled) : parseFloat(d.total_amount);
+
                 return `
                     <div class="card p-6 ${c.done ? 'opacity-60' : ''}">
                         <div class="flex items-start justify-between mb-4">
                             <div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-1 flex-wrap">
                                     <h3 class="font-semibold text-gray-800">${d.name}</h3>
-                                    ${c.done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Paid off!</span>' : ''}
+                                    ${foreignBadge}${scheduleBadge}
+                                    ${c.done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium ml-1">Paid off!</span>' : ''}
                                 </div>
                                 ${d.notes ? `<p class="text-xs text-gray-400 mt-0.5">${d.notes}</p>` : ''}
+                                ${foreignLine}
                             </div>
                             <div class="flex items-center gap-2 ml-4 shrink-0">
                                 <button onclick="editingId=${d.id};render()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
@@ -195,26 +568,16 @@
                             </div>
                         </div>
 
-                        <!-- Progress bar -->
-                        <div class="mb-3">
-                            <div class="flex justify-between text-xs text-gray-400 mb-1.5">
-                                <span>${fmt(c.paidAmt)} paid of ${fmt(d.total_amount)}</span>
-                                <span>${c.pct}%</span>
-                            </div>
-                            <div class="w-full bg-gray-100 rounded-full h-2.5">
-                                <div class="h-2.5 rounded-full transition-all duration-700 ${c.done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${c.pct}%"></div>
-                            </div>
-                        </div>
+                        ${progressHtml(d)}
 
-                        <!-- Stats row -->
                         <div class="grid grid-cols-3 gap-4 mt-4">
                             <div>
                                 <p class="text-xs text-gray-400">Remaining</p>
                                 <p class="text-base font-bold text-gray-800 mt-0.5">${fmt(c.remaining)}</p>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-400">Monthly payment</p>
-                                <p class="text-base font-bold text-gray-800 mt-0.5">${fmt(d.monthly_payment)}</p>
+                                <p class="text-xs text-gray-400">${c.isScheduled ? 'Payments made' : 'Monthly payment'}</p>
+                                <p class="text-base font-bold text-gray-800 mt-0.5">${c.isScheduled ? d.paid_count + ' / ' + d.schedule_count : fmt(d.monthly_payment)}</p>
                             </div>
                             <div>
                                 <p class="text-xs text-gray-400">${c.done ? 'Finished' : 'Est. finish'}</p>
@@ -222,13 +585,39 @@
                             </div>
                         </div>
                         ${!c.done ? `<p class="text-xs text-gray-400 mt-3">${c.paymentsLeft} payment${c.paymentsLeft !== 1 ? 's' : ''} left</p>` : ''}
+
+                        <div class="flex gap-2 mt-4 pt-4 border-t border-gray-50">
+                            <button onclick="togglePlan(${d.id})" class="flex items-center gap-1.5 text-xs font-medium text-purple-600 border border-purple-200 px-3 py-1.5 rounded-lg hover:bg-purple-50 transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                                ${c.isScheduled ? 'Payment Plan' : 'Import Plan'}
+                            </button>
+                            <button onclick="toggleDocs(${d.id})" class="flex items-center gap-1.5 text-xs font-medium text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Statements
+                            </button>
+                        </div>
+
+                        <div id="plan-${d.id}" class="hidden"></div>
+                        <div id="docs-${d.id}" class="hidden"></div>
                     </div>
                 `;
             }).join('');
+
+            // Restore open panels
+            debts.forEach(d => {
+                if (planOpen.has(d.id)) renderPlanDiv(d.id);
+                if (docsOpenSet.has(d.id)) {
+                    const el = document.getElementById('docs-' + d.id);
+                    if (el) { el.innerHTML = docsHtml(d.id); el.classList.remove('hidden'); }
+                }
+            });
         }
+
+        // ── Add form ──────────────────────────────────────────────────────────
 
         document.getElementById('addForm').onsubmit = async e => {
             e.preventDefault();
+            const cur = document.getElementById('f-currency').value;
             await fetch('/debts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -237,10 +626,13 @@
                     total_amount: document.getElementById('f-total').value,
                     monthly_payment: document.getElementById('f-monthly').value,
                     start_date: document.getElementById('f-start').value,
-                    notes: document.getElementById('f-notes').value.trim() || null
+                    notes: document.getElementById('f-notes').value.trim() || null,
+                    payment_currency: cur,
+                    monthly_payment_foreign: cur !== 'GBP' ? (document.getElementById('f-monthly-foreign').value || null) : null
                 })
             });
             e.target.reset();
+            document.getElementById('f-foreign-wrap').classList.add('hidden');
             load();
         };
 
@@ -248,6 +640,10 @@
             const ok = await showModal({ title: 'Delete', message: 'Remove this debt?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
             if (!ok) return;
             await fetch('/debts/' + id, { method: 'DELETE' });
+            planOpen.delete(id);
+            docsOpenSet.delete(id);
+            delete scheduleCache[id];
+            delete docsCache[id];
             load();
         }
 
@@ -255,4 +651,3 @@
     </script>
 </body>
 </html>
-
