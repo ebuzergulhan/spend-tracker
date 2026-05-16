@@ -37,29 +37,29 @@
         <div class="grid grid-cols-3 gap-4 mb-6">
             <div class="card p-4">
                 <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly (Recurring)</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">â€”</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">—</p>
             </div>
             <div class="card p-4">
                 <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">One-off This Year</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">â€”</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">—</p>
             </div>
             <div class="card p-4">
                 <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Installments Active</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-installments">â€”</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-installments">—</p>
             </div>
         </div>
 
         <!-- â”€â”€ SECTION 1: Recurring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
         <div class="card p-6 mb-4">
             <h2 class="text-base font-semibold text-gray-800 mb-1">Recurring Costs</h2>
-            <p class="text-xs text-gray-400 mb-4">Car loan, insurance, road tax â€” monthly or fixed-term</p>
+            <p class="text-xs text-gray-400 mb-4">Car loan, insurance, road tax — monthly or fixed-term</p>
             <form id="recurringForm" class="flex flex-wrap gap-3 items-end">
                 <div class="flex-1 min-w-36">
                     <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
                     <input type="text" id="r-name" placeholder="e.g. Car Insurance" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (Â£)</label>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
                     <input type="number" id="r-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-36">
@@ -110,7 +110,7 @@
                     <input type="text" id="fu-name" placeholder="e.g. BP Motorway" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-28">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (Â£)</label>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
                     <input type="number" id="fu-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-24">
@@ -139,15 +139,15 @@
             <div class="grid grid-cols-3 gap-4 mb-4">
                 <div class="bg-gray-50 rounded-xl p-3 text-center">
                     <p class="text-xs text-gray-400">Spent (period)</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-spent">â€”</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-spent">—</p>
                 </div>
                 <div class="bg-gray-50 rounded-xl p-3 text-center">
                     <p class="text-xs text-gray-400">Litres (period)</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-litres">â€”</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-litres">—</p>
                 </div>
                 <div class="bg-gray-50 rounded-xl p-3 text-center">
                     <p class="text-xs text-gray-400">Avg p/litre</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-ppl">â€”</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-ppl">—</p>
                 </div>
             </div>
             <div id="fuel-list"></div>
@@ -156,14 +156,14 @@
         <!-- â”€â”€ SECTION 3: One-off costs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
         <div class="card p-6 mb-4">
             <h2 class="text-base font-semibold text-gray-800 mb-1">One-off Costs</h2>
-            <p class="text-xs text-gray-400 mb-4">MOT, services, repairs, tyres â€” logged as they happen</p>
+            <p class="text-xs text-gray-400 mb-4">MOT, services, repairs, tyres — logged as they happen</p>
             <form id="oneoffForm" class="flex flex-wrap gap-3 items-end">
                 <div class="flex-1 min-w-36">
                     <label class="text-xs font-medium text-gray-500 block mb-1">Description</label>
                     <input type="text" id="o-name" placeholder="e.g. MOT" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (Â£)</label>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
                     <input type="number" id="o-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-36">
@@ -481,7 +481,7 @@
                     <form onsubmit="saveFuel(event,${i.id})" class="bg-gray-50 rounded-xl p-3 space-y-2">
                         <div class="flex flex-wrap gap-2">
                             <input id="ef-name" value="${i.name}" placeholder="Station" required class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ef-amount" type="number" step="0.01" value="${i.amount}" placeholder="Â£" required class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                            <input id="ef-amount" type="number" step="0.01" value="${i.amount}" placeholder="£" required class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
                             <input id="ef-litres" type="number" step="0.01" value="${i.litres||''}" placeholder="Litres" class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
                             <input id="ef-date" type="date" value="${i.date}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
                             <input id="ef-notes" value="${i.notes||''}" placeholder="Notes" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
@@ -524,8 +524,8 @@
             const ppl         = totalLitres > 0 ? (totalSpent / totalLitres * 100) : 0;
 
             document.getElementById('fuel-stat-spent').textContent  = fmt(totalSpent);
-            document.getElementById('fuel-stat-litres').textContent = totalLitres > 0 ? totalLitres.toFixed(1) + 'L' : 'â€”';
-            document.getElementById('fuel-stat-ppl').textContent    = totalLitres > 0 ? ppl.toFixed(1) + 'p' : 'â€”';
+            document.getElementById('fuel-stat-litres').textContent = totalLitres > 0 ? totalLitres.toFixed(1) + 'L' : '—';
+            document.getElementById('fuel-stat-ppl').textContent    = totalLitres > 0 ? ppl.toFixed(1) + 'p' : '—';
 
             const el = document.getElementById('fuel-list');
             if (!fuelItems.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No fuel logged yet.</p>'; return; }
