@@ -52,9 +52,10 @@ function initSharedPage(activePage) {
     const navLinks = [
         { id: 'home',          href: 'home.html',          label: 'Home' },
         { id: 'groceries',     href: 'index.html',         label: 'Groceries' },
+        { id: 'outabout',      href: 'outabout.html',      label: 'Out & About' },
         { id: 'fixed',         href: 'fixed.html',         label: 'Fixed Costs' },
         { id: 'bills',         href: 'bills.html',         label: 'Bills' },
-        { id: 'fuel',          href: 'fuel.html',           label: 'Fuel' },
+        { id: 'fuel',          href: 'fuel.html',          label: 'Fuel' },
         { id: 'transport',     href: 'transport.html',     label: 'Transport' },
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
     ];

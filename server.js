@@ -358,6 +358,18 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS total_installments INTEGER`);
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS link TEXT`);
     await db.query(`
+        CREATE TABLE IF NOT EXISTS outing_items (
+            id SERIAL PRIMARY KEY,
+            date DATE,
+            place_name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            item_price NUMERIC(10,2) DEFAULT 0,
+            receipt_total NUMERIC(10,2) DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL
+        )
+    `);
+    await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,
             category TEXT NOT NULL,
@@ -469,12 +481,21 @@ app.get('/summary/home', async (req, res) => {
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    const [groceries, logs, recurring] = await Promise.all([
+    const [groceries, outabout, logs, recurring] = await Promise.all([
         db.query(`
             SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
             FROM (
                 SELECT created_at, MAX(receipt_total) as receipt_total
                 FROM items
+                WHERE date >= $1 AND date <= $2
+                GROUP BY created_at
+            ) t
+        `, [monthStart, monthEnd]),
+        db.query(`
+            SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
+            FROM (
+                SELECT created_at, MAX(receipt_total) as receipt_total
+                FROM outing_items
                 WHERE date >= $1 AND date <= $2
                 GROUP BY created_at
             ) t
@@ -497,12 +518,146 @@ app.get('/summary/home', async (req, res) => {
     res.json({
         month: now.toLocaleString('en-GB', { month: 'long', year: 'numeric' }),
         groceries: parseFloat(groceries.rows[0]?.total) || 0,
+        outabout: parseFloat(outabout.rows[0]?.total) || 0,
         bills: logMap['bill'] || 0,
         fuel: logMap['fuel'] || 0,
         transport: logMap['transport'] || 0,
         fixed: recurringMap['fixed'] || 0,
         subscriptions: recurringMap['subscription'] || 0
     });
+});
+
+// ─── Out & About ─────────────────────────────────────────────────────────────
+
+app.post('/upload/outing', upload.single('receiptImage'), async (req, res) => {
+    try {
+        const imageData = fs.readFileSync(req.file.path);
+        const base64Image = imageData.toString('base64');
+
+        const response = await anthropic.messages.create({
+            model: 'claude-haiku-4-5',
+            max_tokens: 2048,
+            messages: [{
+                role: 'user',
+                content: [
+                    {
+                        type: 'image',
+                        source: { type: 'base64', media_type: req.file.mimetype, data: base64Image }
+                    },
+                    {
+                        type: 'text',
+                        text: `Extract the receipt details and return ONLY a valid JSON object with this exact structure:
+{
+  "place_name": "name of the place",
+  "date": "YYYY-MM-DD or null if not visible",
+  "total": 0.00,
+  "items": [
+    { "name": "item name", "price": 0.00, "category": "one of: Restaurant, Fast Food, Coffee & Drinks, Parking, Entertainment, Shopping, Health & Beauty, Hotel, Transport, Other" }
+  ]
+}
+Total and price must be plain numbers only. No currency symbols.`
+                    }
+                ]
+            }]
+        });
+
+        const rawText = response.content[0].text;
+        const cleanText = rawText.replace(/```json\n?|\n?```/g, '').trim();
+        const receipt = JSON.parse(cleanText);
+
+        receipt.total = parseFloat(receipt.total) || 0;
+        const createdAt = new Date().toISOString();
+        const today = new Date().toISOString().split('T')[0];
+        const receiptDate = (receipt.date && receipt.date !== 'null' && receipt.date <= today) ? receipt.date : null;
+
+        const duplicate = await db.query(
+            `SELECT id FROM outing_items WHERE place_name = $1 AND date = $2 AND receipt_total = $3 LIMIT 1`,
+            [receipt.place_name, receiptDate, receipt.total]
+        );
+        if (duplicate.rows.length > 0) {
+            fs.unlinkSync(req.file.path);
+            return res.status(409).json({ error: 'This receipt has already been scanned.' });
+        }
+
+        for (const item of receipt.items) {
+            await db.query(
+                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
+            );
+        }
+
+        fs.unlinkSync(req.file.path);
+        res.json(receipt);
+    } catch (error) {
+        console.error('Outing upload error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/outings', async (req, res) => {
+    const result = await db.query(`
+        SELECT created_at, place_name, date, receipt_total
+        FROM outing_items
+        GROUP BY created_at, place_name, date, receipt_total
+        ORDER BY created_at DESC
+    `);
+    res.json(result.rows);
+});
+
+app.get('/outings/:created_at/items', async (req, res) => {
+    const result = await db.query(
+        `SELECT item_name, item_price, category FROM outing_items WHERE created_at = $1 ORDER BY id`,
+        [req.params.created_at]
+    );
+    res.json(result.rows);
+});
+
+app.delete('/outings/:created_at', async (req, res) => {
+    await db.query(`DELETE FROM outing_items WHERE created_at = $1`, [req.params.created_at]);
+    res.json({ success: true });
+});
+
+app.get('/stats/outings/categories', async (req, res) => {
+    const { from, to } = req.query;
+    const f = from && to;
+    const result = await db.query(`
+        SELECT category, ROUND(SUM(item_price)::numeric, 2) as total_spent, COUNT(*) as item_count
+        FROM outing_items
+        ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
+        GROUP BY category ORDER BY total_spent DESC
+    `, f ? [from, to] : []);
+    res.json(result.rows);
+});
+
+app.get('/stats/outings/places', async (req, res) => {
+    const { from, to } = req.query;
+    const f = from && to;
+    const result = await db.query(`
+        SELECT place_name, ROUND(SUM(receipt_total)::numeric, 2) as total_spent, COUNT(*) as visit_count
+        FROM (
+            SELECT place_name, created_at, MAX(receipt_total) as receipt_total
+            FROM outing_items
+            ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
+            GROUP BY place_name, created_at
+        ) t
+        GROUP BY place_name ORDER BY total_spent DESC
+    `, f ? [from, to] : []);
+    res.json(result.rows);
+});
+
+app.get('/stats/outings/monthly', async (req, res) => {
+    const result = await db.query(`
+        SELECT month, ROUND(SUM(receipt_total)::numeric, 2) as total_spent
+        FROM (
+            SELECT TO_CHAR(date::date, 'YYYY-MM') as month, created_at, MAX(receipt_total) as receipt_total
+            FROM outing_items
+            WHERE date IS NOT NULL
+            GROUP BY month, created_at
+        ) t
+        GROUP BY month ORDER BY month DESC
+    `);
+    res.json(result.rows);
 });
 
 app.listen(PORT, () => {
