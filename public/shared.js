@@ -53,7 +53,7 @@ function initSharedPage(activePage) {
         { id: 'home',          href: 'home.html',          label: 'Home' },
         { id: 'groceries',     href: 'index.html',         label: 'Groceries' },
         { id: 'outabout',      href: 'outabout.html',      label: 'Out & About' },
-        { id: 'fixed',         href: 'fixed.html',         label: 'Fixed Costs' },
+        { id: 'fixed',         href: 'fixed.html',         label: 'Home Costs' },
         { id: 'bills',         href: 'bills.html',         label: 'Bills' },
         { id: 'transport',     href: 'transport.html',     label: 'Transport' },
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
