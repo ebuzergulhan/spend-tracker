@@ -7,7 +7,7 @@ function formatDate(dateStr) {
 }
 
 function fmt(amount) {
-    return '£' + parseFloat(amount || 0).toFixed(2);
+    return '£' + parseFloat(amount || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Custom modal (replaces alert/confirm/prompt)
