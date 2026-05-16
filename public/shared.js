@@ -58,6 +58,7 @@ function initSharedPage(activePage) {
         { id: 'fuel',          href: 'fuel.html',          label: 'Fuel' },
         { id: 'transport',     href: 'transport.html',     label: 'Transport' },
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
+        { id: 'debts',         href: 'debts.html',         label: 'Debts' },
     ];
 
     const navHtml = navLinks.map(l =>

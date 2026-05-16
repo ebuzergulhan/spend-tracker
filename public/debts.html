@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debts</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .modal-animate { animation: modalIn 0.18s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="gradient-bg">
+        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold text-white">Debts</h1>
+                <p class="text-purple-200 text-sm mt-0.5">Tracking only — not included in home totals</p>
+            </div>
+            <div class="flex gap-2 flex-wrap overflow-x-auto" id="shared-nav"></div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 -mt-8">
+
+        <!-- Summary -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Remaining</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-remaining">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Original</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-original">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly Payments</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">—</p>
+            </div>
+        </div>
+
+        <!-- Add form -->
+        <div class="card p-6 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700 mb-4">Add a Debt</h2>
+            <form id="addForm" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-40">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
+                    <input type="text" id="f-name" placeholder="e.g. Turkish Ministry Loan" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Total Amount (£)</label>
+                    <input type="number" id="f-total" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Payment (£)</label>
+                    <input type="number" id="f-monthly" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">First Payment Date</label>
+                    <input type="date" id="f-start" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
+                    <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
+            </form>
+        </div>
+
+        <!-- Debt list -->
+        <div class="space-y-4 mb-6" id="debtList"></div>
+
+    </div>
+
+    <div class="h-12"></div>
+    <script src="shared.js"></script>
+    <script>
+        initSharedPage('debts');
+
+        let debts = [];
+
+        async function load() {
+            debts = await fetch('/debts').then(r => r.json());
+            render();
+        }
+
+        function calcDebt(d) {
+            const start    = new Date(d.start_date);
+            const now      = new Date();
+            const total    = parseFloat(d.total_amount);
+            const monthly  = parseFloat(d.monthly_payment);
+
+            // Number of payments made so far (inclusive of first month)
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            const paid     = Math.max(0, monthsElapsed + 1);
+            const paidAmt  = Math.min(paid * monthly, total);
+            const remaining = Math.max(0, total - paidAmt);
+            const totalPayments = Math.ceil(total / monthly);
+            const paymentsLeft  = Math.max(0, totalPayments - paid);
+            const pct      = Math.round(paidAmt / total * 100);
+
+            // Estimated finish date
+            const finishDate = new Date(start);
+            finishDate.setMonth(finishDate.getMonth() + totalPayments - 1);
+
+            return { paidAmt, remaining, totalPayments, paymentsLeft, pct, finishDate, done: remaining === 0 };
+        }
+
+        function render() {
+            let totalRemaining = 0, totalOriginal = 0, totalMonthly = 0;
+            debts.forEach(d => {
+                const c = calcDebt(d);
+                if (!c.done) totalMonthly += parseFloat(d.monthly_payment);
+                totalRemaining += c.remaining;
+                totalOriginal  += parseFloat(d.total_amount);
+            });
+
+            document.getElementById('stat-remaining').textContent = fmt(totalRemaining);
+            document.getElementById('stat-original').textContent  = fmt(totalOriginal);
+            document.getElementById('stat-monthly').textContent   = fmt(totalMonthly);
+
+            const el = document.getElementById('debtList');
+            if (!debts.length) {
+                el.innerHTML = '<div class="card p-6 text-center text-gray-400 text-sm">No debts added yet.</div>';
+                return;
+            }
+
+            el.innerHTML = debts.map(d => {
+                const c = calcDebt(d);
+                const finishStr = c.finishDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+                return `
+                    <div class="card p-6 ${c.done ? 'opacity-60' : ''}">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-semibold text-gray-800">${d.name}</h3>
+                                    ${c.done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Paid off!</span>' : ''}
+                                </div>
+                                ${d.notes ? `<p class="text-xs text-gray-400 mt-0.5">${d.notes}</p>` : ''}
+                            </div>
+                            <button onclick="deleteDebt(${d.id})" class="text-gray-300 hover:text-red-400 transition ml-4 shrink-0">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="mb-3">
+                            <div class="flex justify-between text-xs text-gray-400 mb-1.5">
+                                <span>${fmt(c.paidAmt)} paid of ${fmt(d.total_amount)}</span>
+                                <span>${c.pct}%</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2.5">
+                                <div class="h-2.5 rounded-full transition-all duration-700 ${c.done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${c.pct}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Stats row -->
+                        <div class="grid grid-cols-3 gap-4 mt-4">
+                            <div>
+                                <p class="text-xs text-gray-400">Remaining</p>
+                                <p class="text-base font-bold text-gray-800 mt-0.5">${fmt(c.remaining)}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Monthly payment</p>
+                                <p class="text-base font-bold text-gray-800 mt-0.5">${fmt(d.monthly_payment)}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">${c.done ? 'Finished' : 'Est. finish'}</p>
+                                <p class="text-base font-bold text-gray-800 mt-0.5">${finishStr}</p>
+                            </div>
+                        </div>
+                        ${!c.done ? `<p class="text-xs text-gray-400 mt-3">${c.paymentsLeft} payment${c.paymentsLeft !== 1 ? 's' : ''} left</p>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('addForm').onsubmit = async e => {
+            e.preventDefault();
+            await fetch('/debts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('f-name').value.trim(),
+                    total_amount: document.getElementById('f-total').value,
+                    monthly_payment: document.getElementById('f-monthly').value,
+                    start_date: document.getElementById('f-start').value,
+                    notes: document.getElementById('f-notes').value.trim() || null
+                })
+            });
+            e.target.reset();
+            load();
+        };
+
+        async function deleteDebt(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this debt?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/debts/' + id, { method: 'DELETE' });
+            load();
+        }
+
+        load();
+    </script>
+</body>
+</html>

@@ -358,6 +358,17 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS total_installments INTEGER`);
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS link TEXT`);
     await db.query(`
+        CREATE TABLE IF NOT EXISTS debts (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            total_amount NUMERIC(10,2) NOT NULL,
+            monthly_payment NUMERIC(10,2) NOT NULL,
+            start_date DATE NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    await db.query(`
         CREATE TABLE IF NOT EXISTS outing_items (
             id SERIAL PRIMARY KEY,
             date DATE,
@@ -525,6 +536,46 @@ app.get('/summary/home', async (req, res) => {
         fixed: recurringMap['fixed'] || 0,
         subscriptions: recurringMap['subscription'] || 0
     });
+});
+
+// ─── Debts ───────────────────────────────────────────────────────────────────
+
+app.get('/debts', async (req, res) => {
+    const result = await db.query('SELECT * FROM debts ORDER BY created_at DESC');
+    res.json(result.rows);
+});
+
+app.post('/debts', async (req, res) => {
+    try {
+        const { name, total_amount, monthly_payment, start_date, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO debts (name, total_amount, monthly_payment, start_date, notes)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.put('/debts/:id', async (req, res) => {
+    try {
+        const { name, total_amount, monthly_payment, start_date, notes } = req.body;
+        const result = await db.query(
+            `UPDATE debts SET name=$1, total_amount=$2, monthly_payment=$3, start_date=$4, notes=$5
+             WHERE id=$6 RETURNING *`,
+            [name, parseFloat(total_amount), parseFloat(monthly_payment), start_date, notes || null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/debts/:id', async (req, res) => {
+    await db.query('DELETE FROM debts WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
 });
 
 // ─── Out & About ─────────────────────────────────────────────────────────────
