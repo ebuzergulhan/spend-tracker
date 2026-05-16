@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -32,7 +32,7 @@
                 <h1 class="text-2xl font-bold text-white">Out &amp; About</h1>
                 <p class="text-purple-200 text-sm mt-0.5">Restaurants, coffee, parking &amp; more</p>
             </div>
-            <div class="flex gap-2 flex-wrap overflow-x-auto mb-4" id="shared-nav"></div>
+            <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
             <div class="flex gap-2">
                 <button onclick="showTab('upload')" id="tab-upload" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
                 <button onclick="showTab('history')" id="tab-history" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">History</button>
@@ -93,15 +93,15 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">â€”</p>
                 </div>
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Spent</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">â€”</p>
                 </div>
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Visits</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-visits">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-visits">â€”</p>
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -127,7 +127,7 @@
     <script>
         initSharedPage('outabout');
 
-        // ── Tab switching ──────────────────────────────────────────────────────
+        // â”€â”€ Tab switching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function showTab(name) {
             ['upload','history','stats'].forEach(t => {
                 document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
@@ -137,7 +137,7 @@
             if (name === 'stats')   loadStats();
         }
 
-        // ── Upload ─────────────────────────────────────────────────────────────
+        // â”€â”€ Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const fileInput = document.getElementById('receiptImage');
         fileInput.onchange = () => {
             const el = document.getElementById('fileName');
@@ -167,7 +167,7 @@
                 const content = document.getElementById('resultContent');
                 card.classList.remove('hidden');
                 content.innerHTML = `
-                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}</p>
+                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' Â· ' + formatDate(data.date) : ''} Â· ${fmt(data.total)}</p>
                     <div class="space-y-1">
                         ${(data.items || []).map(i => `
                             <div class="flex justify-between text-sm">
@@ -185,7 +185,7 @@
             }
         };
 
-        // ── History ────────────────────────────────────────────────────────────
+        // â”€â”€ History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let outings = [];
         let expandedOuting = null;
         const outingItemsCache = {};
@@ -262,7 +262,7 @@
             loadHistory();
         }
 
-        // ── Stats ──────────────────────────────────────────────────────────────
+        // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function loadStats() {
             const now = new Date();
             const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
@@ -322,3 +322,4 @@
     </script>
 </body>
 </html>
+

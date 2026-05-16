@@ -48,6 +48,11 @@ function showModal({ title = '', message = '', type = 'alert', inputDefault = ''
 }
 
 // Inject shared nav and modal HTML into the page
+// Hide scrollbar on nav (still scrollable, just invisible)
+const _navStyle = document.createElement('style');
+_navStyle.textContent = '#shared-nav::-webkit-scrollbar{display:none}#shared-nav{-ms-overflow-style:none;scrollbar-width:none}';
+document.head.appendChild(_navStyle);
+
 function initSharedPage(activePage) {
     const navLinks = [
         { id: 'home',          href: 'home.html',          label: 'Home' },

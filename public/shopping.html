@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -32,7 +32,7 @@
                 <h1 class="text-2xl font-bold text-white">Shopping</h1>
                 <p class="text-purple-200 text-sm mt-0.5">Amazon, IKEA, clothing &amp; online/in-store purchases</p>
             </div>
-            <div class="flex gap-2 flex-wrap overflow-x-auto mb-4" id="shared-nav"></div>
+            <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
             <div class="flex gap-2">
                 <button onclick="showTab('upload')" id="tab-upload" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
                 <button onclick="showTab('history')" id="tab-history" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">History</button>
@@ -93,15 +93,15 @@
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">â€”</p>
                 </div>
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Spent</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">â€”</p>
                 </div>
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Orders</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-orders">—</p>
+                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-orders">â€”</p>
                 </div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -134,7 +134,7 @@
                     <input type="text" id="if-name" placeholder="e.g. Samsung TV (Amazon)" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Payment (£)</label>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Payment (Â£)</label>
                     <input type="number" id="if-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-32">
@@ -179,7 +179,7 @@
             if (name === 'stats')   loadStats();
         }
 
-        // ── Upload ─────────────────────────────────────────────────────────────
+        // â”€â”€ Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const fileInput = document.getElementById('receiptImage');
         fileInput.onchange = () => {
             const el = document.getElementById('fileName');
@@ -209,7 +209,7 @@
                 const content = document.getElementById('resultContent');
                 card.classList.remove('hidden');
                 content.innerHTML = `
-                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}</p>
+                    <p class="text-sm text-gray-500 mb-3">${data.place_name}${data.date ? ' Â· ' + formatDate(data.date) : ''} Â· ${fmt(data.total)}</p>
                     <div class="space-y-1">
                         ${(data.items || []).map(i => `
                             <div class="flex justify-between text-sm">
@@ -227,7 +227,7 @@
             }
         };
 
-        // ── History ────────────────────────────────────────────────────────────
+        // â”€â”€ History â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let receipts = [];
         let expandedReceipt = null;
         const itemsCache = {};
@@ -304,7 +304,7 @@
             loadHistory();
         }
 
-        // ── Installments ───────────────────────────────────────────────────────
+        // â”€â”€ Installments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         let instItems = [];
         let instEditingId = null;
 
@@ -384,10 +384,10 @@
                                 ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
                                 ${i.link ? `<a href="${i.link}" target="_blank" rel="noopener" title="Open link" class="text-gray-300 hover:text-purple-500 transition" onclick="event.stopPropagation()"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>` : ''}
                             </div>
-                            <p class="text-xs text-gray-400 mt-0.5">Monthly${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">Monthly${i.start_date ? ' Â· from ' + formatDate(i.start_date) : ''}${i.notes ? ' Â· ' + i.notes : ''}</p>
                             <div class="mt-2">
                                 <div class="flex justify-between text-xs text-gray-400 mb-1">
-                                    <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                                    <span>${paid} of ${total} paid${done ? ' Â· <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
                                     <span>${remaining > 0 ? remaining + ' left' : ''}</span>
                                 </div>
                                 <div class="w-full bg-gray-100 rounded-full h-1.5">
@@ -447,7 +447,7 @@
 
         loadInst();
 
-        // ── Stats ──────────────────────────────────────────────────────────────
+        // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         async function loadStats() {
             const now = new Date();
             const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
@@ -513,3 +513,4 @@
     </script>
 </body>
 </html>
+

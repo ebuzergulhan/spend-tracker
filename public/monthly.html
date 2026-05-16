@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -34,7 +34,7 @@
                 <h1 class="text-2xl font-bold text-white">Monthly Report</h1>
                 <p class="text-purple-200 text-sm mt-0.5">Compare spending month by month across all categories</p>
             </div>
-            <div class="flex gap-2 flex-wrap overflow-x-auto" id="shared-nav"></div>
+            <div class="flex gap-2 overflow-x-auto" id="shared-nav"></div>
         </div>
     </div>
 
@@ -81,7 +81,7 @@
 
         function fmtCell(v) {
             const n = parseFloat(v) || 0;
-            if (n === 0) return '<span class="text-gray-300">—</span>';
+            if (n === 0) return '<span class="text-gray-300">â€”</span>';
             return '<span class="text-gray-700">' + fmt(n) + '</span>';
         }
 
@@ -194,3 +194,4 @@
     </script>
 </body>
 </html>
+
