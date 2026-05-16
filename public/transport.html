@@ -100,7 +100,60 @@
             <div id="recurring-list"></div>
         </div>
 
-        <!-- ── SECTION 2: One-off costs ───────────────────────────────────── -->
+        <!-- ── SECTION 2: Fuel ───────────────────────────────────────────────── -->
+        <div class="card p-6 mb-4">
+            <h2 class="text-base font-semibold text-gray-800 mb-1">Fuel</h2>
+            <p class="text-xs text-gray-400 mb-4">Log every fill-up with cost and litres</p>
+            <form id="fuelForm" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Station</label>
+                    <input type="text" id="fu-name" placeholder="e.g. BP Motorway" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-28">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
+                    <input type="number" id="fu-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-24">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Litres</label>
+                    <input type="number" id="fu-litres" step="0.01" min="0" placeholder="0.00" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
+                    <input type="date" id="fu-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-28">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
+                    <input type="text" id="fu-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
+            </form>
+        </div>
+
+        <div class="card p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-700">Fuel History</h3>
+                <select id="fuelYearFilter" onchange="loadFuel()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                    <option value="">All time</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div class="bg-gray-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-400">Spent (period)</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-spent">—</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-400">Litres (period)</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-litres">—</p>
+                </div>
+                <div class="bg-gray-50 rounded-xl p-3 text-center">
+                    <p class="text-xs text-gray-400">Avg p/litre</p>
+                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-ppl">—</p>
+                </div>
+            </div>
+            <div id="fuel-list"></div>
+        </div>
+
+        <!-- ── SECTION 3: One-off costs ───────────────────────────────────── -->
         <div class="card p-6 mb-4">
             <h2 class="text-base font-semibold text-gray-800 mb-1">One-off Costs</h2>
             <p class="text-xs text-gray-400 mb-4">MOT, services, repairs, tyres — logged as they happen</p>
@@ -144,9 +197,12 @@
 
         // ── Year filter setup ──────────────────────────────────────────────
         const now = new Date();
-        const yearSel = document.getElementById('yearFilter');
+        const yearSel     = document.getElementById('yearFilter');
+        const fuelYearSel = document.getElementById('fuelYearFilter');
         for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) {
-            yearSel.insertAdjacentHTML('beforeend', `<option value="${y}"${y === now.getFullYear() ? ' selected' : ''}>${y}</option>`);
+            const opt = `<option value="${y}"${y === now.getFullYear() ? ' selected' : ''}>${y}</option>`;
+            yearSel.insertAdjacentHTML('beforeend', opt);
+            fuelYearSel.insertAdjacentHTML('beforeend', opt);
         }
 
         // ── Helpers (same as fixed.html) ───────────────────────────────────
@@ -331,8 +387,74 @@
             loadOneoff();
         }
 
-        document.getElementById('o-date').value = new Date().toISOString().split('T')[0];
+        // ── Fuel section ───────────────────────────────────────────────────
+        async function loadFuel() {
+            const y    = fuelYearSel.value;
+            const from = y ? `${y}-01-01` : '';
+            const to   = y ? `${y}-12-31` : '';
+            const qs   = from ? `?category=fuel&from=${from}&to=${to}` : '?category=fuel';
+            const items = await fetch('/expense-log' + qs).then(r => r.json());
+
+            const totalSpent  = items.reduce((s, i) => s + parseFloat(i.amount), 0);
+            const totalLitres = items.reduce((s, i) => s + (parseFloat(i.litres) || 0), 0);
+            const ppl         = totalLitres > 0 ? (totalSpent / totalLitres * 100) : 0;
+
+            document.getElementById('fuel-stat-spent').textContent  = fmt(totalSpent);
+            document.getElementById('fuel-stat-litres').textContent  = totalLitres > 0 ? totalLitres.toFixed(1) + 'L' : '—';
+            document.getElementById('fuel-stat-ppl').textContent     = totalLitres > 0 ? ppl.toFixed(1) + 'p' : '—';
+
+            const el = document.getElementById('fuel-list');
+            if (!items.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No fuel logged yet.</p>'; return; }
+            el.innerHTML = items.map(i => {
+                const litresStr = i.litres ? ` · ${parseFloat(i.litres).toFixed(1)}L` : '';
+                const pplStr    = i.litres ? ` · ${(parseFloat(i.amount) / parseFloat(i.litres) * 100).toFixed(1)}p/L` : '';
+                return `
+                    <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-800">${i.name}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${litresStr}${pplStr}${i.notes ? ' · ' + i.notes : ''}</p>
+                        </div>
+                        <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
+                        <button onclick="deleteFuel(${i.id})" class="text-gray-300 hover:text-red-400 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('fuelForm').onsubmit = async e => {
+            e.preventDefault();
+            await fetch('/expense-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    category: 'fuel',
+                    name: document.getElementById('fu-name').value.trim(),
+                    amount: document.getElementById('fu-amount').value,
+                    litres: document.getElementById('fu-litres').value || null,
+                    date: document.getElementById('fu-date').value,
+                    notes: document.getElementById('fu-notes').value.trim() || null
+                })
+            });
+            e.target.reset();
+            document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
+            loadFuel();
+        };
+
+        async function deleteFuel(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this fuel entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/expense-log/' + id, { method: 'DELETE' });
+            loadFuel();
+        }
+
+        document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('o-date').value  = new Date().toISOString().split('T')[0];
         loadRecurring();
+        loadFuel();
         loadOneoff();
     </script>
 </body>

@@ -357,6 +357,7 @@ app.post('/manual', async (req, res) => {
     `);
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS total_installments INTEGER`);
     await db.query(`ALTER TABLE recurring_expenses ADD COLUMN IF NOT EXISTS link TEXT`);
+    await db.query(`ALTER TABLE expense_log ADD COLUMN IF NOT EXISTS litres NUMERIC(8,2)`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS debts (
             id SERIAL PRIMARY KEY,
@@ -455,11 +456,11 @@ app.get('/expense-log', async (req, res) => {
 
 app.post('/expense-log', async (req, res) => {
     try {
-        const { category, name, amount, date, notes } = req.body;
+        const { category, name, amount, date, notes, litres } = req.body;
         const result = await db.query(
-            `INSERT INTO expense_log (category, name, amount, date, notes)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [category, name, parseFloat(amount) || 0, date, notes || null]
+            `INSERT INTO expense_log (category, name, amount, date, notes, litres)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [category, name, parseFloat(amount) || 0, date, notes || null, litres ? parseFloat(litres) : null]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -492,7 +493,7 @@ app.get('/summary/home', async (req, res) => {
     const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-    const [groceries, outabout, logs, recurring] = await Promise.all([
+    const [groceries, outabout, logs, allRecurring] = await Promise.all([
         db.query(`
             SELECT ROUND(SUM(receipt_total)::numeric, 2) as total
             FROM (
@@ -517,22 +518,43 @@ app.get('/summary/home', async (req, res) => {
             WHERE date >= $1 AND date <= $2
             GROUP BY category
         `, [monthStart, monthEnd]),
-        db.query(`SELECT category, ROUND(SUM(amount)::numeric, 2) as total FROM recurring_expenses GROUP BY category`)
+        db.query(`SELECT * FROM recurring_expenses`)
     ]);
+
+    // Monthly equivalent per recurring item, skipping finished installments
+    function toMonthly(amount, freq) {
+        if (freq === 'annual')    return amount / 12;
+        if (freq === 'weekly')    return amount * 52 / 12;
+        if (freq === 'quarterly') return amount / 3;
+        return amount;
+    }
+    function freqMonths(freq) {
+        if (freq === 'annual')    return 12;
+        if (freq === 'quarterly') return 3;
+        if (freq === 'weekly')    return 1 / 4.33;
+        return 1;
+    }
+
+    const recurringMap = {};
+    allRecurring.rows.forEach(r => {
+        if (r.total_installments) {
+            const start = new Date(r.start_date);
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            const paid = Math.floor(monthsElapsed / freqMonths(r.frequency)) + 1;
+            if (paid >= parseInt(r.total_installments)) return; // finished, skip
+        }
+        recurringMap[r.category] = (recurringMap[r.category] || 0) + toMonthly(parseFloat(r.amount), r.frequency);
+    });
 
     const logMap = {};
     logs.rows.forEach(r => { logMap[r.category] = parseFloat(r.total) || 0; });
-
-    const recurringMap = {};
-    recurring.rows.forEach(r => { recurringMap[r.category] = parseFloat(r.total) || 0; });
 
     res.json({
         month: now.toLocaleString('en-GB', { month: 'long', year: 'numeric' }),
         groceries: parseFloat(groceries.rows[0]?.total) || 0,
         outabout: parseFloat(outabout.rows[0]?.total) || 0,
         bills: logMap['bill'] || 0,
-        fuel: logMap['fuel'] || 0,
-        transport: logMap['transport'] || 0,
+        transport: (recurringMap['transport'] || 0) + (logMap['transport'] || 0) + (logMap['fuel'] || 0),
         fixed: recurringMap['fixed'] || 0,
         subscriptions: recurringMap['subscription'] || 0
     });

@@ -55,7 +55,6 @@ function initSharedPage(activePage) {
         { id: 'outabout',      href: 'outabout.html',      label: 'Out & About' },
         { id: 'fixed',         href: 'fixed.html',         label: 'Fixed Costs' },
         { id: 'bills',         href: 'bills.html',         label: 'Bills' },
-        { id: 'fuel',          href: 'fuel.html',          label: 'Fuel' },
         { id: 'transport',     href: 'transport.html',     label: 'Transport' },
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
         { id: 'debts',         href: 'debts.html',         label: 'Debts' },
