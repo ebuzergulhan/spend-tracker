@@ -25,7 +25,7 @@
         <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
             <div class="mb-8">
                 <h1 class="text-2xl font-bold text-white">Transport</h1>
-                <p class="text-purple-200 text-sm mt-0.5">Insurance, MOT, services &amp; other vehicle costs</p>
+                <p class="text-purple-200 text-sm mt-0.5">Car loan, insurance, road tax &amp; one-off costs</p>
             </div>
             <div class="flex gap-2 flex-wrap overflow-x-auto" id="shared-nav"></div>
         </div>
@@ -33,50 +33,106 @@
 
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
-        <div class="grid grid-cols-2 gap-4 mb-6">
+        <!-- Summary -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
             <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Year</p>
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly (Recurring)</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">One-off This Year</p>
                 <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">—</p>
             </div>
             <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">All Time</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Installments Active</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-installments">—</p>
             </div>
         </div>
 
-        <!-- Add form -->
+        <!-- ── SECTION 1: Recurring ───────────────────────────────────────── -->
         <div class="card p-6 mb-4">
-            <h2 class="text-sm font-semibold text-gray-700 mb-4">Log Transport Cost</h2>
-            <form id="addForm" class="flex flex-wrap gap-3 items-end">
+            <h2 class="text-base font-semibold text-gray-800 mb-1">Recurring Costs</h2>
+            <p class="text-xs text-gray-400 mb-4">Car loan, insurance, road tax — monthly or fixed-term</p>
+            <form id="recurringForm" class="flex flex-wrap gap-3 items-end">
                 <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Description</label>
-                    <input type="text" id="f-name" placeholder="e.g. Car Insurance" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
+                    <input type="text" id="r-name" placeholder="e.g. Car Insurance" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-32">
                     <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
-                    <input type="number" id="f-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <input type="number" id="r-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
-                    <input type="date" id="f-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Frequency</label>
+                    <select id="r-frequency" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
+                        <option value="monthly">Monthly</option>
+                        <option value="annual">Annual</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="weekly">Weekly</option>
+                    </select>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
+                    <input type="date" id="r-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">No. of payments</label>
+                    <input type="number" id="r-installments" min="1" placeholder="e.g. 12" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <p class="text-xs text-gray-400 mt-1">Leave blank = ongoing</p>
                 </div>
                 <div class="flex-1 min-w-36">
                     <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
-                    <input type="text" id="f-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    <input type="text" id="r-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                 </div>
                 <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
             </form>
         </div>
 
-        <!-- List -->
+        <!-- Installment recurring -->
+        <div id="installments-section" class="hidden card p-6 mb-4">
+            <h3 class="text-sm font-semibold text-gray-700 mb-4">Fixed-Term Payments</h3>
+            <div id="installments-list"></div>
+        </div>
+
+        <!-- Ongoing recurring -->
+        <div class="card p-6 mb-6">
+            <h3 class="text-sm font-semibold text-gray-700 mb-4">Ongoing Recurring</h3>
+            <div id="recurring-list"></div>
+        </div>
+
+        <!-- ── SECTION 2: One-off costs ───────────────────────────────────── -->
+        <div class="card p-6 mb-4">
+            <h2 class="text-base font-semibold text-gray-800 mb-1">One-off Costs</h2>
+            <p class="text-xs text-gray-400 mb-4">MOT, services, repairs, tyres — logged as they happen</p>
+            <form id="oneoffForm" class="flex flex-wrap gap-3 items-end">
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Description</label>
+                    <input type="text" id="o-name" placeholder="e.g. MOT" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-32">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
+                    <input type="number" id="o-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
+                    <input type="date" id="o-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <div class="flex-1 min-w-36">
+                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
+                    <input type="text" id="o-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                </div>
+                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
+            </form>
+        </div>
+
         <div class="card p-6 mb-6">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-sm font-semibold text-gray-700">Cost History</h2>
-                <select id="yearFilter" onchange="load()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                <h3 class="text-sm font-semibold text-gray-700">One-off History</h3>
+                <select id="yearFilter" onchange="loadOneoff()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
                     <option value="">All time</option>
                 </select>
             </div>
-            <div id="list"></div>
+            <div id="oneoff-list"></div>
         </div>
 
     </div>
@@ -86,26 +142,154 @@
     <script>
         initSharedPage('transport');
 
+        // ── Year filter setup ──────────────────────────────────────────────
         const now = new Date();
         const yearSel = document.getElementById('yearFilter');
         for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) {
-            yearSel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
+            yearSel.insertAdjacentHTML('beforeend', `<option value="${y}"${y === now.getFullYear() ? ' selected' : ''}>${y}</option>`);
         }
-        yearSel.value = String(now.getFullYear());
 
-        async function load() {
-            const y = yearSel.value;
+        // ── Helpers (same as fixed.html) ───────────────────────────────────
+        function toMonthly(amount, freq) {
+            amount = parseFloat(amount) || 0;
+            if (freq === 'annual')    return amount / 12;
+            if (freq === 'weekly')    return amount * 52 / 12;
+            if (freq === 'quarterly') return amount / 3;
+            return amount;
+        }
+        function freqMonths(freq) {
+            if (freq === 'annual')    return 12;
+            if (freq === 'quarterly') return 3;
+            if (freq === 'weekly')    return 1 / 4.33;
+            return 1;
+        }
+        function paidCount(item) {
+            if (!item.start_date) return 0;
+            const start = new Date(item.start_date);
+            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+            return Math.max(0, Math.min(Math.floor(monthsElapsed / freqMonths(item.frequency)) + 1, item.total_installments));
+        }
+        function capitalise(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+        // ── Recurring section ──────────────────────────────────────────────
+        let recurringItems = [];
+
+        async function loadRecurring() {
+            recurringItems = await fetch('/recurring?category=transport').then(r => r.json());
+            renderRecurring();
+        }
+
+        function recurringRow(i, isInstallment) {
+            const paid  = isInstallment ? paidCount(i) : null;
+            const total = isInstallment ? parseInt(i.total_installments) : null;
+            const done  = isInstallment && paid >= total;
+            const pct   = isInstallment ? Math.round(paid / total * 100) : null;
+
+            const progressBar = isInstallment ? `
+                <div class="mt-2">
+                    <div class="flex justify-between text-xs text-gray-400 mb-1">
+                        <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
+                        <span>${total - paid > 0 ? (total - paid) + ' left' : ''}</span>
+                    </div>
+                    <div class="w-full bg-gray-100 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full transition-all duration-700 ${done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${pct}%"></div>
+                    </div>
+                </div>
+            ` : '';
+
+            return `
+                <div class="py-3 border-b border-gray-50 last:border-0 ${done ? 'opacity-50' : ''}">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-medium text-gray-800">${i.name}</p>
+                                ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
+                            ${progressBar}
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
+                            ${i.frequency !== 'monthly' ? `<p class="text-xs text-gray-400">${fmt(toMonthly(i.amount, i.frequency))}/mo</p>` : ''}
+                        </div>
+                        <button onclick="deleteRecurring(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-2 shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderRecurring() {
+            const installments = recurringItems.filter(i => i.total_installments);
+            const ongoing      = recurringItems.filter(i => !i.total_installments);
+            const active       = installments.filter(i => paidCount(i) < parseInt(i.total_installments));
+
+            const monthly = [
+                ...ongoing.map(i => toMonthly(i.amount, i.frequency)),
+                ...active.map(i => toMonthly(i.amount, i.frequency))
+            ].reduce((s, v) => s + v, 0);
+
+            document.getElementById('stat-monthly').textContent     = fmt(monthly);
+            document.getElementById('stat-installments').textContent = active.length;
+
+            const instSec  = document.getElementById('installments-section');
+            const instList = document.getElementById('installments-list');
+            if (installments.length) {
+                instSec.classList.remove('hidden');
+                instList.innerHTML = installments.map(i => recurringRow(i, true)).join('');
+            } else {
+                instSec.classList.add('hidden');
+            }
+
+            const el = document.getElementById('recurring-list');
+            el.innerHTML = ongoing.length
+                ? ongoing.map(i => recurringRow(i, false)).join('')
+                : '<p class="text-gray-400 text-sm text-center py-4">No ongoing recurring costs yet.</p>';
+        }
+
+        document.getElementById('recurringForm').onsubmit = async e => {
+            e.preventDefault();
+            const inst = document.getElementById('r-installments').value;
+            await fetch('/recurring', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: document.getElementById('r-name').value.trim(),
+                    category: 'transport',
+                    amount: document.getElementById('r-amount').value,
+                    frequency: document.getElementById('r-frequency').value,
+                    start_date: document.getElementById('r-start').value || null,
+                    notes: document.getElementById('r-notes').value.trim() || null,
+                    total_installments: inst ? parseInt(inst) : null
+                })
+            });
+            e.target.reset();
+            loadRecurring();
+        };
+
+        async function deleteRecurring(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this recurring cost?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/recurring/' + id, { method: 'DELETE' });
+            loadRecurring();
+        }
+
+        // ── One-off section ────────────────────────────────────────────────
+        async function loadOneoff() {
+            const y    = yearSel.value;
             const from = y ? `${y}-01-01` : '';
             const to   = y ? `${y}-12-31` : '';
             const qs   = from ? `?category=transport&from=${from}&to=${to}` : '?category=transport';
             const items = await fetch('/expense-log' + qs).then(r => r.json());
-            const allItems = await fetch('/expense-log?category=transport').then(r => r.json());
 
-            document.getElementById('stat-year').textContent  = fmt(items.reduce((s,i) => s + parseFloat(i.amount), 0));
-            document.getElementById('stat-total').textContent = fmt(allItems.reduce((s,i) => s + parseFloat(i.amount), 0));
+            const yearTotal = items.reduce((s, i) => s + parseFloat(i.amount), 0);
+            document.getElementById('stat-year').textContent = fmt(yearTotal);
 
-            const el = document.getElementById('list');
-            if (!items.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">No transport costs logged yet.</p>'; return; }
+            const el = document.getElementById('oneoff-list');
+            if (!items.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No one-off costs logged yet.</p>'; return; }
             el.innerHTML = items.map(i => `
                 <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
                     <div class="flex-1">
@@ -113,7 +297,7 @@
                         <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' · ' + i.notes : ''}</p>
                     </div>
                     <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
-                    <button onclick="deleteItem(${i.id})" class="text-gray-300 hover:text-red-400 transition">
+                    <button onclick="deleteOneoff(${i.id})" class="text-gray-300 hover:text-red-400 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
@@ -122,33 +306,34 @@
             `).join('');
         }
 
-        document.getElementById('addForm').onsubmit = async e => {
+        document.getElementById('oneoffForm').onsubmit = async e => {
             e.preventDefault();
             await fetch('/expense-log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     category: 'transport',
-                    name: document.getElementById('f-name').value.trim(),
-                    amount: document.getElementById('f-amount').value,
-                    date: document.getElementById('f-date').value,
-                    notes: document.getElementById('f-notes').value.trim() || null
+                    name: document.getElementById('o-name').value.trim(),
+                    amount: document.getElementById('o-amount').value,
+                    date: document.getElementById('o-date').value,
+                    notes: document.getElementById('o-notes').value.trim() || null
                 })
             });
             e.target.reset();
-            document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
-            load();
+            document.getElementById('o-date').value = new Date().toISOString().split('T')[0];
+            loadOneoff();
         };
 
-        async function deleteItem(id) {
+        async function deleteOneoff(id) {
             const ok = await showModal({ title: 'Delete', message: 'Remove this entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
             if (!ok) return;
             await fetch('/expense-log/' + id, { method: 'DELETE' });
-            load();
+            loadOneoff();
         }
 
-        document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
-        load();
+        document.getElementById('o-date').value = new Date().toISOString().split('T')[0];
+        loadRecurring();
+        loadOneoff();
     </script>
 </body>
 </html>
