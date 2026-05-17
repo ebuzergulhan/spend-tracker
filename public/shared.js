@@ -1,5 +1,25 @@
 // Shared utilities for all pages
 
+// PWA: register service worker + inject meta tags on every page
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+}
+(function() {
+    const H = document.head;
+    [
+        ['link', { rel: 'manifest', href: '/manifest.json' }],
+        ['meta', { name: 'theme-color', content: '#667eea' }],
+        ['meta', { name: 'apple-mobile-web-app-capable', content: 'yes' }],
+        ['meta', { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }],
+        ['meta', { name: 'apple-mobile-web-app-title', content: 'Spend Tracker' }],
+        ['link', { rel: 'apple-touch-icon', href: '/icon.svg' }],
+    ].forEach(([tag, attrs]) => {
+        const el = document.createElement(tag);
+        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+        H.appendChild(el);
+    });
+})();
+
 function formatDate(dateStr) {
     if (!dateStr) return '';
     const d = new Date(dateStr.split('T')[0] + 'T12:00:00');
