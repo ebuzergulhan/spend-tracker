@@ -963,10 +963,10 @@ app.get('/stats/shopping/places', async (req, res) => {
 
 app.get('/report/monthly', async (req, res) => {
     const [grocRows, outRows, shopRows, logRows, recurRows] = await Promise.all([
-        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM items WHERE date IS NOT NULL GROUP BY m,created_at`),
-        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM outing_items WHERE date IS NOT NULL GROUP BY m,created_at`),
-        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM shopping_items WHERE date IS NOT NULL GROUP BY m,created_at`),
-        db.query(`SELECT TO_CHAR(date,'YYYY-MM') m, category, SUM(amount) t FROM expense_log WHERE date IS NOT NULL GROUP BY m,category`),
+        db.query(`SELECT TO_CHAR(date::date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date::date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM outing_items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date::date,'YYYY-MM') m, created_at, MAX(receipt_total) t FROM shopping_items WHERE date IS NOT NULL GROUP BY m,created_at`),
+        db.query(`SELECT TO_CHAR(date::date,'YYYY-MM') m, category, SUM(amount) t FROM expense_log WHERE date IS NOT NULL GROUP BY m,category`),
         db.query(`SELECT * FROM recurring_expenses`)
     ]);
 

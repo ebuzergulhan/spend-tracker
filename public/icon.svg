@@ -5,8 +5,16 @@
       <stop offset="100%" stop-color="#764ba2"/>
     </linearGradient>
   </defs>
+  <!-- Background -->
   <rect width="512" height="512" fill="url(#g)"/>
-  <text x="256" y="348" text-anchor="middle"
-        font-family="Georgia, 'Times New Roman', serif"
-        font-size="290" font-weight="bold" fill="white" opacity="0.95">£</text>
+  <!-- £ symbol drawn as strokes (no font dependency) -->
+  <!-- Main curved stroke: top curl curving down to base -->
+  <path d="M 348,172 C 340,100 294,74 252,76 C 188,79 158,128 158,192 L 158,404"
+        stroke="white" stroke-width="54" stroke-linecap="round" fill="none"/>
+  <!-- Crossbar -->
+  <line x1="122" y1="272" x2="312" y2="272"
+        stroke="white" stroke-width="50" stroke-linecap="round"/>
+  <!-- Base -->
+  <line x1="122" y1="404" x2="378" y2="404"
+        stroke="white" stroke-width="50" stroke-linecap="round"/>
 </svg>
