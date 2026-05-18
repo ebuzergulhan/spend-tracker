@@ -388,6 +388,12 @@ app.get('/export/csv', async (req, res) => {
 
 // Delete a receipt by created_at
 app.delete('/receipts/:created_at', async (req, res) => {
+    const imgRow = await db.query(`SELECT receipt_image FROM items WHERE created_at = $1 LIMIT 1`, [req.params.created_at]);
+    const imageFile = imgRow.rows[0]?.receipt_image;
+    if (imageFile) {
+        const fp = `uploads/receipts/${imageFile}`;
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    }
     await db.query(`DELETE FROM items WHERE created_at = $1`, [req.params.created_at]);
     res.json({ success: true });
 });
