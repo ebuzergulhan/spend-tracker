@@ -34,9 +34,9 @@
             </div>
             <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
             <div class="flex gap-2">
-                <button onclick="showTab('upload')" id="tab-upload" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
+                <button onclick="showTab('upload')" id="tab-upload" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">Upload</button>
                 <button onclick="showTab('history')" id="tab-history" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">History</button>
-                <button onclick="showTab('stats')" id="tab-stats" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition">Stats</button>
+                <button onclick="showTab('stats')" id="tab-stats" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition">Dashboard</button>
             </div>
         </div>
     </div>
@@ -44,7 +44,7 @@
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
         <!-- Upload Tab -->
-        <div id="page-upload">
+        <div id="page-upload" class="hidden">
             <div class="card p-8 max-w-lg mx-auto">
                 <h2 class="text-lg font-semibold text-gray-800 mb-6">Scan a Receipt</h2>
                 <form id="uploadForm">
@@ -89,7 +89,7 @@
         </div>
 
         <!-- Stats Tab -->
-        <div id="page-stats" class="hidden">
+        <div id="page-stats">
             <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div class="card p-4">
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
@@ -178,6 +178,8 @@
             if (name === 'history') loadHistory();
             if (name === 'stats')   loadStats();
         }
+
+        loadStats();
 
         // â”€â”€ Upload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const fileInput = document.getElementById('receiptImage');

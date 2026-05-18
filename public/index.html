@@ -39,9 +39,9 @@
             <div class="flex gap-2 overflow-x-auto mb-3" id="shared-nav"></div>
             <!-- Tab nav -->
             <div class="flex gap-2 flex-wrap">
-                <button onclick="showTab('upload')" id="tab-upload" class="nav-btn active px-5 py-2 rounded-full text-sm font-medium">Upload</button>
+                <button onclick="showTab('upload')" id="tab-upload" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Upload</button>
                 <button onclick="showTab('manual')" id="tab-manual" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Manual Entry</button>
-                <button onclick="showTab('dashboard')" id="tab-dashboard" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Dashboard</button>
+                <button onclick="showTab('dashboard')" id="tab-dashboard" class="nav-btn active px-5 py-2 rounded-full text-sm font-medium">Dashboard</button>
                 <button onclick="showTab('history')" id="tab-history" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">History</button>
             </div>
         </div>
@@ -51,7 +51,7 @@
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
         <!-- Upload Tab -->
-        <div id="page-upload">
+        <div id="page-upload" class="hidden">
             <div class="card p-8 max-w-lg mx-auto">
                 <h2 class="text-lg font-semibold text-gray-800 mb-6">Scan a Receipt</h2>
                 <form id="uploadForm">
@@ -117,7 +117,7 @@
         </div>
 
         <!-- Dashboard Tab -->
-        <div id="page-dashboard" class="hidden">
+        <div id="page-dashboard">
             <div class="flex justify-end mb-4">
                 <select id="dashPeriod" onchange="setDashboardPeriod(this.value)" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400 bg-white shadow-sm">
                     <option value="all">All Time</option>
@@ -239,7 +239,7 @@
 
     <script src="shared.js"></script>
     <script src="app.js"></script>
-    <script>initSharedPage('groceries');</script>
+    <script>initSharedPage('groceries'); loadDashboard();</script>
 </body>
 </html>
 

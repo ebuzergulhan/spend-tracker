@@ -22,6 +22,7 @@ const db = new Pool({
 });
 
 
+app.get('/', (req, res) => res.redirect('/home.html'));
 app.use(express.static('public'));
 // Serve debt docs with original filename so browser can display/download correctly
 const MIME = { '.pdf':'application/pdf', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.png':'image/png', '.doc':'application/msword', '.docx':'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
@@ -802,6 +803,13 @@ app.get('/debts/:id/actual-payments', async (req, res) => {
 app.post('/debts/:id/actual-payments', paymentReceiptUpload.single('receipt'), async (req, res) => {
     try {
         const { payment_date, amount_try, amount_gbp, notes } = req.body;
+        let receiptOriginalName = null;
+        if (req.file) {
+            const debtRow = await db.query(`SELECT payment_currency FROM debts WHERE id = $1`, [req.params.id]);
+            const currency = debtRow.rows[0]?.payment_currency || 'GBP';
+            const ext = path.extname(req.file.originalname).toLowerCase();
+            receiptOriginalName = `${payment_date}_${currency}_receipt${ext}`;
+        }
         const result = await db.query(
             `INSERT INTO debt_actual_payments (debt_id, payment_date, amount_try, amount_gbp, notes, receipt_filename, receipt_original_name)
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -810,7 +818,39 @@ app.post('/debts/:id/actual-payments', paymentReceiptUpload.single('receipt'), a
              parseFloat(amount_gbp),
              notes || null,
              req.file ? req.file.filename : null,
-             req.file ? req.file.originalname : null]
+             receiptOriginalName]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/debt-actual-payments/:id', paymentReceiptUpload.single('receipt'), async (req, res) => {
+    try {
+        const { payment_date, amount_try, amount_gbp, notes, remove_file } = req.body;
+        const existing = await db.query(`SELECT * FROM debt_actual_payments WHERE id = $1`, [req.params.id]);
+        if (!existing.rows[0]) return res.status(404).json({ error: 'Not found' });
+
+        let receiptFilename = existing.rows[0].receipt_filename;
+        let receiptOriginalName = existing.rows[0].receipt_original_name;
+
+        if ((remove_file === 'true' || req.file) && receiptFilename) {
+            const fp = `uploads/debt-receipts/${receiptFilename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+            receiptFilename = null;
+            receiptOriginalName = null;
+        }
+
+        if (req.file) {
+            const debtRow = await db.query(`SELECT payment_currency FROM debts WHERE id = (SELECT debt_id FROM debt_actual_payments WHERE id = $1)`, [req.params.id]);
+            const currency = debtRow.rows[0]?.payment_currency || 'GBP';
+            const ext = path.extname(req.file.originalname).toLowerCase();
+            receiptFilename = req.file.filename;
+            receiptOriginalName = `${payment_date}_${currency}_receipt${ext}`;
+        }
+
+        const result = await db.query(
+            `UPDATE debt_actual_payments SET payment_date=$1, amount_try=$2, amount_gbp=$3, notes=$4, receipt_filename=$5, receipt_original_name=$6 WHERE id=$7 RETURNING *`,
+            [payment_date, amount_try ? parseFloat(amount_try) : null, parseFloat(amount_gbp), notes || null, receiptFilename, receiptOriginalName, req.params.id]
         );
         res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
