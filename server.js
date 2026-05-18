@@ -131,10 +131,12 @@ Total and price must be plain numbers only. No currency symbols. quantity is the
         }
 
         for (const item of receipt.items) {
+            const qty = parseFloat(item.quantity) || 1;
+            const linePrice = parseFloat(item.price) || 0;
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [receiptDate, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receipt.total, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [receiptDate, receipt.shop_name, item.category, item.name, linePrice, qty, qty > 0 ? linePrice / qty : linePrice, receipt.total, createdAt]
             );
         }
 
@@ -253,7 +255,7 @@ app.get('/receipts', async (req, res) => {
 // Get all items for a single receipt
 app.get('/receipts/:created_at/items', async (req, res) => {
     const result = await db.query(
-        `SELECT item_name, item_price, quantity, category FROM items WHERE created_at = $1 ORDER BY id`,
+        `SELECT id, item_name, item_price, quantity, unit_price, category FROM items WHERE created_at = $1 ORDER BY id`,
         [req.params.created_at]
     );
     res.json(result.rows);
@@ -269,10 +271,13 @@ app.put('/receipts/:created_at', async (req, res) => {
         await db.query(`DELETE FROM items WHERE created_at = $1`, [createdAt]);
 
         for (const item of items) {
+            const qty = parseFloat(item.quantity) || 1;
+            const linePrice = parseFloat(item.price) || 0;
+            const unitPrice = item.unit_price != null ? parseFloat(item.unit_price) : (qty > 0 ? linePrice / qty : linePrice);
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [date || null, shop_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receiptTotal, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [date || null, shop_name, item.category, item.name, linePrice, qty, unitPrice, receiptTotal, createdAt]
             );
         }
         res.json({ success: true });
@@ -464,6 +469,7 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
     await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
     await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
+    await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,

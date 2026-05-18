@@ -28,36 +28,44 @@
         <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
             <div class="mb-6">
                 <h1 class="text-2xl font-bold text-white">Upcoming Payments</h1>
-                <p class="text-purple-200 text-sm mt-0.5">All scheduled payments by month</p>
+                <p class="text-purple-200 text-sm mt-0.5">Scheduled payments &amp; month overview</p>
             </div>
             <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
             <div class="flex gap-2">
-                <button onclick="showTab('this')" id="tab-this" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition" id="tab-this-month"></button>
-                <button onclick="showTab('next')" id="tab-next" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition" id="tab-next-month"></button>
+                <button onclick="showTab('this')" id="tab-this" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition"></button>
+                <button onclick="showTab('next')" id="tab-next" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition"></button>
             </div>
         </div>
     </div>
 
     <div class="max-w-5xl mx-auto px-6 -mt-8">
 
-        <!-- Summary cards -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Due</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
-            </div>
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Paid / Past</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-paid">—</p>
-            </div>
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Still Due</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-remaining">—</p>
+        <!-- Grand total card -->
+        <div class="card p-6 mb-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-500" id="total-label">Total this month</p>
+                    <p class="text-3xl font-bold text-gray-800 mt-1" id="grand-total">—</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-gray-400">Recurring due</p>
+                    <p class="text-lg font-bold text-purple-600 mt-0.5" id="recurring-total">—</p>
+                </div>
             </div>
         </div>
 
-        <!-- Payments list -->
+        <!-- Month breakdown (expandable categories) -->
+        <div class="card mb-4 overflow-hidden">
+            <div class="px-6 pt-5 pb-3 border-b border-gray-50">
+                <h3 class="text-sm font-semibold text-gray-700">Month Breakdown</h3>
+            </div>
+            <div id="breakdown-list"></div>
+        </div>
+
+        <!-- Recurring payment schedule -->
         <div class="card p-6 mb-6">
+            <h3 class="text-sm font-semibold text-gray-700 mb-1">Payment Schedule</h3>
+            <p class="text-xs text-gray-400 mb-4">Recurring items sorted by due date</p>
             <div id="payments-list">
                 <p class="text-gray-400 text-sm text-center py-8">Loading...</p>
             </div>
@@ -73,14 +81,24 @@
         const today = new Date();
         today.setHours(12, 0, 0, 0);
         let currentTab = 'this';
+        let expandedCat = null;
+
+        const SECTIONS = [
+            { key: 'groceries',     label: 'Groceries',     color: '#667eea', href: 'index.html',         type: 'actual' },
+            { key: 'outabout',      label: 'Out & About',   color: '#f97316', href: 'outabout.html',       type: 'actual' },
+            { key: 'fixed',         label: 'Home Costs',    color: '#f59e0b', href: 'fixed.html',          type: 'recurring', cat: 'fixed' },
+            { key: 'bills',         label: 'Bills',         color: '#10b981', href: 'bills.html',          type: 'actual' },
+            { key: 'transport',     label: 'Transport',     color: '#3b82f6', href: 'transport.html',      type: 'recurring', cat: 'transport' },
+            { key: 'subscriptions', label: 'Subscriptions', color: '#8b5cf6', href: 'subscriptions.html',  type: 'recurring', cat: 'subscription' },
+            { key: 'shopping',      label: 'Shopping',      color: '#ec4899', href: 'shopping.html',       type: 'actual' },
+        ];
 
         const CAT_COLORS = {
-            fixed:         { bg: 'bg-amber-50',   text: 'text-amber-600',   label: 'Home Costs' },
-            bills:         { bg: 'bg-green-50',    text: 'text-green-600',   label: 'Bills' },
-            transport:     { bg: 'bg-blue-50',     text: 'text-blue-600',    label: 'Transport' },
-            subscriptions: { bg: 'bg-purple-50',   text: 'text-purple-600',  label: 'Subscriptions' },
-            shopping:      { bg: 'bg-pink-50',     text: 'text-pink-600',    label: 'Shopping' },
-            debt:          { bg: 'bg-red-50',      text: 'text-red-500',     label: 'Debt' },
+            fixed:        { bg: 'bg-amber-50',  text: 'text-amber-600',  label: 'Home Costs' },
+            bills:        { bg: 'bg-green-50',  text: 'text-green-600',  label: 'Bills' },
+            transport:    { bg: 'bg-blue-50',   text: 'text-blue-600',   label: 'Transport' },
+            subscription: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'Subscriptions' },
+            shopping:     { bg: 'bg-pink-50',   text: 'text-pink-600',   label: 'Shopping' },
         };
 
         function monthLabel(year, month) {
@@ -92,8 +110,7 @@
             return { year: d.getFullYear(), month: d.getMonth() + 1 };
         }
 
-        // Compute all payments due in a given year/month from recurring_expenses + debts
-        function computePayments(recurring, debts, year, month) {
+        function computePayments(recurring, year, month) {
             const payments = [];
             const daysInMonth = new Date(year, month, 0).getDate();
 
@@ -107,27 +124,24 @@
                 const dueDay     = start.getDate();
                 const freq       = item.frequency || 'monthly';
 
-                // Has this item started by this month?
                 if (year < startYear || (year === startYear && month < startMonth)) return;
 
-                // Is it still active (installment plans)?
                 if (item.total_installments) {
                     const monthsElapsed = (year - startYear) * 12 + (month - startMonth);
                     if (monthsElapsed >= parseInt(item.total_installments)) return;
                 }
 
                 let isDue = false;
-                let dueDays = []; // for weekly
+                let dueDays = [];
 
                 if (freq === 'monthly') {
                     isDue = true;
                 } else if (freq === 'annual') {
-                    isDue = (start.getMonth() + 1 === month);
+                    isDue = (start.getMonth() + 1 === month && start.getFullYear() <= year);
                 } else if (freq === 'quarterly') {
                     const diff = (year - startYear) * 12 + (month - startMonth);
                     isDue = diff >= 0 && diff % 3 === 0;
                 } else if (freq === 'weekly') {
-                    // Find all occurrences in this month
                     const startOfMonth = new Date(year, month - 1, 1);
                     const endOfMonth   = new Date(year, month - 1, daysInMonth);
                     let d = new Date(start);
@@ -138,60 +152,47 @@
                 }
 
                 if (freq === 'weekly') {
-                    dueDays.forEach(day => {
-                        payments.push(makePayment(item.name, item.category, parseFloat(item.amount), day, year, month));
-                    });
+                    dueDays.forEach(day => payments.push(makePayment(item, day, year, month)));
                 } else if (isDue) {
-                    const day = Math.min(dueDay, daysInMonth);
-                    payments.push(makePayment(item.name, item.category, parseFloat(item.amount), day, year, month));
+                    payments.push(makePayment(item, Math.min(dueDay, daysInMonth), year, month));
                 }
-            });
-
-            // Debts — use monthly_payment + start_date day
-            debts.forEach(d => {
-                if (!d.start_date || !d.monthly_payment) return;
-                const remaining = parseFloat(d.total_amount) - (parseFloat(d.actual_paid_gbp) || 0);
-                if (remaining <= 0.01) return; // paid off
-
-                const start = new Date((typeof d.start_date === 'string' ? d.start_date.split('T')[0] : d.start_date.toISOString().split('T')[0]) + 'T12:00:00');
-                const startYear  = start.getFullYear();
-                const startMonth = start.getMonth() + 1;
-                if (year < startYear || (year === startYear && month < startMonth)) return;
-
-                const dueDay = start.getDate();
-                const day    = Math.min(dueDay, daysInMonth);
-                payments.push(makePayment(d.name, 'debt', parseFloat(d.monthly_payment), day, year, month));
             });
 
             return payments.sort((a, b) => a.day - b.day);
         }
 
-        function makePayment(name, category, amount, day, year, month) {
-            const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-            const date    = new Date(dateStr + 'T12:00:00');
-            const diffMs  = date - today;
-            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-            return { name, category, amount, day, dateStr, date, diffDays };
+        function makePayment(item, day, year, month) {
+            const dateStr  = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const date     = new Date(dateStr + 'T12:00:00');
+            const diffDays = Math.round((date - today) / 86400000);
+            return { name: item.name, category: item.category, amount: parseFloat(item.amount), day, dateStr, date, diffDays };
+        }
+
+        // Recurring monthly equivalent for a given year/month
+        function recurringTotalForMonth(recurring, year, month) {
+            return computePayments(recurring, year, month).reduce((s, p) => s + p.amount, 0);
         }
 
         let allRecurring = [];
-        let allDebts = [];
+        let homeData = null;
 
         async function load() {
-            allRecurring = await fetch('/recurring').then(r => r.json());
-            allDebts = [];
-
-            // Set tab labels
             const thisM = getMonthBounds(0);
             const nextM = getMonthBounds(1);
             document.getElementById('tab-this').textContent = monthLabel(thisM.year, thisM.month);
             document.getElementById('tab-next').textContent = monthLabel(nextM.year, nextM.month);
+
+            [allRecurring, homeData] = await Promise.all([
+                fetch('/recurring').then(r => r.json()),
+                fetch('/summary/home').then(r => r.json())
+            ]);
 
             renderTab();
         }
 
         function showTab(name) {
             currentTab = name;
+            expandedCat = null;
             document.getElementById('tab-this').classList.toggle('active', name === 'this');
             document.getElementById('tab-next').classList.toggle('active', name === 'next');
             renderTab();
@@ -200,32 +201,111 @@
         function renderTab() {
             const offset = currentTab === 'this' ? 0 : 1;
             const { year, month } = getMonthBounds(offset);
-            const payments = computePayments(allRecurring, allDebts, year, month);
-            renderPayments(payments, year, month);
+            const isThisMonth = offset === 0;
+            const payments = computePayments(allRecurring, year, month);
+            renderBreakdown(isThisMonth, year, month, payments);
+            renderPayments(payments, isThisMonth);
         }
 
-        function renderPayments(payments, year, month) {
-            const isThisMonth = (year === today.getFullYear() && month === today.getMonth() + 1);
-
-            let totalDue = 0, totalPast = 0;
-            payments.forEach(p => {
-                totalDue += p.amount;
-                if (isThisMonth && p.diffDays < 0) totalPast += p.amount;
+        function renderBreakdown(isThisMonth, year, month, payments) {
+            // Build per-category totals
+            const recurringBySection = {};
+            SECTIONS.forEach(s => {
+                if (s.type === 'recurring') {
+                    recurringBySection[s.key] = payments
+                        .filter(p => p.category === s.cat)
+                        .reduce((sum, p) => sum + p.amount, 0);
+                }
             });
-            const stillDue = totalDue - totalPast;
 
-            document.getElementById('stat-total').textContent    = fmt(totalDue);
-            document.getElementById('stat-paid').textContent     = fmt(totalPast);
-            document.getElementById('stat-remaining').textContent = fmt(stillDue);
+            const values = {
+                groceries:     isThisMonth ? (homeData?.groceries || 0) : 0,
+                outabout:      isThisMonth ? (homeData?.outabout   || 0) : 0,
+                fixed:         recurringBySection.fixed         || 0,
+                bills:         isThisMonth ? (homeData?.bills     || 0) : 0,
+                transport:     recurringBySection.transport     || 0,
+                subscriptions: recurringBySection.subscriptions || 0,
+                shopping:      isThisMonth ? (homeData?.shopping  || 0) : 0,
+            };
 
+            const recurringDue = payments.reduce((s, p) => s + p.amount, 0);
+            const grandTotal   = Object.values(values).reduce((s, v) => s + v, 0);
+
+            document.getElementById('grand-total').textContent   = fmt(grandTotal);
+            document.getElementById('recurring-total').textContent = fmt(recurringDue);
+            document.getElementById('total-label').textContent   =
+                isThisMonth ? 'Total this month (actual + recurring)' : 'Recurring total next month';
+
+            const maxVal = Math.max(...Object.values(values), 1);
+
+            const html = SECTIONS.map(s => {
+                const val     = values[s.key] || 0;
+                const pct     = (val / maxVal * 100).toFixed(1);
+                const isOpen  = expandedCat === s.key;
+                const isEmpty = val === 0;
+
+                // Sub-items for recurring categories
+                let subItems = '';
+                if (isOpen && s.type === 'recurring') {
+                    const items = allRecurring.filter(r => r.category === s.cat);
+                    const activeItems = items.filter(r => {
+                        if (!r.start_date) return false;
+                        const start = new Date(r.start_date.split('T')[0] + 'T12:00:00');
+                        const sy = start.getFullYear(), sm = start.getMonth() + 1;
+                        if (year < sy || (year === sy && month < sm)) return false;
+                        if (r.total_installments) {
+                            const elapsed = (year - sy) * 12 + (month - sm);
+                            if (elapsed >= parseInt(r.total_installments)) return false;
+                        }
+                        return true;
+                    });
+                    subItems = `<div class="bg-gray-50 px-6 py-3 space-y-2 border-t border-gray-100">
+                        ${activeItems.length ? activeItems.map(r => `
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-gray-600">${r.name}</span>
+                                <span class="font-medium text-gray-700">${fmt(r.amount)}<span class="text-xs text-gray-400 font-normal">/${r.frequency === 'annual' ? 'yr' : r.frequency === 'quarterly' ? 'qtr' : 'mo'}</span></span>
+                            </div>`).join('')
+                        : '<p class="text-xs text-gray-400">No active items this month.</p>'}
+                    </div>`;
+                } else if (isOpen && s.type === 'actual') {
+                    subItems = `<div class="bg-gray-50 px-6 py-3 border-t border-gray-100">
+                        <a href="${s.href}" class="text-sm text-purple-600 hover:text-purple-800 font-medium">View ${s.label} →</a>
+                        ${!isThisMonth ? '<p class="text-xs text-gray-400 mt-1">Actual spending shown for current month only.</p>' : ''}
+                    </div>`;
+                }
+
+                return `
+                    <div class="border-b border-gray-50 last:border-0">
+                        <div class="flex items-center gap-4 px-6 py-3.5 cursor-pointer hover:bg-gray-50 transition" onclick="toggleCat('${s.key}')">
+                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${s.color}"></div>
+                            <span class="text-sm text-gray-700 w-32 shrink-0">${s.label}</span>
+                            <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                                <div class="h-1.5 rounded-full transition-all duration-500" style="width:${isEmpty ? 0 : pct}%; background:${s.color}"></div>
+                            </div>
+                            <span class="text-sm font-semibold text-gray-800 w-20 text-right">${isEmpty ? '—' : fmt(val)}</span>
+                            <svg class="w-4 h-4 text-gray-300 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        ${subItems}
+                    </div>`;
+            }).join('');
+
+            document.getElementById('breakdown-list').innerHTML = html;
+        }
+
+        function toggleCat(key) {
+            expandedCat = expandedCat === key ? null : key;
+            renderTab();
+        }
+
+        function renderPayments(payments, isThisMonth) {
             if (!payments.length) {
-                document.getElementById('payments-list').innerHTML = '<p class="text-gray-400 text-sm text-center py-8">No scheduled payments found.</p>';
+                document.getElementById('payments-list').innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No recurring payments found.</p>';
                 return;
             }
 
             const html = payments.map(p => {
-                const col   = CAT_COLORS[p.category] || { bg: 'bg-gray-50', text: 'text-gray-500', label: p.category };
-                const isPast = isThisMonth && p.diffDays < 0;
+                const col     = CAT_COLORS[p.category] || { bg: 'bg-gray-50', text: 'text-gray-500', label: p.category };
+                const isPast  = isThisMonth && p.diffDays < 0;
                 const isToday = p.diffDays === 0;
                 const isSoon  = p.diffDays > 0 && p.diffDays <= 3;
 
@@ -235,14 +315,13 @@
                 else if (isPast)  urgencyBadge = `<span class="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Past</span>`;
                 else if (isThisMonth) urgencyBadge = `<span class="text-xs text-gray-400">In ${p.diffDays}d</span>`;
 
-                const d = new Date(p.dateStr + 'T12:00:00');
-                const dateLabel = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                const dateLabel = p.date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
                 return `
                     <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0 ${isPast ? 'opacity-40' : ''}">
                         <div class="w-12 h-12 rounded-xl ${isToday ? 'gradient-bg' : isPast ? 'bg-gray-100' : isSoon ? 'bg-orange-50' : 'bg-gray-50'} flex flex-col items-center justify-center shrink-0">
                             <span class="text-lg font-bold ${isToday ? 'text-white' : isPast ? 'text-gray-400' : isSoon ? 'text-orange-600' : 'text-gray-700'} leading-none">${p.day}</span>
-                            <span class="text-xs ${isToday ? 'text-white opacity-80' : 'text-gray-400'}">${d.toLocaleString('en-GB',{month:'short'})}</span>
+                            <span class="text-xs ${isToday ? 'text-white opacity-80' : 'text-gray-400'}">${p.date.toLocaleString('en-GB',{month:'short'})}</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
@@ -253,8 +332,7 @@
                             <p class="text-xs text-gray-400 mt-0.5">${dateLabel}</p>
                         </div>
                         <p class="text-base font-bold text-gray-800 shrink-0">${fmt(p.amount)}</p>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
 
             document.getElementById('payments-list').innerHTML = html;
