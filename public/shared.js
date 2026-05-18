@@ -76,6 +76,7 @@ document.head.appendChild(_navStyle);
 function initSharedPage(activePage) {
     const navLinks = [
         { id: 'home',          href: 'home.html',          label: 'Home' },
+        { id: 'upcoming',      href: 'upcoming.html',      label: 'Upcoming' },
         { id: 'groceries',     href: 'index.html',         label: 'Groceries' },
         { id: 'outabout',      href: 'outabout.html',      label: 'Out & About' },
         { id: 'fixed',         href: 'fixed.html',         label: 'Home Costs' },

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upcoming Payments</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
+        .nav-btn { transition: all 0.2s ease; }
+        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        .tab-btn.active { background: rgba(255,255,255,0.2); color: white; }
+        .tab-btn:not(.active) { color: rgba(255,255,255,0.65); }
+        .tab-btn:hover { background: rgba(255,255,255,0.15); color: white; }
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .modal-animate { animation: modalIn 0.18s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <div class="gradient-bg">
+        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
+            <div class="mb-6">
+                <h1 class="text-2xl font-bold text-white">Upcoming Payments</h1>
+                <p class="text-purple-200 text-sm mt-0.5">All scheduled payments by month</p>
+            </div>
+            <div class="flex gap-2 overflow-x-auto mb-4" id="shared-nav"></div>
+            <div class="flex gap-2">
+                <button onclick="showTab('this')" id="tab-this" class="tab-btn active px-5 py-2 rounded-full text-sm font-medium transition" id="tab-this-month"></button>
+                <button onclick="showTab('next')" id="tab-next" class="tab-btn px-5 py-2 rounded-full text-sm font-medium transition" id="tab-next-month"></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-6 -mt-8">
+
+        <!-- Summary cards -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Due</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Paid / Past</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-paid">—</p>
+            </div>
+            <div class="card p-4">
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Still Due</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-remaining">—</p>
+            </div>
+        </div>
+
+        <!-- Payments list -->
+        <div class="card p-6 mb-6">
+            <div id="payments-list">
+                <p class="text-gray-400 text-sm text-center py-8">Loading...</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="h-12"></div>
+    <script src="shared.js"></script>
+    <script>
+        initSharedPage('upcoming');
+
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+        let currentTab = 'this';
+
+        const CAT_COLORS = {
+            fixed:         { bg: 'bg-amber-50',   text: 'text-amber-600',   label: 'Home Costs' },
+            bills:         { bg: 'bg-green-50',    text: 'text-green-600',   label: 'Bills' },
+            transport:     { bg: 'bg-blue-50',     text: 'text-blue-600',    label: 'Transport' },
+            subscriptions: { bg: 'bg-purple-50',   text: 'text-purple-600',  label: 'Subscriptions' },
+            shopping:      { bg: 'bg-pink-50',     text: 'text-pink-600',    label: 'Shopping' },
+            debt:          { bg: 'bg-red-50',      text: 'text-red-500',     label: 'Debt' },
+        };
+
+        function monthLabel(year, month) {
+            return new Date(year, month - 1, 1).toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+        }
+
+        function getMonthBounds(offset) {
+            const d = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+            return { year: d.getFullYear(), month: d.getMonth() + 1 };
+        }
+
+        // Compute all payments due in a given year/month from recurring_expenses + debts
+        function computePayments(recurring, debts, year, month) {
+            const payments = [];
+            const daysInMonth = new Date(year, month, 0).getDate();
+
+            recurring.forEach(item => {
+                if (!item.amount || parseFloat(item.amount) <= 0) return;
+                if (!item.start_date) return;
+
+                const start = new Date(item.start_date.split('T')[0] + 'T12:00:00');
+                const startYear  = start.getFullYear();
+                const startMonth = start.getMonth() + 1;
+                const dueDay     = start.getDate();
+                const freq       = item.frequency || 'monthly';
+
+                // Has this item started by this month?
+                if (year < startYear || (year === startYear && month < startMonth)) return;
+
+                // Is it still active (installment plans)?
+                if (item.total_installments) {
+                    const monthsElapsed = (year - startYear) * 12 + (month - startMonth);
+                    if (monthsElapsed >= parseInt(item.total_installments)) return;
+                }
+
+                let isDue = false;
+                let dueDays = []; // for weekly
+
+                if (freq === 'monthly') {
+                    isDue = true;
+                } else if (freq === 'annual') {
+                    isDue = (start.getMonth() + 1 === month);
+                } else if (freq === 'quarterly') {
+                    const diff = (year - startYear) * 12 + (month - startMonth);
+                    isDue = diff >= 0 && diff % 3 === 0;
+                } else if (freq === 'weekly') {
+                    // Find all occurrences in this month
+                    const startOfMonth = new Date(year, month - 1, 1);
+                    const endOfMonth   = new Date(year, month - 1, daysInMonth);
+                    let d = new Date(start);
+                    while (d <= endOfMonth) {
+                        if (d >= startOfMonth) dueDays.push(d.getDate());
+                        d = new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000);
+                    }
+                }
+
+                if (freq === 'weekly') {
+                    dueDays.forEach(day => {
+                        payments.push(makePayment(item.name, item.category, parseFloat(item.amount), day, year, month));
+                    });
+                } else if (isDue) {
+                    const day = Math.min(dueDay, daysInMonth);
+                    payments.push(makePayment(item.name, item.category, parseFloat(item.amount), day, year, month));
+                }
+            });
+
+            // Debts — use monthly_payment + start_date day
+            debts.forEach(d => {
+                if (!d.start_date || !d.monthly_payment) return;
+                const remaining = parseFloat(d.total_amount) - (parseFloat(d.actual_paid_gbp) || 0);
+                if (remaining <= 0.01) return; // paid off
+
+                const start = new Date((typeof d.start_date === 'string' ? d.start_date.split('T')[0] : d.start_date.toISOString().split('T')[0]) + 'T12:00:00');
+                const startYear  = start.getFullYear();
+                const startMonth = start.getMonth() + 1;
+                if (year < startYear || (year === startYear && month < startMonth)) return;
+
+                const dueDay = start.getDate();
+                const day    = Math.min(dueDay, daysInMonth);
+                payments.push(makePayment(d.name, 'debt', parseFloat(d.monthly_payment), day, year, month));
+            });
+
+            return payments.sort((a, b) => a.day - b.day);
+        }
+
+        function makePayment(name, category, amount, day, year, month) {
+            const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            const date    = new Date(dateStr + 'T12:00:00');
+            const diffMs  = date - today;
+            const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+            return { name, category, amount, day, dateStr, date, diffDays };
+        }
+
+        let allRecurring = [];
+        let allDebts = [];
+
+        async function load() {
+            [allRecurring, allDebts] = await Promise.all([
+                fetch('/recurring').then(r => r.json()),
+                fetch('/debts').then(r => r.json())
+            ]);
+
+            // Set tab labels
+            const thisM = getMonthBounds(0);
+            const nextM = getMonthBounds(1);
+            document.getElementById('tab-this').textContent = monthLabel(thisM.year, thisM.month);
+            document.getElementById('tab-next').textContent = monthLabel(nextM.year, nextM.month);
+
+            renderTab();
+        }
+
+        function showTab(name) {
+            currentTab = name;
+            document.getElementById('tab-this').classList.toggle('active', name === 'this');
+            document.getElementById('tab-next').classList.toggle('active', name === 'next');
+            renderTab();
+        }
+
+        function renderTab() {
+            const offset = currentTab === 'this' ? 0 : 1;
+            const { year, month } = getMonthBounds(offset);
+            const payments = computePayments(allRecurring, allDebts, year, month);
+            renderPayments(payments, year, month);
+        }
+
+        function renderPayments(payments, year, month) {
+            const isThisMonth = (year === today.getFullYear() && month === today.getMonth() + 1);
+
+            let totalDue = 0, totalPast = 0;
+            payments.forEach(p => {
+                totalDue += p.amount;
+                if (isThisMonth && p.diffDays < 0) totalPast += p.amount;
+            });
+            const stillDue = totalDue - totalPast;
+
+            document.getElementById('stat-total').textContent    = fmt(totalDue);
+            document.getElementById('stat-paid').textContent     = fmt(totalPast);
+            document.getElementById('stat-remaining').textContent = fmt(stillDue);
+
+            if (!payments.length) {
+                document.getElementById('payments-list').innerHTML = '<p class="text-gray-400 text-sm text-center py-8">No scheduled payments found.</p>';
+                return;
+            }
+
+            const html = payments.map(p => {
+                const col   = CAT_COLORS[p.category] || { bg: 'bg-gray-50', text: 'text-gray-500', label: p.category };
+                const isPast = isThisMonth && p.diffDays < 0;
+                const isToday = p.diffDays === 0;
+                const isSoon  = p.diffDays > 0 && p.diffDays <= 3;
+
+                let urgencyBadge = '';
+                if (isToday)      urgencyBadge = `<span class="text-xs bg-red-100 text-red-600 font-semibold px-2 py-0.5 rounded-full">Today</span>`;
+                else if (isSoon)  urgencyBadge = `<span class="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">In ${p.diffDays}d</span>`;
+                else if (isPast)  urgencyBadge = `<span class="text-xs bg-gray-100 text-gray-400 font-medium px-2 py-0.5 rounded-full">Past</span>`;
+                else if (isThisMonth) urgencyBadge = `<span class="text-xs text-gray-400">In ${p.diffDays}d</span>`;
+
+                const d = new Date(p.dateStr + 'T12:00:00');
+                const dateLabel = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+                return `
+                    <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0 ${isPast ? 'opacity-40' : ''}">
+                        <div class="w-12 h-12 rounded-xl ${isToday ? 'gradient-bg' : isPast ? 'bg-gray-100' : isSoon ? 'bg-orange-50' : 'bg-gray-50'} flex flex-col items-center justify-center shrink-0">
+                            <span class="text-lg font-bold ${isToday ? 'text-white' : isPast ? 'text-gray-400' : isSoon ? 'text-orange-600' : 'text-gray-700'} leading-none">${p.day}</span>
+                            <span class="text-xs ${isToday ? 'text-white opacity-80' : 'text-gray-400'}">${d.toLocaleString('en-GB',{month:'short'})}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="text-sm font-medium text-gray-800 ${isPast ? 'line-through' : ''}">${p.name}</p>
+                                <span class="text-xs ${col.bg} ${col.text} px-2 py-0.5 rounded-full font-medium shrink-0">${col.label}</span>
+                                ${urgencyBadge}
+                            </div>
+                            <p class="text-xs text-gray-400 mt-0.5">${dateLabel}</p>
+                        </div>
+                        <p class="text-base font-bold text-gray-800 shrink-0">${fmt(p.amount)}</p>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('payments-list').innerHTML = html;
+        }
+
+        load();
+    </script>
+</body>
+</html>
