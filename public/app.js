@@ -687,15 +687,23 @@ function renderHistory() {
             detailHTML = `
                 <div class="ml-13 mt-1 mb-3" onclick="event.stopPropagation()">
                     <div class="space-y-1.5 mb-3">
-                        ${items.map(item => `
-                            <div class="flex justify-between items-center text-xs">
-                                <div class="flex items-center gap-2">
-                                    <span class="tag ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
-                                    <span class="text-gray-700">${parseFloat(item.quantity) > 1 ? `<span class="font-semibold text-purple-600">${Number.isInteger(parseFloat(item.quantity)) ? parseInt(item.quantity) : parseFloat(item.quantity)}x</span> ` : ''}${item.item_name}</span>
+                        ${items.map(item => {
+                            const qty = parseFloat(item.quantity) || 1;
+                            const lineTotal = parseFloat(item.item_price);
+                            const unitPrice = item.unit_price != null ? parseFloat(item.unit_price) : lineTotal / qty;
+                            const showUnit = qty > 1;
+                            return `
+                            <div class="flex justify-between items-start text-xs py-0.5">
+                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                                    <span class="tag shrink-0 ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
+                                    <div class="min-w-0">
+                                        <span class="text-gray-700">${showUnit ? `<span class="font-semibold text-purple-600">${Number.isInteger(qty) ? qty : qty}x</span> ` : ''}${item.item_name}</span>
+                                        ${showUnit ? `<span class="text-gray-400 ml-1">· £${unitPrice.toFixed(4)}/unit</span>` : ''}
+                                    </div>
                                 </div>
-                                <span class="text-gray-600 font-medium">£${parseFloat(item.item_price).toFixed(2)}</span>
-                            </div>
-                        `).join('')}
+                                <span class="text-gray-600 font-medium ml-3 shrink-0">£${lineTotal.toFixed(2)}</span>
+                            </div>`;
+                        }).join('')}
                     </div>
                     <p class="text-xs text-gray-300 mb-2">Added ${addedLabel}${dateEstimated ? ' · <span class="text-orange-400">* date not on receipt</span>' : ''}</p>
                     <div class="flex items-center gap-3">
