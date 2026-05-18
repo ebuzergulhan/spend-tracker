@@ -272,7 +272,7 @@
                 <div class="ml-2 pb-3 space-y-1">
                     ${items.map(i => `
                         <div class="flex justify-between text-sm py-1">
-                            <span class="text-gray-600">${i.item_name} <span class="text-gray-400 text-xs">${i.category}</span></span>
+                            <span class="text-gray-600">${parseFloat(i.quantity) > 1 ? `<span class="font-semibold text-purple-600">${parseFloat(i.quantity) % 1 === 0 ? parseInt(i.quantity) : parseFloat(i.quantity)}x</span> ` : ''}${i.item_name} <span class="text-gray-400 text-xs">${i.category}</span></span>
                             <span class="text-gray-700">${fmt(i.item_price)}</span>
                         </div>
                     `).join('')}

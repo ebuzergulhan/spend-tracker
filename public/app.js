@@ -171,7 +171,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
                     <div class="flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <span class="tag ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
-                            <span class="text-sm text-gray-700">${item.name}</span>
+                            <span class="text-sm text-gray-700">${parseFloat(item.quantity) > 1 ? `<span class="font-semibold text-purple-600">${parseFloat(item.quantity) % 1 === 0 ? parseInt(item.quantity) : parseFloat(item.quantity)}x</span> ` : ''}${item.name}</span>
                         </div>
                         <span class="text-sm font-medium text-gray-800">£${item.price}</span>
                     </div>
@@ -523,7 +523,7 @@ function renderHistory() {
                             <div class="flex justify-between items-center text-xs">
                                 <div class="flex items-center gap-2">
                                     <span class="tag ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
-                                    <span class="text-gray-700">${item.item_name}</span>
+                                    <span class="text-gray-700">${parseFloat(item.quantity) > 1 ? `<span class="font-semibold text-purple-600">${Number.isInteger(parseFloat(item.quantity)) ? parseInt(item.quantity) : parseFloat(item.quantity)}x</span> ` : ''}${item.item_name}</span>
                                 </div>
                                 <span class="text-gray-600 font-medium">£${parseFloat(item.item_price).toFixed(2)}</span>
                             </div>

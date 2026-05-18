@@ -98,10 +98,10 @@ app.post('/upload', upload.single('receiptImage'), async (req, res) => {
   "date": "YYYY-MM-DD or null if not visible",
   "total": 0.00,
   "items": [
-    { "name": "item name", "price": 0.00, "category": "one of: Groceries, Vegetables, Fruit, Dairy, Meat & Fish, Bakery, Drinks, Snacks, Household, Clothing, Electronics, Fuel, Restaurant, Health, Other" }
+    { "name": "item name", "price": 0.00, "quantity": 1, "category": "one of: Groceries, Vegetables, Fruit, Dairy, Meat & Fish, Bakery, Drinks, Snacks, Household, Clothing, Electronics, Fuel, Restaurant, Health, Other" }
   ]
 }
-Total and price must be plain numbers only. No currency symbols.`
+Total and price must be plain numbers only. No currency symbols. quantity is the number of units purchased (default 1).`
                         }
                     ]
                 }
@@ -132,9 +132,9 @@ Total and price must be plain numbers only. No currency symbols.`
 
         for (const item of receipt.items) {
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [receiptDate, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [receiptDate, receipt.shop_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receipt.total, createdAt]
             );
         }
 
@@ -253,7 +253,7 @@ app.get('/receipts', async (req, res) => {
 // Get all items for a single receipt
 app.get('/receipts/:created_at/items', async (req, res) => {
     const result = await db.query(
-        `SELECT item_name, item_price, category FROM items WHERE created_at = $1 ORDER BY id`,
+        `SELECT item_name, item_price, quantity, category FROM items WHERE created_at = $1 ORDER BY id`,
         [req.params.created_at]
     );
     res.json(result.rows);
@@ -270,9 +270,9 @@ app.put('/receipts/:created_at', async (req, res) => {
 
         for (const item of items) {
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [date || null, shop_name, item.category, item.name, parseFloat(item.price) || 0, receiptTotal, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [date || null, shop_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receiptTotal, createdAt]
             );
         }
         res.json({ success: true });
@@ -356,9 +356,9 @@ app.post('/manual', async (req, res) => {
 
         for (const item of items) {
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [date, shop_name, item.category, item.name, parseFloat(item.price) || 0, receiptTotal, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [date, shop_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receiptTotal, createdAt]
             );
         }
         res.json({ success: true });
@@ -461,6 +461,9 @@ app.post('/manual', async (req, res) => {
         )
     `);
     await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
+    await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
+    await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
+    await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,
@@ -950,10 +953,10 @@ app.post('/upload/shopping', upload.single('receiptImage'), async (req, res) => 
   "date": "YYYY-MM-DD or null",
   "total": 0.00,
   "items": [
-    { "name": "item name", "price": 0.00, "category": "one of: Amazon, IKEA, Clothing, Electronics, Books, Sports, Home & Garden, Health & Beauty, Toys & Games, Food & Drink, Other" }
+    { "name": "item name", "price": 0.00, "quantity": 1, "category": "one of: Amazon, IKEA, Clothing, Electronics, Books, Sports, Home & Garden, Health & Beauty, Toys & Games, Food & Drink, Other" }
   ]
 }
-Total and price must be plain numbers only. No currency symbols.` }
+Total and price must be plain numbers only. No currency symbols. quantity is the number of units purchased (default 1).` }
                 ]
             }]
         });
@@ -968,8 +971,8 @@ Total and price must be plain numbers only. No currency symbols.` }
         if (dup.rows.length > 0) { fs.unlinkSync(req.file.path); return res.status(409).json({ error: 'Already scanned.' }); }
 
         for (const item of receipt.items) {
-            await db.query(`INSERT INTO shopping_items (date,place_name,category,item_name,item_price,receipt_total,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price)||0, receipt.total, createdAt]);
+            await db.query(`INSERT INTO shopping_items (date,place_name,category,item_name,item_price,quantity,receipt_total,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price)||0, parseFloat(item.quantity)||1, receipt.total, createdAt]);
         }
         fs.unlinkSync(req.file.path);
         res.json(receipt);
@@ -981,7 +984,7 @@ app.get('/shopping', async (req, res) => {
     res.json(result.rows);
 });
 app.get('/shopping/:created_at/items', async (req, res) => {
-    const result = await db.query(`SELECT item_name,item_price,category FROM shopping_items WHERE created_at=$1 ORDER BY id`, [req.params.created_at]);
+    const result = await db.query(`SELECT item_name,item_price,quantity,category FROM shopping_items WHERE created_at=$1 ORDER BY id`, [req.params.created_at]);
     res.json(result.rows);
 });
 app.delete('/shopping/:created_at', async (req, res) => {
@@ -1116,10 +1119,10 @@ app.post('/upload/outing', upload.single('receiptImage'), async (req, res) => {
   "date": "YYYY-MM-DD or null if not visible",
   "total": 0.00,
   "items": [
-    { "name": "item name", "price": 0.00, "category": "one of: Restaurant, Fast Food, Coffee & Drinks, Parking, Entertainment, Shopping, Health & Beauty, Hotel, Transport, Other" }
+    { "name": "item name", "price": 0.00, "quantity": 1, "category": "one of: Restaurant, Fast Food, Coffee & Drinks, Parking, Entertainment, Shopping, Health & Beauty, Hotel, Transport, Other" }
   ]
 }
-Total and price must be plain numbers only. No currency symbols.`
+Total and price must be plain numbers only. No currency symbols. quantity is the number of units purchased (default 1).`
                     }
                 ]
             }]
@@ -1146,9 +1149,9 @@ Total and price must be plain numbers only. No currency symbols.`
         const tripName = (req.body.trip_name || '').trim() || null;
         for (const item of receipt.items) {
             await db.query(
-                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, receipt_total, created_at, trip_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, receipt.total, createdAt, tripName]
+                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, quantity, receipt_total, created_at, trip_name)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receipt.total, createdAt, tripName]
             );
         }
 
@@ -1185,7 +1188,7 @@ app.get('/outings', async (req, res) => {
 
 app.get('/outings/:created_at/items', async (req, res) => {
     const result = await db.query(
-        `SELECT item_name, item_price, category FROM outing_items WHERE created_at = $1 ORDER BY id`,
+        `SELECT item_name, item_price, quantity, category FROM outing_items WHERE created_at = $1 ORDER BY id`,
         [req.params.created_at]
     );
     res.json(result.rows);
