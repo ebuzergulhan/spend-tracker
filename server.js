@@ -247,7 +247,7 @@ app.get('/receipts', async (req, res) => {
         FROM items
         ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
         GROUP BY created_at, shop_name, date, receipt_total
-        ORDER BY created_at DESC
+        ORDER BY date DESC NULLS LAST, created_at DESC
     `, f ? [from, to] : []);
     res.json(result.rows);
 });
