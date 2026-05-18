@@ -94,12 +94,17 @@
                 return `
                     <tr class="border-b border-gray-50 last:border-0">
                         <td class="py-2 pr-3 text-sm text-gray-700 w-full">${item.item_name}<br><span class="text-xs text-gray-400">${item.category}</span></td>
-                        <td class="py-2 pr-3 text-sm text-gray-500 whitespace-nowrap">£${lineTotal}</td>
+                        <td class="py-2 pr-3">
+                            <input type="number" id="total-${r.created_at}-${idx}" value="${lineTotal}"
+                                min="0.01" step="0.01"
+                                class="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-purple-400"
+                                oninput="recalcUnit('${r.created_at}',${idx})"/>
+                        </td>
                         <td class="py-2 pr-3">
                             <input type="number" id="qty-${r.created_at}-${idx}" value="${qty % 1 === 0 ? parseInt(qty) : qty}"
                                 min="0.001" step="1"
                                 class="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:border-purple-400"
-                                oninput="recalcUnit('${r.created_at}',${idx},${lineTotal})"/>
+                                oninput="recalcUnit('${r.created_at}',${idx})"/>
                         </td>
                         <td class="py-2 text-sm font-medium text-purple-600 whitespace-nowrap" id="unit-${r.created_at}-${idx}">
                             £${unitPriceStored.toFixed(4)}
@@ -126,11 +131,13 @@
                 </div>`;
         }
 
-        function recalcUnit(createdAt, idx, lineTotal) {
+        function recalcUnit(createdAt, idx) {
+            const totalEl = document.getElementById(`total-${createdAt}-${idx}`);
             const qtyEl = document.getElementById(`qty-${createdAt}-${idx}`);
             const unitEl = document.getElementById(`unit-${createdAt}-${idx}`);
+            const lineTotal = parseFloat(totalEl?.value) || 0;
             const qty = parseFloat(qtyEl?.value) || 1;
-            unitEl.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
+            unitEl.textContent = qty > 0 && lineTotal > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
         }
 
         async function toggle(createdAt) {
@@ -150,7 +157,7 @@
 
             const updated = items.map((item, idx) => {
                 const qty = parseFloat(document.getElementById(`qty-${createdAt}-${idx}`)?.value) || 1;
-                const lineTotal = parseFloat(item.item_price);
+                const lineTotal = parseFloat(document.getElementById(`total-${createdAt}-${idx}`)?.value) || parseFloat(item.item_price);
                 return {
                     name: item.item_name,
                     price: lineTotal,
