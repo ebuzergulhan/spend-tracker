@@ -11,6 +11,7 @@ const categoryColors = {
     'Household': 'bg-gray-100 text-gray-700',
     'Groceries': 'bg-emerald-100 text-emerald-700',
     'Health': 'bg-teal-100 text-teal-700',
+    'Discount': 'bg-red-100 text-red-600',
 };
 
 const categories = ['Groceries', 'Vegetables', 'Fruit', 'Dairy', 'Meat & Fish', 'Bakery', 'Drinks', 'Snacks', 'Household', 'Clothing', 'Electronics', 'Fuel', 'Restaurant', 'Health', 'Other'];
@@ -127,6 +128,139 @@ document.getElementById('receiptImage').addEventListener('change', function () {
     }
 });
 
+// ── Scan review & confirm ─────────────────────────────────────────────────────
+let pendingReceipt = null;
+
+function renderScanReview(receipt) {
+    const calcTotal = receipt.items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
+    const diff = Math.abs(calcTotal - parseFloat(receipt.total));
+    const match = diff < 0.02;
+
+    const itemRows = receipt.items.map((item, idx) => {
+        const qty = parseFloat(item.quantity) || 1;
+        const lineTotal = parseFloat(item.price) || 0;
+        const unitPrice = qty > 0 ? lineTotal / qty : lineTotal;
+        const isDiscount = lineTotal < 0;
+        return `
+            <tr class="${isDiscount ? 'bg-red-50' : ''} border-b border-gray-50 last:border-0">
+                <td class="py-2 pr-2">
+                    <span class="text-xs px-1.5 py-0.5 rounded-full font-medium ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
+                    <span class="text-sm text-gray-700 ml-1">${item.name}</span>
+                </td>
+                <td class="py-2 pr-2 whitespace-nowrap">
+                    <input type="number" id="scan-qty-${idx}" value="${qty % 1 === 0 ? parseInt(qty) : qty}"
+                        min="0.001" step="1"
+                        class="w-14 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400"
+                        oninput="updateScanRow(${idx})"/>
+                </td>
+                <td class="py-2 pr-2 whitespace-nowrap">
+                    <input type="number" id="scan-total-${idx}" value="${lineTotal.toFixed(2)}"
+                        step="0.01"
+                        class="w-20 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400 ${isDiscount ? 'text-red-500' : ''}"
+                        oninput="updateScanRow(${idx})"/>
+                </td>
+                <td class="py-2 text-xs text-purple-600 whitespace-nowrap" id="scan-unit-${idx}">£${unitPrice.toFixed(4)}</td>
+            </tr>`;
+    }).join('');
+
+    const validationHtml = buildValidationHtml(calcTotal, receipt.total);
+
+    document.getElementById('scan-card-title').textContent = 'Review & Confirm';
+    document.getElementById('resultContent').innerHTML = `
+        <div class="flex justify-between items-start mb-3">
+            <div>
+                <p class="font-semibold text-gray-800">${receipt.shop_name}</p>
+                <p class="text-xs text-gray-400">${receipt.date ? formatDate(receipt.date) : 'Date unknown'}</p>
+            </div>
+            <p class="text-xl font-bold text-gray-800">£${parseFloat(receipt.total).toFixed(2)}</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left mb-3 text-sm">
+                <thead>
+                    <tr class="text-xs text-gray-400 font-medium">
+                        <th class="pb-2">Item</th>
+                        <th class="pb-2">Qty</th>
+                        <th class="pb-2 whitespace-nowrap">Line Total</th>
+                        <th class="pb-2 whitespace-nowrap">Unit Price</th>
+                    </tr>
+                </thead>
+                <tbody>${itemRows}</tbody>
+            </table>
+        </div>
+        <div id="scan-validation" class="mb-3">${validationHtml}</div>
+        <button onclick="confirmSave()" id="confirm-save-btn"
+            class="w-full gradient-bg text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90 transition">
+            Confirm &amp; Save to Database
+        </button>
+    `;
+}
+
+function buildValidationHtml(calcTotal, receiptTotal) {
+    const diff = Math.abs(calcTotal - parseFloat(receiptTotal));
+    const match = diff < 0.02;
+    return `
+        <div class="flex items-center gap-2 px-3 py-2.5 rounded-xl ${match ? 'bg-green-50' : 'bg-amber-50'}">
+            <span class="text-base">${match ? '✓' : '⚠️'}</span>
+            <span class="text-sm ${match ? 'text-green-700' : 'text-amber-700'} font-medium">Calculated: £${calcTotal.toFixed(2)}</span>
+            <span class="text-gray-300 mx-1">|</span>
+            <span class="text-xs ${match ? 'text-green-600' : 'text-amber-600'}">
+                ${match ? 'Totals match — ready to save' : `Difference: £${diff.toFixed(2)} — please adjust items above`}
+            </span>
+        </div>`;
+}
+
+function updateScanRow(idx) {
+    const qty = parseFloat(document.getElementById(`scan-qty-${idx}`)?.value) || 1;
+    const lineTotal = parseFloat(document.getElementById(`scan-total-${idx}`)?.value) || 0;
+    const unitEl = document.getElementById(`scan-unit-${idx}`);
+    if (unitEl) unitEl.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
+
+    if (!pendingReceipt) return;
+    let calcTotal = 0;
+    for (let i = 0; i < pendingReceipt.items.length; i++) {
+        calcTotal += parseFloat(document.getElementById(`scan-total-${i}`)?.value) || 0;
+    }
+    const valDiv = document.getElementById('scan-validation');
+    if (valDiv) valDiv.innerHTML = buildValidationHtml(calcTotal, pendingReceipt.total);
+}
+
+async function confirmSave() {
+    if (!pendingReceipt) return;
+    const btn = document.getElementById('confirm-save-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+    const items = pendingReceipt.items.map((item, idx) => ({
+        name: item.name,
+        price: parseFloat(document.getElementById(`scan-total-${idx}`)?.value) || 0,
+        quantity: parseFloat(document.getElementById(`scan-qty-${idx}`)?.value) || 1,
+        category: item.category
+    }));
+
+    try {
+        const res = await fetch('/receipts/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ shop_name: pendingReceipt.shop_name, date: pendingReceipt.date, total: pendingReceipt.total, items })
+        });
+        const result = await res.json();
+
+        if (result.error) {
+            await showModal({ title: 'Save failed', message: result.error });
+            if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Save to Database'; }
+            return;
+        }
+
+        pendingReceipt = null;
+        document.getElementById('resultCard').classList.add('hidden');
+        document.getElementById('scan-card-title').textContent = 'Receipt Scanned';
+        await showModal({ title: '✓ Saved', message: `${result.item_count} items from ${result.shop_name} saved successfully.` });
+        loadDashboard();
+    } catch (err) {
+        await showModal({ title: 'Something went wrong', message: 'Could not save. Please try again.' });
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Save to Database'; }
+    }
+}
+
 // Upload form
 document.getElementById('uploadForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -158,26 +292,8 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
         document.getElementById('uploadForm').reset();
         document.getElementById('fileName').classList.add('hidden');
 
-        document.getElementById('resultContent').innerHTML = `
-            <div class="flex justify-between items-start mb-4">
-                <div>
-                    <p class="font-semibold text-gray-800">${receipt.shop_name}</p>
-                    <p class="text-sm text-gray-400">${receipt.date ? formatDate(receipt.date) : 'Date unknown'}</p>
-                </div>
-                <p class="text-2xl font-bold text-gray-800">£${receipt.total}</p>
-            </div>
-            <div class="border-t pt-4 space-y-2">
-                ${receipt.items.map(item => `
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <span class="tag ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
-                            <span class="text-sm text-gray-700">${parseFloat(item.quantity) > 1 ? `<span class="font-semibold text-purple-600">${parseFloat(item.quantity) % 1 === 0 ? parseInt(item.quantity) : parseFloat(item.quantity)}x</span> ` : ''}${item.name}</span>
-                        </div>
-                        <span class="text-sm font-medium text-gray-800">£${item.price}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
+        pendingReceipt = receipt;
+        renderScanReview(receipt);
 
     } catch (error) {
         document.getElementById('loadingMsg').classList.add('hidden');

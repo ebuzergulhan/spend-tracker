@@ -92,16 +92,23 @@ app.post('/upload', upload.single('receiptImage'), async (req, res) => {
                         },
                         {
                             type: 'text',
-                            text: `Extract the receipt details and return ONLY a valid JSON object with this exact structure:
+                            text: `Extract receipt details and return ONLY a valid JSON object with this exact structure:
 {
   "shop_name": "store name",
   "date": "YYYY-MM-DD or null if not visible",
   "total": 0.00,
   "items": [
-    { "name": "item name", "price": 0.00, "quantity": 1, "category": "one of: Groceries, Vegetables, Fruit, Dairy, Meat & Fish, Bakery, Drinks, Snacks, Household, Clothing, Electronics, Fuel, Restaurant, Health, Other" }
+    { "name": "item name", "price": 0.00, "quantity": 1, "category": "Groceries|Vegetables|Fruit|Dairy|Meat & Fish|Bakery|Drinks|Snacks|Household|Clothing|Electronics|Fuel|Restaurant|Health|Discount|Other" }
   ]
 }
-Total and price must be plain numbers only. No currency symbols. quantity is the number of units purchased (default 1).`
+
+Rules:
+1. CANCELLED items: if an item is followed by "ITEM CANCELLED" and a matching negative charge, exclude BOTH lines — they were voided and cost nothing.
+2. Discount/savings lines (e.g. "Nectar Price Saving", "Special Offer", "X for £Y" promotions): include as a separate item with a NEGATIVE price and category "Discount". Do NOT subtract from the item price directly.
+3. Prices shown are LINE TOTALS — the total cost for that quantity. Do not divide them.
+4. Quantity in item name: if a name ends with "X4", "X2" etc., or starts with "2 X", "3 X" etc., set quantity to that number. The price is still the line total for all units.
+5. If the same item appears as separate lines (e.g. AVOCADO listed twice at £0.88 each), keep them as separate items with quantity 1 each.
+6. All numbers are plain decimals, no currency symbols.`
                         }
                     ]
                 }
@@ -114,37 +121,47 @@ Total and price must be plain numbers only. No currency symbols. quantity is the
 
         receipt.total = parseFloat(receipt.total) || 0;
         receipt.shop_name = await normalizeShopName(receipt.shop_name);
-        const createdAt = new Date().toISOString();
-        const today = new Date().toISOString().split('T')[0];
-        // Reject future dates and unreadable dates — store null so the UI shows * with upload date
-        const receiptDate = (receipt.date && receipt.date !== 'null' && receipt.date <= today) ? receipt.date : null;
-
-        // Check for duplicate receipt
-        const duplicate = await db.query(
-            `SELECT id FROM items WHERE shop_name = $1 AND date = $2 AND receipt_total = $3 LIMIT 1`,
-            [receipt.shop_name, receiptDate, receipt.total]
-        );
-
-        if (duplicate.rows.length > 0) {
-            fs.unlinkSync(req.file.path);
-            return res.status(409).json({ error: 'This receipt has already been scanned.' });
-        }
-
-        for (const item of receipt.items) {
-            const qty = parseFloat(item.quantity) || 1;
-            const linePrice = parseFloat(item.price) || 0;
-            await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [receiptDate, receipt.shop_name, item.category, item.name, linePrice, qty, qty > 0 ? linePrice / qty : linePrice, receipt.total, createdAt]
-            );
-        }
 
         fs.unlinkSync(req.file.path);
         res.json(receipt);
 
     } catch (error) {
         console.error('Upload error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Save a reviewed/confirmed receipt to the database
+app.post('/receipts/confirm', async (req, res) => {
+    try {
+        const { shop_name, date, total, items } = req.body;
+        const today = new Date().toISOString().split('T')[0];
+        const receiptDate = (date && date !== 'null' && date <= today) ? date : null;
+        const receiptTotal = parseFloat(total) || 0;
+        const normalizedShop = await normalizeShopName(shop_name);
+
+        const duplicate = await db.query(
+            `SELECT id FROM items WHERE shop_name = $1 AND date = $2 AND receipt_total = $3 LIMIT 1`,
+            [normalizedShop, receiptDate, receiptTotal]
+        );
+        if (duplicate.rows.length > 0) {
+            return res.status(409).json({ error: 'This receipt has already been saved.' });
+        }
+
+        const createdAt = new Date().toISOString();
+        for (const item of items) {
+            const qty = parseFloat(item.quantity) || 1;
+            const linePrice = parseFloat(item.price) || 0;
+            await db.query(
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [receiptDate, normalizedShop, item.category, item.name, linePrice, qty, qty > 0 ? linePrice / qty : linePrice, receiptTotal, createdAt]
+            );
+        }
+
+        res.json({ success: true, shop_name: normalizedShop, item_count: items.length });
+    } catch (error) {
+        console.error('Confirm save error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
