@@ -573,8 +573,9 @@ function addEditItem() {
     const div = document.createElement('div');
     div.className = 'edit-item-row flex gap-2 items-center';
     div.innerHTML = `
-        <input type="text" placeholder="Item name" class="edit-name flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+        <input type="text" placeholder="Item name" class="edit-name flex-1 min-w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
         <input type="number" placeholder="0.00" step="0.01" class="edit-price w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+        <input type="number" value="1" min="0.001" step="1" title="Quantity" class="edit-qty w-16 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
         <select class="edit-category border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
             ${categories.map(c => `<option>${c}</option>`).join('')}
         </select>
@@ -591,6 +592,7 @@ async function saveReceiptEdit() {
     const items = Array.from(rows).map(row => ({
         name: row.querySelector('.edit-name').value,
         price: row.querySelector('.edit-price').value,
+        quantity: parseFloat(row.querySelector('.edit-qty')?.value) || 1,
         category: row.querySelector('.edit-category').value
     })).filter(i => i.name && i.price);
 
@@ -665,9 +667,10 @@ function renderHistory() {
                     </div>
                     <div id="edit-items-container" class="space-y-2">
                         ${items.map(item => `
-                            <div class="edit-item-row flex gap-2 items-center">
-                                <input type="text" value="${item.item_name.replace(/"/g, '&quot;')}" class="edit-name flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <div class="edit-item-row flex gap-2 items-center flex-wrap">
+                                <input type="text" value="${item.item_name.replace(/"/g, '&quot;')}" class="edit-name flex-1 min-w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                                 <input type="number" value="${parseFloat(item.item_price).toFixed(2)}" step="0.01" class="edit-price w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                                <input type="number" value="${parseFloat(item.quantity) || 1}" min="0.001" step="1" title="Quantity" class="edit-qty w-16 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                                 <select class="edit-category border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
                                     ${categories.map(c => `<option ${c === item.category ? 'selected' : ''}>${c}</option>`).join('')}
                                 </select>
