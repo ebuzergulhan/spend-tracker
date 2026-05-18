@@ -304,6 +304,10 @@ app.put('/receipts/:created_at', async (req, res) => {
         const createdAt = req.params.created_at;
         const receiptTotal = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
 
+        // Preserve the receipt image filename before deleting rows
+        const imgRow = await db.query(`SELECT receipt_image FROM items WHERE created_at = $1 LIMIT 1`, [createdAt]);
+        const receiptImage = imgRow.rows[0]?.receipt_image || null;
+
         await db.query(`DELETE FROM items WHERE created_at = $1`, [createdAt]);
 
         for (const item of items) {
@@ -311,9 +315,9 @@ app.put('/receipts/:created_at', async (req, res) => {
             const linePrice = parseFloat(item.price) || 0;
             const unitPrice = item.unit_price != null ? parseFloat(item.unit_price) : (qty > 0 ? linePrice / qty : linePrice);
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [date || null, shop_name, item.category, item.name, linePrice, qty, unitPrice, receiptTotal, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, receipt_image)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [date || null, shop_name, item.category, item.name, linePrice, qty, unitPrice, receiptTotal, createdAt, receiptImage]
             );
         }
         res.json({ success: true });
