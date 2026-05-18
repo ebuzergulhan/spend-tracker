@@ -131,39 +131,39 @@ document.getElementById('receiptImage').addEventListener('change', function () {
 // ── Scan review & confirm ─────────────────────────────────────────────────────
 let pendingReceipt = null;
 
+function scanItemRow(name, category, qty, lineTotal) {
+    const isDiscount = lineTotal < 0;
+    const unitPrice = qty > 0 ? lineTotal / qty : lineTotal;
+    const safeName = name.replace(/"/g, '&quot;');
+    return `
+        <tr class="scan-row ${isDiscount ? 'bg-red-50' : ''} border-b border-gray-50 last:border-0"
+            data-name="${safeName}" data-category="${category}">
+            <td class="py-2 pr-2">
+                <span class="text-xs px-1.5 py-0.5 rounded-full font-medium ${categoryColors[category] || 'bg-purple-100 text-purple-700'}">${category}</span>
+                <span class="text-sm text-gray-700 ml-1">${name}</span>
+            </td>
+            <td class="py-2 pr-2 whitespace-nowrap">
+                <input type="number" value="${qty % 1 === 0 ? parseInt(qty) : qty}" min="0.001" step="1"
+                    class="scan-qty-input w-14 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400"
+                    oninput="updateScanRow(this)"/>
+            </td>
+            <td class="py-2 pr-2 whitespace-nowrap">
+                <input type="number" value="${lineTotal.toFixed(2)}" step="0.01"
+                    class="scan-total-input w-20 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400 ${isDiscount ? 'text-red-500' : ''}"
+                    oninput="updateScanRow(this)"/>
+            </td>
+            <td class="py-2 pr-2 text-xs text-purple-600 whitespace-nowrap scan-unit-display">£${unitPrice.toFixed(4)}</td>
+            <td class="py-2">
+                <button onclick="removeScanRow(this)" class="text-gray-300 hover:text-red-400 transition font-bold text-lg leading-none">×</button>
+            </td>
+        </tr>`;
+}
+
 function renderScanReview(receipt) {
     const calcTotal = receipt.items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
-    const diff = Math.abs(calcTotal - parseFloat(receipt.total));
-    const match = diff < 0.02;
-
-    const itemRows = receipt.items.map((item, idx) => {
-        const qty = parseFloat(item.quantity) || 1;
-        const lineTotal = parseFloat(item.price) || 0;
-        const unitPrice = qty > 0 ? lineTotal / qty : lineTotal;
-        const isDiscount = lineTotal < 0;
-        return `
-            <tr class="${isDiscount ? 'bg-red-50' : ''} border-b border-gray-50 last:border-0">
-                <td class="py-2 pr-2">
-                    <span class="text-xs px-1.5 py-0.5 rounded-full font-medium ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
-                    <span class="text-sm text-gray-700 ml-1">${item.name}</span>
-                </td>
-                <td class="py-2 pr-2 whitespace-nowrap">
-                    <input type="number" id="scan-qty-${idx}" value="${qty % 1 === 0 ? parseInt(qty) : qty}"
-                        min="0.001" step="1"
-                        class="w-14 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400"
-                        oninput="updateScanRow(${idx})"/>
-                </td>
-                <td class="py-2 pr-2 whitespace-nowrap">
-                    <input type="number" id="scan-total-${idx}" value="${lineTotal.toFixed(2)}"
-                        step="0.01"
-                        class="w-20 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400 ${isDiscount ? 'text-red-500' : ''}"
-                        oninput="updateScanRow(${idx})"/>
-                </td>
-                <td class="py-2 text-xs text-purple-600 whitespace-nowrap" id="scan-unit-${idx}">£${unitPrice.toFixed(4)}</td>
-            </tr>`;
-    }).join('');
-
-    const validationHtml = buildValidationHtml(calcTotal, receipt.total);
+    const itemRows = receipt.items.map(item =>
+        scanItemRow(item.name, item.category, parseFloat(item.quantity) || 1, parseFloat(item.price) || 0)
+    ).join('');
 
     document.getElementById('scan-card-title').textContent = 'Review & Confirm';
     document.getElementById('resultContent').innerHTML = `
@@ -175,19 +175,23 @@ function renderScanReview(receipt) {
             <p class="text-xl font-bold text-gray-800">£${parseFloat(receipt.total).toFixed(2)}</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="w-full text-left mb-3 text-sm">
+            <table class="w-full text-left mb-2 text-sm">
                 <thead>
                     <tr class="text-xs text-gray-400 font-medium">
                         <th class="pb-2">Item</th>
                         <th class="pb-2">Qty</th>
                         <th class="pb-2 whitespace-nowrap">Line Total</th>
                         <th class="pb-2 whitespace-nowrap">Unit Price</th>
+                        <th class="pb-2"></th>
                     </tr>
                 </thead>
-                <tbody>${itemRows}</tbody>
+                <tbody id="scan-items-body">${itemRows}</tbody>
             </table>
         </div>
-        <div id="scan-validation" class="mb-3">${validationHtml}</div>
+        <button onclick="addScanItem()" class="text-xs text-purple-600 font-medium hover:text-purple-800 mb-3 flex items-center gap-1">
+            <span class="text-base leading-none font-bold">+</span> Add missing item
+        </button>
+        <div id="scan-validation" class="mb-3">${buildValidationHtml(calcTotal, receipt.total)}</div>
         <button onclick="confirmSave()" id="confirm-save-btn"
             class="w-full gradient-bg text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90 transition">
             Confirm &amp; Save to Database
@@ -204,24 +208,69 @@ function buildValidationHtml(calcTotal, receiptTotal) {
             <span class="text-sm ${match ? 'text-green-700' : 'text-amber-700'} font-medium">Calculated: £${calcTotal.toFixed(2)}</span>
             <span class="text-gray-300 mx-1">|</span>
             <span class="text-xs ${match ? 'text-green-600' : 'text-amber-600'}">
-                ${match ? 'Totals match — ready to save' : `Difference: £${diff.toFixed(2)} — please adjust items above`}
+                ${match ? 'Totals match — ready to save' : `Difference: £${diff.toFixed(2)} — adjust items above`}
             </span>
         </div>`;
 }
 
-function updateScanRow(idx) {
-    const qty = parseFloat(document.getElementById(`scan-qty-${idx}`)?.value) || 1;
-    const lineTotal = parseFloat(document.getElementById(`scan-total-${idx}`)?.value) || 0;
-    const unitEl = document.getElementById(`scan-unit-${idx}`);
-    if (unitEl) unitEl.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
-
+function recalcScanValidation() {
     if (!pendingReceipt) return;
     let calcTotal = 0;
-    for (let i = 0; i < pendingReceipt.items.length; i++) {
-        calcTotal += parseFloat(document.getElementById(`scan-total-${i}`)?.value) || 0;
-    }
+    document.querySelectorAll('#scan-items-body .scan-total-input').forEach(el => {
+        calcTotal += parseFloat(el.value) || 0;
+    });
     const valDiv = document.getElementById('scan-validation');
     if (valDiv) valDiv.innerHTML = buildValidationHtml(calcTotal, pendingReceipt.total);
+}
+
+function updateScanRow(inputEl) {
+    const row = inputEl.closest('tr');
+    const qty = parseFloat(row.querySelector('.scan-qty-input').value) || 1;
+    const lineTotal = parseFloat(row.querySelector('.scan-total-input').value) || 0;
+    const unitDisplay = row.querySelector('.scan-unit-display');
+    if (unitDisplay) unitDisplay.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
+    recalcScanValidation();
+}
+
+function removeScanRow(btn) {
+    btn.closest('tr').remove();
+    recalcScanValidation();
+}
+
+function addScanItem() {
+    const tbody = document.getElementById('scan-items-body');
+    if (!tbody) return;
+    const tr = document.createElement('tr');
+    tr.className = 'scan-row border-b border-gray-50 bg-blue-50/40';
+    tr.dataset.name = '';
+    tr.dataset.category = 'Groceries';
+    tr.innerHTML = `
+        <td class="py-2 pr-2">
+            <select class="scan-cat-select text-xs border border-gray-200 rounded-lg px-1 py-0.5 mr-1 focus:outline-none focus:border-purple-400"
+                onchange="this.closest('tr').dataset.category=this.value">
+                ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+            <input type="text" placeholder="Item name"
+                class="scan-name-input text-sm border border-gray-200 rounded-lg px-2 py-0.5 w-28 focus:outline-none focus:border-purple-400"
+                oninput="this.closest('tr').dataset.name=this.value"/>
+        </td>
+        <td class="py-2 pr-2 whitespace-nowrap">
+            <input type="number" value="1" min="0.001" step="1"
+                class="scan-qty-input w-14 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400"
+                oninput="updateScanRow(this)"/>
+        </td>
+        <td class="py-2 pr-2 whitespace-nowrap">
+            <input type="number" value="0.00" step="0.01"
+                class="scan-total-input w-20 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400"
+                oninput="updateScanRow(this)"/>
+        </td>
+        <td class="py-2 pr-2 text-xs text-purple-600 whitespace-nowrap scan-unit-display">£0.0000</td>
+        <td class="py-2">
+            <button onclick="removeScanRow(this)" class="text-gray-300 hover:text-red-400 transition font-bold text-lg leading-none">×</button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('.scan-name-input').focus();
 }
 
 async function confirmSave() {
@@ -229,12 +278,15 @@ async function confirmSave() {
     const btn = document.getElementById('confirm-save-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
-    const items = pendingReceipt.items.map((item, idx) => ({
-        name: item.name,
-        price: parseFloat(document.getElementById(`scan-total-${idx}`)?.value) || 0,
-        quantity: parseFloat(document.getElementById(`scan-qty-${idx}`)?.value) || 1,
-        category: item.category
-    }));
+    const items = [];
+    document.querySelectorAll('#scan-items-body tr.scan-row').forEach(row => {
+        const nameInput = row.querySelector('.scan-name-input');
+        const name = nameInput ? nameInput.value.trim() : row.dataset.name;
+        const category = row.dataset.category || 'Groceries';
+        const qty = parseFloat(row.querySelector('.scan-qty-input')?.value) || 1;
+        const price = parseFloat(row.querySelector('.scan-total-input')?.value) || 0;
+        if (name) items.push({ name, price, quantity: qty, category });
+    });
 
     try {
         const res = await fetch('/receipts/confirm', {

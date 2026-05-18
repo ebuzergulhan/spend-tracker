@@ -87,7 +87,7 @@ app.post('/upload', upload.single('receiptImage'), async (req, res) => {
 
         const response = await anthropic.messages.create({
             model: 'claude-haiku-4-5',
-            max_tokens: 2048,
+            max_tokens: 4096,
             messages: [
                 {
                     role: 'user',
@@ -989,7 +989,7 @@ app.post('/upload/shopping', upload.single('receiptImage'), async (req, res) => 
         const base64Image = imageData.toString('base64');
         const response = await anthropic.messages.create({
             model: 'claude-haiku-4-5',
-            max_tokens: 2048,
+            max_tokens: 4096,
             messages: [{
                 role: 'user',
                 content: [
@@ -1150,7 +1150,7 @@ app.post('/upload/outing', upload.single('receiptImage'), async (req, res) => {
 
         const response = await anthropic.messages.create({
             model: 'claude-haiku-4-5',
-            max_tokens: 2048,
+            max_tokens: 4096,
             messages: [{
                 role: 'user',
                 content: [
