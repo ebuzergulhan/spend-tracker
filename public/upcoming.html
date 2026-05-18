@@ -178,10 +178,8 @@
         let allDebts = [];
 
         async function load() {
-            [allRecurring, allDebts] = await Promise.all([
-                fetch('/recurring').then(r => r.json()),
-                fetch('/debts').then(r => r.json())
-            ]);
+            allRecurring = await fetch('/recurring').then(r => r.json());
+            allDebts = [];
 
             // Set tab labels
             const thisM = getMonthBounds(0);
