@@ -4,7 +4,7 @@ const express = require('express');
 const app = express();
 const path = require('path');
 const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: 'uploads/receipts-tmp/' });
 const debtDocUpload = multer({ dest: 'uploads/debt-docs/' });
 const paymentReceiptUpload = multer({ dest: 'uploads/debt-receipts/' });
 const PORT = process.env.PORT || 3001;
@@ -14,6 +14,8 @@ const { Pool } = require('pg');
 const fs = require('fs');
 if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
 if (!fs.existsSync('uploads/debt-receipts')) fs.mkdirSync('uploads/debt-receipts', { recursive: true });
+if (!fs.existsSync('uploads/receipts')) fs.mkdirSync('uploads/receipts', { recursive: true });
+if (!fs.existsSync('uploads/receipts-tmp')) fs.mkdirSync('uploads/receipts-tmp', { recursive: true });
 
 const anthropic = new Anthropic();
 
@@ -47,6 +49,14 @@ app.get('/uploads/debt-receipts/:filename', async (req, res) => {
         res.setHeader('Content-Disposition', `inline; filename="${name}"`);
         res.sendFile(path.resolve('uploads/debt-receipts', fn));
     } catch { res.status(404).send('Not found'); }
+});
+app.get('/uploads/receipts/:filename', (req, res) => {
+    const fp = path.resolve('uploads/receipts', req.params.filename);
+    if (!fs.existsSync(fp)) return res.status(404).send('Not found');
+    const ext = path.extname(req.params.filename).toLowerCase();
+    res.setHeader('Content-Type', MIME[ext] || 'image/jpeg');
+    res.setHeader('Content-Disposition', `inline; filename="${req.params.filename}"`);
+    res.sendFile(fp);
 });
 app.use(express.json());
 
@@ -122,7 +132,13 @@ Rules:
         receipt.total = parseFloat(receipt.total) || 0;
         receipt.shop_name = await normalizeShopName(receipt.shop_name);
 
-        fs.unlinkSync(req.file.path);
+        // Move to permanent receipts folder with a readable name
+        const ext = path.extname(req.file.originalname || '.jpg').toLowerCase() || '.jpg';
+        const safeName = receipt.shop_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const receiptFilename = `${Date.now()}_${safeName}${ext}`;
+        fs.renameSync(req.file.path, `uploads/receipts/${receiptFilename}`);
+        receipt.image_filename = receiptFilename;
+
         res.json(receipt);
 
     } catch (error) {
@@ -134,7 +150,7 @@ Rules:
 // Save a reviewed/confirmed receipt to the database
 app.post('/receipts/confirm', async (req, res) => {
     try {
-        const { shop_name, date, total, items } = req.body;
+        const { shop_name, date, total, items, image_filename } = req.body;
         const today = new Date().toISOString().split('T')[0];
         const receiptDate = (date && date !== 'null' && date <= today) ? date : null;
         const receiptTotal = parseFloat(total) || 0;
@@ -145,6 +161,9 @@ app.post('/receipts/confirm', async (req, res) => {
             [normalizedShop, receiptDate, receiptTotal]
         );
         if (duplicate.rows.length > 0) {
+            if (image_filename && fs.existsSync(`uploads/receipts/${image_filename}`)) {
+                fs.unlinkSync(`uploads/receipts/${image_filename}`);
+            }
             return res.status(409).json({ error: 'This receipt has already been saved.' });
         }
 
@@ -153,9 +172,9 @@ app.post('/receipts/confirm', async (req, res) => {
             const qty = parseFloat(item.quantity) || 1;
             const linePrice = parseFloat(item.price) || 0;
             await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [receiptDate, normalizedShop, item.category, item.name, linePrice, qty, qty > 0 ? linePrice / qty : linePrice, receiptTotal, createdAt]
+                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, receipt_image)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [receiptDate, normalizedShop, item.category, item.name, linePrice, qty, qty > 0 ? linePrice / qty : linePrice, receiptTotal, createdAt, image_filename || null]
             );
         }
 
@@ -260,7 +279,7 @@ app.get('/receipts', async (req, res) => {
     const { from, to } = req.query;
     const f = from && to;
     const result = await db.query(`
-        SELECT created_at, shop_name, date, receipt_total
+        SELECT created_at, shop_name, date, receipt_total, MAX(receipt_image) AS receipt_image
         FROM items
         ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
         GROUP BY created_at, shop_name, date, receipt_total
@@ -272,7 +291,7 @@ app.get('/receipts', async (req, res) => {
 // Get all items for a single receipt
 app.get('/receipts/:created_at/items', async (req, res) => {
     const result = await db.query(
-        `SELECT id, item_name, item_price, quantity, unit_price, category FROM items WHERE created_at = $1 ORDER BY id`,
+        `SELECT id, item_name, item_price, quantity, unit_price, category, receipt_image FROM items WHERE created_at = $1 ORDER BY id`,
         [req.params.created_at]
     );
     res.json(result.rows);
@@ -487,6 +506,7 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
     await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS quantity NUMERIC(8,3) DEFAULT 1`);
     await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
+    await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS receipt_image TEXT`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS expense_log (
             id SERIAL PRIMARY KEY,

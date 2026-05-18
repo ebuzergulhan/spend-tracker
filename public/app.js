@@ -240,7 +240,7 @@ async function confirmSave() {
         const res = await fetch('/receipts/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shop_name: pendingReceipt.shop_name, date: pendingReceipt.date, total: pendingReceipt.total, items })
+            body: JSON.stringify({ shop_name: pendingReceipt.shop_name, date: pendingReceipt.date, total: pendingReceipt.total, items, image_filename: pendingReceipt.image_filename || null })
         });
         const result = await res.json();
 
@@ -648,6 +648,9 @@ function renderHistory() {
                     <p class="text-xs text-gray-300 mb-2">Added ${addedLabel}${dateEstimated ? ' · <span class="text-orange-400">* date not on receipt</span>' : ''}</p>
                     <div class="flex items-center gap-3">
                         <button onclick="startEdit('${r.created_at}')" class="text-xs text-purple-600 font-medium hover:text-purple-800">Edit receipt</button>
+                        ${r.receipt_image ? `<button onclick="viewReceiptPhoto('${r.receipt_image}')" class="text-xs text-blue-500 font-medium hover:text-blue-700 flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            View photo</button>` : ''}
                         <button onclick="deleteReceipt('${r.created_at}')" class="text-xs text-red-400 font-medium hover:text-red-600">Delete</button>
                     </div>
                 </div>
@@ -679,6 +682,21 @@ function renderHistory() {
         </div>
         `;
     }).join('');
+}
+
+function viewReceiptPhoto(filename) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
+    overlay.innerHTML = `
+        <div class="relative max-w-lg w-full">
+            <button onclick="this.closest('.fixed').remove()" class="absolute -top-10 right-0 text-white text-sm font-medium flex items-center gap-1 hover:text-gray-300">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                Close
+            </button>
+            <img src="/uploads/receipts/${filename}" alt="Receipt" class="w-full rounded-xl shadow-2xl max-h-[85vh] object-contain bg-white"/>
+        </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
 }
 
 async function showCategoryDetail(category, totalSpent) {
