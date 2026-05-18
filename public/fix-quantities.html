@@ -107,7 +107,7 @@
                                 oninput="recalcUnit('${r.created_at}',${idx})"/>
                         </td>
                         <td class="py-2 text-sm font-medium text-purple-600 whitespace-nowrap" id="unit-${r.created_at}-${idx}">
-                            £${unitPriceStored.toFixed(4)}
+                            £${unitPriceStored.toFixed(2)}
                         </td>
                     </tr>`;
             }).join('');
@@ -137,7 +137,7 @@
             const unitEl = document.getElementById(`unit-${createdAt}-${idx}`);
             const lineTotal = parseFloat(totalEl?.value) || 0;
             const qty = parseFloat(qtyEl?.value) || 1;
-            unitEl.textContent = qty > 0 && lineTotal > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
+            unitEl.textContent = qty > 0 && lineTotal > 0 ? `£${(lineTotal / qty).toFixed(2)}` : '—';
         }
 
         async function toggle(createdAt) {

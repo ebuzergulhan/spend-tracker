@@ -152,7 +152,7 @@ function scanItemRow(name, category, qty, lineTotal) {
                     class="scan-total-input w-20 border border-gray-200 rounded-lg px-1 py-0.5 text-sm text-center focus:outline-none focus:border-purple-400 ${isDiscount ? 'text-red-500' : ''}"
                     oninput="updateScanRow(this)"/>
             </td>
-            <td class="py-2 pr-2 text-xs text-purple-600 whitespace-nowrap scan-unit-display">£${unitPrice.toFixed(4)}</td>
+            <td class="py-2 pr-2 text-xs text-purple-600 whitespace-nowrap scan-unit-display">£${unitPrice.toFixed(2)}</td>
             <td class="py-2">
                 <button onclick="removeScanRow(this)" class="text-gray-300 hover:text-red-400 transition font-bold text-lg leading-none">×</button>
             </td>
@@ -228,7 +228,7 @@ function updateScanRow(inputEl) {
     const qty = parseFloat(row.querySelector('.scan-qty-input').value) || 1;
     const lineTotal = parseFloat(row.querySelector('.scan-total-input').value) || 0;
     const unitDisplay = row.querySelector('.scan-unit-display');
-    if (unitDisplay) unitDisplay.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(4)}` : '—';
+    if (unitDisplay) unitDisplay.textContent = qty > 0 ? `£${(lineTotal / qty).toFixed(2)}` : '—';
     recalcScanValidation();
 }
 
@@ -697,7 +697,7 @@ function renderHistory() {
                                     <span class="tag shrink-0 ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
                                     <div class="min-w-0">
                                         <span class="text-gray-700">${qty > 1 ? `<span class="font-semibold text-purple-600">${Number.isInteger(qty) ? qty : qty}x</span> ` : ''}${item.item_name}</span>
-                                        <span class="text-gray-400 ml-1">· £${unitPrice.toFixed(4)}/unit</span>
+                                        <span class="text-gray-400 ml-1">· £${unitPrice.toFixed(2)}/unit</span>
                                     </div>
                                 </div>
                                 <span class="text-gray-600 font-medium ml-3 shrink-0">£${lineTotal.toFixed(2)}</span>
