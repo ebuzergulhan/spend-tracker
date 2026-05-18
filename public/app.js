@@ -691,14 +691,13 @@ function renderHistory() {
                             const qty = parseFloat(item.quantity) || 1;
                             const lineTotal = parseFloat(item.item_price);
                             const unitPrice = item.unit_price != null ? parseFloat(item.unit_price) : lineTotal / qty;
-                            const showUnit = qty > 1;
                             return `
                             <div class="flex justify-between items-start text-xs py-0.5">
                                 <div class="flex items-center gap-2 flex-1 min-w-0">
                                     <span class="tag shrink-0 ${categoryColors[item.category] || 'bg-purple-100 text-purple-700'}">${item.category}</span>
                                     <div class="min-w-0">
-                                        <span class="text-gray-700">${showUnit ? `<span class="font-semibold text-purple-600">${Number.isInteger(qty) ? qty : qty}x</span> ` : ''}${item.item_name}</span>
-                                        ${showUnit ? `<span class="text-gray-400 ml-1">· £${unitPrice.toFixed(4)}/unit</span>` : ''}
+                                        <span class="text-gray-700">${qty > 1 ? `<span class="font-semibold text-purple-600">${Number.isInteger(qty) ? qty : qty}x</span> ` : ''}${item.item_name}</span>
+                                        <span class="text-gray-400 ml-1">· £${unitPrice.toFixed(4)}/unit</span>
                                     </div>
                                 </div>
                                 <span class="text-gray-600 font-medium ml-3 shrink-0">£${lineTotal.toFixed(2)}</span>
