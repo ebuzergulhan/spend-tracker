@@ -44,6 +44,48 @@
             </div>
         </div>
 
+        <!-- Recurring Bills -->
+        <div class="card p-6 mb-4">
+            <div class="flex items-center justify-between mb-1">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-700">Recurring Bills</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">Automatically shown in Upcoming each month</p>
+                </div>
+                <button onclick="showAddRecurring()" id="btn-add-recurring" class="text-sm text-purple-600 font-medium hover:text-purple-800 transition">+ Add</button>
+            </div>
+
+            <div id="add-recurring-form" class="hidden mt-4 bg-gray-50 rounded-xl p-4">
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div class="flex-1 min-w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Bill Name</label>
+                        <input type="text" id="r-name" placeholder="e.g. Electricity" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-28">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
+                        <input type="number" id="r-amount" step="0.01" min="0" placeholder="0.00" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="w-32">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Frequency</label>
+                        <select id="r-freq" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="annual">Annual</option>
+                        </select>
+                    </div>
+                    <div class="w-36">
+                        <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
+                        <input type="date" id="r-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="saveNewRecurring()" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Save</button>
+                        <button onclick="hideAddRecurring()" class="border border-gray-200 text-gray-500 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="recurring-list" class="mt-3"></div>
+        </div>
+
         <!-- Add form -->
         <div class="card p-6 mb-4">
             <h2 class="text-sm font-semibold text-gray-700 mb-4">Log a Bill Payment</h2>
@@ -192,8 +234,114 @@
             load();
         }
 
+        // ── Recurring bills ───────────────────────────────────────────────────────
+        const FREQ_LABEL = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual', weekly: 'Weekly' };
+        const FREQ_COLOR = { monthly: 'bg-green-100 text-green-700', quarterly: 'bg-blue-100 text-blue-700', annual: 'bg-purple-100 text-purple-700', weekly: 'bg-amber-100 text-amber-700' };
+        let recurringBills = [];
+        let editingRecurringId = null;
+
+        function showAddRecurring() {
+            document.getElementById('add-recurring-form').classList.remove('hidden');
+            document.getElementById('btn-add-recurring').classList.add('hidden');
+            document.getElementById('r-start').value = new Date().toISOString().split('T')[0];
+            document.getElementById('r-name').focus();
+        }
+        function hideAddRecurring() {
+            document.getElementById('add-recurring-form').classList.add('hidden');
+            document.getElementById('btn-add-recurring').classList.remove('hidden');
+            document.getElementById('r-name').value = '';
+            document.getElementById('r-amount').value = '';
+        }
+
+        async function loadRecurring() {
+            recurringBills = await fetch('/recurring?category=bills').then(r => r.json());
+            renderRecurring();
+        }
+
+        function renderRecurring() {
+            const el = document.getElementById('recurring-list');
+            if (!recurringBills.length) {
+                el.innerHTML = '<p class="text-gray-400 text-xs text-center py-3">No recurring bills yet. Add your first one above.</p>';
+                return;
+            }
+            el.innerHTML = recurringBills.map(r => {
+                if (editingRecurringId === r.id) return recurringEditRow(r);
+                const freqLabel = FREQ_LABEL[r.frequency] || r.frequency;
+                const freqColor = FREQ_COLOR[r.frequency] || 'bg-gray-100 text-gray-600';
+                return `
+                <div class="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <p class="text-sm font-medium text-gray-800">${r.name}</p>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-medium ${freqColor}">${freqLabel}</span>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-0.5">From ${formatDate(r.start_date)}</p>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800">${fmt(r.amount)}</p>
+                    <button onclick="editingRecurringId=${r.id};renderRecurring()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
+                    <button onclick="deleteRecurring(${r.id})" class="text-gray-300 hover:text-red-400 transition ml-1">${TRASH}</button>
+                </div>`;
+            }).join('');
+        }
+
+        function recurringEditRow(r) {
+            return `
+            <div class="py-3 border-b border-gray-50 last:border-0">
+                <div class="bg-gray-50 rounded-xl p-3 flex flex-wrap gap-2 items-end">
+                    <input id="re-name" value="${r.name}" placeholder="Name" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                    <input id="re-amount" type="number" step="0.01" value="${r.amount}" class="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                    <select id="re-freq" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
+                        ${['monthly','quarterly','annual','weekly'].map(f => `<option value="${f}" ${r.frequency===f?'selected':''}>${FREQ_LABEL[f]}</option>`).join('')}
+                    </select>
+                    <input id="re-start" type="date" value="${r.start_date?.split('T')[0]||''}" class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
+                    <div class="flex gap-2">
+                        <button onclick="saveRecurringEdit(${r.id})" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90">Save</button>
+                        <button onclick="editingRecurringId=null;renderRecurring()" class="border border-gray-200 text-gray-500 text-xs px-4 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        async function saveNewRecurring() {
+            const name  = document.getElementById('r-name').value.trim();
+            const amount = document.getElementById('r-amount').value;
+            const freq  = document.getElementById('r-freq').value;
+            const start = document.getElementById('r-start').value;
+            if (!name || !amount || !start) return;
+            await fetch('/recurring', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category: 'bills', amount, frequency: freq, start_date: start })
+            });
+            hideAddRecurring();
+            loadRecurring();
+        }
+
+        async function saveRecurringEdit(id) {
+            const name  = document.getElementById('re-name').value.trim();
+            const amount = document.getElementById('re-amount').value;
+            const freq  = document.getElementById('re-freq').value;
+            const start = document.getElementById('re-start').value;
+            if (!name || !amount) return;
+            await fetch('/recurring/' + id, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, category: 'bills', amount, frequency: freq, start_date: start })
+            });
+            editingRecurringId = null;
+            loadRecurring();
+        }
+
+        async function deleteRecurring(id) {
+            const ok = await showModal({ title: 'Delete', message: 'Remove this recurring bill?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+            if (!ok) return;
+            await fetch('/recurring/' + id, { method: 'DELETE' });
+            loadRecurring();
+        }
+
         // Set today's date as default
         document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+        loadRecurring();
         load();
     </script>
 </body>
