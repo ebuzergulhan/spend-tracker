@@ -528,6 +528,49 @@ app.post('/manual', async (req, res) => {
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS loans (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            original_amount NUMERIC(12,2) NOT NULL,
+            monthly_payment NUMERIC(10,2) NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE,
+            total_installments INTEGER,
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS loan_schedule (
+            id SERIAL PRIMARY KEY,
+            loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE,
+            installment_no INTEGER NOT NULL,
+            due_date DATE NOT NULL,
+            opening_balance NUMERIC(12,2),
+            interest NUMERIC(10,2),
+            total_owed NUMERIC(12,2),
+            payment NUMERIC(10,2) DEFAULT 0,
+            closing_balance NUMERIC(12,2),
+            notes TEXT
+        )
+    `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS loan_transfers (
+            id SERIAL PRIMARY KEY,
+            loan_id INTEGER REFERENCES loans(id) ON DELETE CASCADE,
+            transfer_date DATE NOT NULL,
+            try_amount NUMERIC(14,2) NOT NULL,
+            google_rate NUMERIC(10,4),
+            actual_rate NUMERIC(10,4),
+            kambiyo_rate NUMERIC(6,4) DEFAULT 0.002,
+            kambiyo_amount NUMERIC(14,2),
+            try_after_tax NUMERIC(14,2),
+            gbp_amount NUMERIC(10,2) NOT NULL,
+            notes TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
 })();
 
 // Recurring expenses (fixed costs + subscriptions)
@@ -1292,6 +1335,143 @@ app.get('/stats/outings/monthly', async (req, res) => {
         GROUP BY month ORDER BY month DESC
     `);
     res.json(result.rows);
+});
+
+// ─── Loan Tracker ──────────────────────────────────────────────────────────
+
+app.get('/loans', async (req, res) => {
+    const result = await db.query('SELECT * FROM loans ORDER BY created_at DESC');
+    res.json(result.rows);
+});
+
+app.post('/loans', async (req, res) => {
+    try {
+        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO loans (name, original_amount, monthly_payment, start_date, end_date, total_installments, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [name, parseFloat(original_amount), parseFloat(monthly_payment), start_date, end_date || null,
+             total_installments ? parseInt(total_installments) : null, notes || null]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/loans/:id', async (req, res) => {
+    try {
+        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, notes } = req.body;
+        const result = await db.query(
+            `UPDATE loans SET name=$1, original_amount=$2, monthly_payment=$3, start_date=$4, end_date=$5, total_installments=$6, notes=$7 WHERE id=$8 RETURNING *`,
+            [name, parseFloat(original_amount), parseFloat(monthly_payment), start_date, end_date || null,
+             total_installments ? parseInt(total_installments) : null, notes || null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/loans/:id', async (req, res) => {
+    try {
+        await db.query('DELETE FROM loans WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/loans/:id/schedule', async (req, res) => {
+    const result = await db.query(
+        'SELECT * FROM loan_schedule WHERE loan_id = $1 ORDER BY installment_no', [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.post('/loans/:id/schedule/bulk', async (req, res) => {
+    try {
+        const { rows } = req.body;
+        const loanId = parseInt(req.params.id);
+        await db.query('DELETE FROM loan_schedule WHERE loan_id = $1', [loanId]);
+        for (const r of rows) {
+            await db.query(
+                `INSERT INTO loan_schedule (loan_id, installment_no, due_date, opening_balance, interest, total_owed, payment, closing_balance, notes)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                [loanId, r.installment_no, r.due_date, r.opening_balance, r.interest, r.total_owed, r.payment || 0, r.closing_balance, r.notes || null]
+            );
+        }
+        res.json({ success: true, count: rows.length });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/loans/:id/transfers', async (req, res) => {
+    const result = await db.query(
+        'SELECT * FROM loan_transfers WHERE loan_id = $1 ORDER BY transfer_date DESC', [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.post('/loans/:id/transfers', async (req, res) => {
+    try {
+        const { transfer_date, try_amount, google_rate, actual_rate, kambiyo_rate, kambiyo_amount, try_after_tax, gbp_amount, notes } = req.body;
+        const result = await db.query(
+            `INSERT INTO loan_transfers (loan_id, transfer_date, try_amount, google_rate, actual_rate, kambiyo_rate, kambiyo_amount, try_after_tax, gbp_amount, notes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+            [req.params.id, transfer_date, parseFloat(try_amount), google_rate ? parseFloat(google_rate) : null,
+             actual_rate ? parseFloat(actual_rate) : null, kambiyo_rate != null ? parseFloat(kambiyo_rate) : 0.002,
+             kambiyo_amount ? parseFloat(kambiyo_amount) : null, try_after_tax ? parseFloat(try_after_tax) : null,
+             parseFloat(gbp_amount), notes || null]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/loans/:id/transfers/bulk', async (req, res) => {
+    try {
+        const { rows } = req.body;
+        const loanId = parseInt(req.params.id);
+        for (const r of rows) {
+            await db.query(
+                `INSERT INTO loan_transfers (loan_id, transfer_date, try_amount, google_rate, actual_rate, kambiyo_rate, kambiyo_amount, try_after_tax, gbp_amount, notes)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                [loanId, r.transfer_date, parseFloat(r.try_amount), r.google_rate ? parseFloat(r.google_rate) : null,
+                 r.actual_rate ? parseFloat(r.actual_rate) : null, r.kambiyo_rate != null ? parseFloat(r.kambiyo_rate) : 0.002,
+                 r.kambiyo_amount ? parseFloat(r.kambiyo_amount) : null, r.try_after_tax ? parseFloat(r.try_after_tax) : null,
+                 parseFloat(r.gbp_amount), r.notes || null]
+            );
+        }
+        res.json({ success: true, count: rows.length });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/loan-transfers/:id', async (req, res) => {
+    try {
+        const { transfer_date, try_amount, google_rate, actual_rate, kambiyo_rate, kambiyo_amount, try_after_tax, gbp_amount, notes } = req.body;
+        const result = await db.query(
+            `UPDATE loan_transfers SET transfer_date=$1, try_amount=$2, google_rate=$3, actual_rate=$4, kambiyo_rate=$5, kambiyo_amount=$6, try_after_tax=$7, gbp_amount=$8, notes=$9 WHERE id=$10 RETURNING *`,
+            [transfer_date, parseFloat(try_amount), google_rate ? parseFloat(google_rate) : null,
+             actual_rate ? parseFloat(actual_rate) : null, kambiyo_rate != null ? parseFloat(kambiyo_rate) : 0.002,
+             kambiyo_amount ? parseFloat(kambiyo_amount) : null, try_after_tax ? parseFloat(try_after_tax) : null,
+             parseFloat(gbp_amount), notes || null, req.params.id]
+        );
+        res.json(result.rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/loan-transfers/:id', async (req, res) => {
+    try {
+        await db.query('DELETE FROM loan_transfers WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Exchange rate proxy (TRY per GBP)
+app.get('/api/exchange-rate', (req, res) => {
+    require('https').get('https://open.er-api.com/v6/latest/GBP', (resp) => {
+        let data = '';
+        resp.on('data', chunk => data += chunk);
+        resp.on('end', () => {
+            try {
+                const json = JSON.parse(data);
+                res.json({ rate: json.rates?.TRY || null, source: 'open.er-api.com', updated: json.time_last_update_utc });
+            } catch { res.status(500).json({ error: 'Parse error' }); }
+        });
+    }).on('error', () => res.status(500).json({ error: 'Failed to fetch exchange rate' }));
 });
 
 app.listen(PORT, () => {

@@ -85,6 +85,7 @@ function initSharedPage(activePage) {
         { id: 'subscriptions', href: 'subscriptions.html', label: 'Subscriptions' },
         { id: 'shopping',      href: 'shopping.html',      label: 'Shopping' },
         { id: 'debts',         href: 'debts.html',         label: 'Debts' },
+        { id: 'loan',          href: 'loan.html',          label: 'Loan' },
     ];
 
     const navHtml = navLinks.map(l =>
