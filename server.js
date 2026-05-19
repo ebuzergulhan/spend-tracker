@@ -700,7 +700,7 @@ app.get('/summary/home', async (req, res) => {
         groceries: parseFloat(groceries.rows[0]?.total) || 0,
         outabout: parseFloat(outabout.rows[0]?.total) || 0,
         shopping: (parseFloat(shopping.rows[0]?.total) || 0) + (recurringMap['shopping'] || 0),
-        bills: logMap['bill'] || 0,
+        bills: (logMap['bill'] || 0) + (recurringMap['bills'] || 0),
         transport: (recurringMap['transport'] || 0) + (logMap['transport'] || 0) + (logMap['fuel'] || 0),
         fixed: recurringMap['fixed'] || 0,
         subscriptions: recurringMap['subscription'] || 0

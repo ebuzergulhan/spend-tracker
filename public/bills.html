@@ -39,8 +39,8 @@
                 <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
             </div>
             <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Year</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">—</p>
+                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly Recurring</p>
+                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-recurring">—</p>
             </div>
         </div>
 
@@ -195,6 +195,41 @@
             }).join('');
         }
 
+        // Returns total of recurring bills that fall due in the current month
+        function recurringThisMonth(bills) {
+            const y = now.getFullYear(), m = now.getMonth();
+            return bills.reduce((sum, b) => {
+                const start = new Date(b.start_date);
+                if (start > new Date(y, m + 1, 0)) return sum; // starts after this month
+                const freq = b.frequency;
+                if (freq === 'monthly') return sum + parseFloat(b.amount);
+                if (freq === 'weekly')  return sum + parseFloat(b.amount) * 4;
+                // quarterly / annual: check if this month is a payment month
+                const monthsElapsed = (y - start.getFullYear()) * 12 + (m - start.getMonth());
+                const interval = freq === 'quarterly' ? 3 : 12;
+                if (monthsElapsed >= 0 && monthsElapsed % interval === 0) return sum + parseFloat(b.amount);
+                return sum;
+            }, 0);
+        }
+
+        // Returns monthly-equivalent total across all recurring bills
+        function monthlyEquivalent(bills) {
+            return bills.reduce((sum, b) => {
+                const amt = parseFloat(b.amount);
+                if (b.frequency === 'monthly')   return sum + amt;
+                if (b.frequency === 'quarterly') return sum + amt / 3;
+                if (b.frequency === 'annual')    return sum + amt / 12;
+                if (b.frequency === 'weekly')    return sum + amt * 4.33;
+                return sum + amt;
+            }, 0);
+        }
+
+        function updateStats(loggedThisMonth) {
+            const recurringAmt = recurringThisMonth(recurringBills);
+            document.getElementById('stat-month').textContent     = fmt(loggedThisMonth + recurringAmt);
+            document.getElementById('stat-recurring').textContent = fmt(monthlyEquivalent(recurringBills));
+        }
+
         async function load() {
             const y = yearSel.value;
             const from = y ? `${y}-01-01` : '';
@@ -205,8 +240,8 @@
             const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
             const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
             const monthItems = await fetch('/expense-log?category=bill&from=' + monthStart + '&to=' + monthEnd).then(r => r.json());
-            document.getElementById('stat-month').textContent = fmt(monthItems.reduce((s,i) => s + parseFloat(i.amount), 0));
-            document.getElementById('stat-year').textContent  = fmt(allItems.reduce((s,i) => s + parseFloat(i.amount), 0));
+            const loggedThisMonth = monthItems.reduce((s,i) => s + parseFloat(i.amount), 0);
+            updateStats(loggedThisMonth);
             renderList();
         }
 
@@ -256,6 +291,11 @@
         async function loadRecurring() {
             recurringBills = await fetch('/recurring?category=bills').then(r => r.json());
             renderRecurring();
+            // Re-run stats now that recurringBills is populated
+            const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+            const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+            const monthItems = await fetch('/expense-log?category=bill&from=' + monthStart + '&to=' + monthEnd).then(r => r.json());
+            updateStats(monthItems.reduce((s,i) => s + parseFloat(i.amount), 0));
         }
 
         function renderRecurring() {
