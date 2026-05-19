@@ -30,10 +30,10 @@ function showModal({ title, message, type = 'alert', inputDefault = '', confirmL
         const buttonsEl= document.getElementById('modal-buttons');
 
         titleEl.textContent   = title || '';
-        titleEl.className     = title ? 'font-semibold text-gray-800 mb-1' : 'hidden';
+        titleEl.className     = title ? 'font-semibold mb-1' : 'hidden';
+        titleEl.style.color   = 'var(--sp-ink)';
         msgEl.textContent     = message || '';
         buttonsEl.innerHTML   = '';
-        card.className        = 'card p-6 w-full max-w-sm modal-animate';
 
         if (type === 'prompt') {
             inputWrap.classList.remove('hidden');
@@ -51,14 +51,14 @@ function showModal({ title, message, type = 'alert', inputDefault = '', confirmL
         if (type === 'confirm' || type === 'prompt') {
             const cancelBtn = document.createElement('button');
             cancelBtn.textContent = cancelLabel;
-            cancelBtn.className = 'flex-1 border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2.5 rounded-xl hover:bg-gray-50 transition';
+            cancelBtn.className = 'flex-1 sp-btn-ghost';
             cancelBtn.onclick = () => close(type === 'prompt' ? null : false);
             buttonsEl.appendChild(cancelBtn);
         }
 
         const okBtn = document.createElement('button');
         okBtn.textContent = confirmLabel;
-        okBtn.className = 'flex-1 gradient-bg text-white text-sm font-semibold px-4 py-2.5 rounded-xl hover:opacity-90 transition';
+        okBtn.className = 'flex-1 sp-btn-primary';
         okBtn.onclick = () => close(type === 'prompt' ? (inputEl.value.trim() || null) : true);
         buttonsEl.appendChild(okBtn);
 
@@ -193,7 +193,7 @@ function renderScanReview(receipt) {
         </button>
         <div id="scan-validation" class="mb-3">${buildValidationHtml(calcTotal, receipt.total)}</div>
         <button onclick="confirmSave()" id="confirm-save-btn"
-            class="w-full gradient-bg text-white text-sm font-semibold py-2.5 rounded-xl hover:opacity-90 transition">
+            class="w-full sp-btn-primary" style="padding:10px;">
             Confirm &amp; Save to Database
         </button>
     `;
@@ -463,8 +463,8 @@ async function loadDashboard() {
                     <span>${formatMonth(m.month)}</span>
                     <span class="font-semibold text-gray-700">£${m.total_spent}</span>
                 </div>
-                <div class="bg-gray-100 rounded-full overflow-hidden">
-                    <div class="bar gradient-bg" style="width:${(parseFloat(m.total_spent) / max * 100).toFixed(0)}%"></div>
+                <div class="rounded-full overflow-hidden" style="background:var(--sp-ink-08);">
+                    <div class="bar" style="width:${(parseFloat(m.total_spent) / max * 100).toFixed(0)}%;background:var(--cat-groceries-dot);"></div>
                 </div>
             </div>
         `).join('');
@@ -482,7 +482,7 @@ async function loadDashboard() {
                     <span class="group-hover:text-purple-600 transition">${c.category}</span>
                     <span class="font-semibold text-gray-700">£${c.total_spent}</span>
                 </div>
-                <div class="bg-gray-100 rounded-full overflow-hidden">
+                <div class="rounded-full overflow-hidden" style="background:var(--sp-ink-08);">
                     <div class="bar" style="width:${(parseFloat(c.total_spent) / max * 100).toFixed(0)}%; background:${catColors[i % catColors.length]}"></div>
                 </div>
             </div>
@@ -496,7 +496,7 @@ async function loadDashboard() {
         shopEl.innerHTML = shops.map((s, i) => `
             <div class="flex items-center justify-between py-2.5 border-b last:border-0">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-full gradient-bg flex items-center justify-center text-white text-xs font-bold">${i + 1}</div>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--cat-groceries-bg);color:var(--cat-groceries-fg);">${i + 1}</div>
                     <div>
                         <p class="text-sm font-medium text-gray-800">${s.shop_name}</p>
                         <p class="text-xs text-gray-400">${s.item_count} items</p>
@@ -680,8 +680,8 @@ function renderHistory() {
                     </div>
                     <button type="button" onclick="addEditItem()" class="text-sm text-purple-600 font-medium hover:text-purple-800">+ Add item</button>
                     <div class="flex gap-2">
-                        <button onclick="saveReceiptEdit()" class="gradient-bg text-white text-sm font-semibold px-4 py-2 rounded-xl hover:opacity-90">Save</button>
-                        <button onclick="cancelEdit()" class="border border-gray-200 text-gray-600 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50">Cancel</button>
+                        <button onclick="saveReceiptEdit()" class="sp-btn-primary" style="font-size:13px;padding:8px 16px;">Save</button>
+                        <button onclick="cancelEdit()" class="sp-btn-ghost" style="font-size:13px;padding:8px 16px;">Cancel</button>
                     </div>
                 </div>
             `;
@@ -723,8 +723,8 @@ function renderHistory() {
         <div class="border-b last:border-0 ${isExpanded || isEditing ? 'bg-purple-50/40 rounded-xl' : ''}">
             <div class="flex items-center justify-between py-3.5 px-1 cursor-pointer select-none" onclick="toggleReceipt('${r.created_at}')">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl gradient-bg flex items-center justify-center flex-shrink-0">
-                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:var(--cat-groceries-bg);">
+                        <svg class="w-5 h-5" style="color:var(--cat-groceries-fg);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
                     </div>

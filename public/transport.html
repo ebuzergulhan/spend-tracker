@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,578 +6,594 @@
     <title>Transport</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
-        .nav-btn { transition: all 0.2s ease; }
-        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
-        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
-        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
-        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .modal-animate { animation: modalIn 0.18s ease-out; }
-    </style>
+    <link rel="stylesheet" href="spectrum.css"/>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-    <div class="gradient-bg">
-        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
-            <div class="mb-8">
-                <h1 class="text-2xl font-bold text-white">Transport</h1>
-                <p class="text-purple-200 text-sm mt-0.5">Car loan, insurance, road tax &amp; one-off costs</p>
-            </div>
-            <div class="flex gap-2 overflow-x-auto" id="shared-nav"></div>
+<div class="sp-shell">
+  <main class="sp-main">
+    <div class="sp-body">
+
+      <!-- Summary -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="sp-kpi">
+          <div class="sp-kpi-label">Monthly (Recurring)</div>
+          <div class="sp-kpi-value" id="stat-monthly">—</div>
         </div>
+        <div class="sp-kpi">
+          <div class="sp-kpi-label">One-off This Year</div>
+          <div class="sp-kpi-value" id="stat-year">—</div>
+        </div>
+        <div class="sp-kpi">
+          <div class="sp-kpi-label">Installments Active</div>
+          <div class="sp-kpi-value" id="stat-installments">—</div>
+        </div>
+      </div>
+
+      <!-- SECTION 1: Recurring -->
+      <div class="sp-card mb-4">
+        <div class="sp-card-head">
+          <div>
+            <h3 class="sp-card-title">Recurring Costs</h3>
+            <div class="sp-card-sub">Car loan, insurance, road tax — monthly or fixed-term</div>
+          </div>
+        </div>
+        <div class="sp-card-body">
+          <form id="recurringForm" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-36">
+              <label class="sp-field-label">Name</label>
+              <input type="text" id="r-name" placeholder="e.g. Car Insurance" required class="sp-input"/>
+            </div>
+            <div class="w-32">
+              <label class="sp-field-label">Amount (&pound;)</label>
+              <input type="number" id="r-amount" step="0.01" min="0" placeholder="0.00" required class="sp-input"/>
+            </div>
+            <div class="w-36">
+              <label class="sp-field-label">Frequency</label>
+              <select id="r-frequency" class="sp-select">
+                <option value="monthly">Monthly</option>
+                <option value="annual">Annual</option>
+                <option value="quarterly">Quarterly</option>
+                <option value="weekly">Weekly</option>
+              </select>
+            </div>
+            <div class="w-36">
+              <label class="sp-field-label">Start Date</label>
+              <input type="date" id="r-start" class="sp-input"/>
+            </div>
+            <div class="w-32">
+              <label class="sp-field-label">No. of payments</label>
+              <input type="number" id="r-installments" min="1" placeholder="e.g. 12" class="sp-input"/>
+              <p style="font-size:11px;color:var(--sp-ink-50);margin-top:4px;">Leave blank = ongoing</p>
+            </div>
+            <div class="flex-1 min-w-36">
+              <label class="sp-field-label">Notes</label>
+              <input type="text" id="r-notes" placeholder="Optional" class="sp-input"/>
+            </div>
+            <button type="submit" class="sp-btn-primary">Add</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Installment recurring -->
+      <div id="installments-section" class="hidden sp-card mb-4">
+        <div class="sp-card-head">
+          <div><h3 class="sp-card-title">Fixed-Term Payments</h3></div>
+        </div>
+        <div class="sp-card-body">
+          <div id="installments-list"></div>
+        </div>
+      </div>
+
+      <!-- Ongoing recurring -->
+      <div class="sp-card mb-6">
+        <div class="sp-card-head">
+          <div><h3 class="sp-card-title">Ongoing Recurring</h3></div>
+        </div>
+        <div class="sp-card-body">
+          <div id="recurring-list"></div>
+        </div>
+      </div>
+
+      <!-- SECTION 2: Fuel -->
+      <div class="sp-card mb-4">
+        <div class="sp-card-head">
+          <div>
+            <h3 class="sp-card-title">Fuel</h3>
+            <div class="sp-card-sub">Log every fill-up with cost and litres</div>
+          </div>
+        </div>
+        <div class="sp-card-body">
+          <form id="fuelForm" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-36">
+              <label class="sp-field-label">Station</label>
+              <input type="text" id="fu-name" placeholder="e.g. BP Motorway" required class="sp-input"/>
+            </div>
+            <div class="w-28">
+              <label class="sp-field-label">Amount (&pound;)</label>
+              <input type="number" id="fu-amount" step="0.01" min="0" placeholder="0.00" required class="sp-input"/>
+            </div>
+            <div class="w-24">
+              <label class="sp-field-label">Litres</label>
+              <input type="number" id="fu-litres" step="0.01" min="0" placeholder="0.00" class="sp-input"/>
+            </div>
+            <div class="w-36">
+              <label class="sp-field-label">Date</label>
+              <input type="date" id="fu-date" required class="sp-input"/>
+            </div>
+            <div class="flex-1 min-w-28">
+              <label class="sp-field-label">Notes</label>
+              <input type="text" id="fu-notes" placeholder="Optional" class="sp-input"/>
+            </div>
+            <button type="submit" class="sp-btn-primary">Add</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="sp-card mb-6">
+        <div class="sp-card-head">
+          <div><h3 class="sp-card-title">Fuel History</h3></div>
+          <select id="fuelYearFilter" onchange="loadFuel()" class="sp-select" style="width:auto;">
+            <option value="">All time</option>
+          </select>
+        </div>
+        <div class="sp-card-body">
+          <div class="grid grid-cols-3 gap-4 mb-4">
+            <div style="background:var(--sp-panel);border-radius:12px;padding:12px;text-align:center;">
+              <p style="font-size:12px;color:var(--sp-ink-50);">Spent (period)</p>
+              <p class="sp-num" style="font-size:18px;font-weight:700;color:var(--sp-ink);margin-top:4px;" id="fuel-stat-spent">—</p>
+            </div>
+            <div style="background:var(--sp-panel);border-radius:12px;padding:12px;text-align:center;">
+              <p style="font-size:12px;color:var(--sp-ink-50);">Litres (period)</p>
+              <p class="sp-num" style="font-size:18px;font-weight:700;color:var(--sp-ink);margin-top:4px;" id="fuel-stat-litres">—</p>
+            </div>
+            <div style="background:var(--sp-panel);border-radius:12px;padding:12px;text-align:center;">
+              <p style="font-size:12px;color:var(--sp-ink-50);">Avg p/litre</p>
+              <p class="sp-num" style="font-size:18px;font-weight:700;color:var(--sp-ink);margin-top:4px;" id="fuel-stat-ppl">—</p>
+            </div>
+          </div>
+          <div id="fuel-list"></div>
+        </div>
+      </div>
+
+      <!-- SECTION 3: One-off costs -->
+      <div class="sp-card mb-4">
+        <div class="sp-card-head">
+          <div>
+            <h3 class="sp-card-title">One-off Costs</h3>
+            <div class="sp-card-sub">MOT, services, repairs, tyres — logged as they happen</div>
+          </div>
+        </div>
+        <div class="sp-card-body">
+          <form id="oneoffForm" class="flex flex-wrap gap-3 items-end">
+            <div class="flex-1 min-w-36">
+              <label class="sp-field-label">Description</label>
+              <input type="text" id="o-name" placeholder="e.g. MOT" required class="sp-input"/>
+            </div>
+            <div class="w-32">
+              <label class="sp-field-label">Amount (&pound;)</label>
+              <input type="number" id="o-amount" step="0.01" min="0" placeholder="0.00" required class="sp-input"/>
+            </div>
+            <div class="w-36">
+              <label class="sp-field-label">Date</label>
+              <input type="date" id="o-date" required class="sp-input"/>
+            </div>
+            <div class="flex-1 min-w-36">
+              <label class="sp-field-label">Notes</label>
+              <input type="text" id="o-notes" placeholder="Optional" class="sp-input"/>
+            </div>
+            <button type="submit" class="sp-btn-primary">Add</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="sp-card mb-6">
+        <div class="sp-card-head">
+          <div><h3 class="sp-card-title">One-off History</h3></div>
+          <select id="yearFilter" onchange="loadOneoff()" class="sp-select" style="width:auto;">
+            <option value="">All time</option>
+          </select>
+        </div>
+        <div class="sp-card-body">
+          <div id="oneoff-list"></div>
+        </div>
+      </div>
+
     </div>
+  </main>
+</div>
 
-    <div class="max-w-5xl mx-auto px-6 -mt-8">
+<script src="shared.js"></script>
+<script src="spectrum-shell.js"></script>
+<script>
+    initSpectrum({
+      active: 'transport',
+      title: 'Transport',
+      subtitle: 'Car loan, insurance, road tax & one-off costs',
+    });
 
-        <!-- Summary -->
-        <div class="grid grid-cols-3 gap-4 mb-6">
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Monthly (Recurring)</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-monthly">—</p>
-            </div>
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">One-off This Year</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-year">—</p>
-            </div>
-            <div class="card p-4">
-                <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Installments Active</p>
-                <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-installments">—</p>
-            </div>
-        </div>
+    // Year filter setup
+    const now = new Date();
+    const yearSel     = document.getElementById('yearFilter');
+    const fuelYearSel = document.getElementById('fuelYearFilter');
+    for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) {
+        const opt = `<option value="${y}"${y === now.getFullYear() ? ' selected' : ''}>${y}</option>`;
+        yearSel.insertAdjacentHTML('beforeend', opt);
+        fuelYearSel.insertAdjacentHTML('beforeend', opt);
+    }
 
-        <!-- â”€â”€ SECTION 1: Recurring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-        <div class="card p-6 mb-4">
-            <h2 class="text-base font-semibold text-gray-800 mb-1">Recurring Costs</h2>
-            <p class="text-xs text-gray-400 mb-4">Car loan, insurance, road tax — monthly or fixed-term</p>
-            <form id="recurringForm" class="flex flex-wrap gap-3 items-end">
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Name</label>
-                    <input type="text" id="r-name" placeholder="e.g. Car Insurance" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
-                    <input type="number" id="r-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Frequency</label>
-                    <select id="r-frequency" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400">
-                        <option value="monthly">Monthly</option>
-                        <option value="annual">Annual</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="weekly">Weekly</option>
-                    </select>
-                </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
-                    <input type="date" id="r-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">No. of payments</label>
-                    <input type="number" id="r-installments" min="1" placeholder="e.g. 12" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                    <p class="text-xs text-gray-400 mt-1">Leave blank = ongoing</p>
-                </div>
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
-                    <input type="text" id="r-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
-            </form>
-        </div>
+    // Helpers
+    function toMonthly(amount, freq) {
+        amount = parseFloat(amount) || 0;
+        if (freq === 'annual')    return amount / 12;
+        if (freq === 'weekly')    return amount * 52 / 12;
+        if (freq === 'quarterly') return amount / 3;
+        return amount;
+    }
+    function freqMonths(freq) {
+        if (freq === 'annual')    return 12;
+        if (freq === 'quarterly') return 3;
+        if (freq === 'weekly')    return 1 / 4.33;
+        return 1;
+    }
+    function paidCount(item) {
+        if (!item.start_date) return 0;
+        const start = new Date(item.start_date);
+        const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+        return Math.max(0, Math.min(Math.floor(monthsElapsed / freqMonths(item.frequency)) + 1, item.total_installments));
+    }
+    function capitalise(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-        <!-- Installment recurring -->
-        <div id="installments-section" class="hidden card p-6 mb-4">
-            <h3 class="text-sm font-semibold text-gray-700 mb-4">Fixed-Term Payments</h3>
-            <div id="installments-list"></div>
-        </div>
+    // Icons & edit state
+    const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
+    const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+    let editingRecurringId = null, editingFuelId = null, editingOneoffId = null;
 
-        <!-- Ongoing recurring -->
-        <div class="card p-6 mb-6">
-            <h3 class="text-sm font-semibold text-gray-700 mb-4">Ongoing Recurring</h3>
-            <div id="recurring-list"></div>
-        </div>
+    // Recurring section
+    let recurringItems = [];
 
-        <!-- â”€â”€ SECTION 2: Fuel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-        <div class="card p-6 mb-4">
-            <h2 class="text-base font-semibold text-gray-800 mb-1">Fuel</h2>
-            <p class="text-xs text-gray-400 mb-4">Log every fill-up with cost and litres</p>
-            <form id="fuelForm" class="flex flex-wrap gap-3 items-end">
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Station</label>
-                    <input type="text" id="fu-name" placeholder="e.g. BP Motorway" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-28">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
-                    <input type="number" id="fu-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-24">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Litres</label>
-                    <input type="number" id="fu-litres" step="0.01" min="0" placeholder="0.00" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
-                    <input type="date" id="fu-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="flex-1 min-w-28">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
-                    <input type="text" id="fu-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
-            </form>
-        </div>
-
-        <div class="card p-6 mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold text-gray-700">Fuel History</h3>
-                <select id="fuelYearFilter" onchange="loadFuel()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
-                    <option value="">All time</option>
-                </select>
-            </div>
-            <div class="grid grid-cols-3 gap-4 mb-4">
-                <div class="bg-gray-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-400">Spent (period)</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-spent">—</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-400">Litres (period)</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-litres">—</p>
-                </div>
-                <div class="bg-gray-50 rounded-xl p-3 text-center">
-                    <p class="text-xs text-gray-400">Avg p/litre</p>
-                    <p class="text-lg font-bold text-gray-800 mt-0.5" id="fuel-stat-ppl">—</p>
-                </div>
-            </div>
-            <div id="fuel-list"></div>
-        </div>
-
-        <!-- â”€â”€ SECTION 3: One-off costs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-        <div class="card p-6 mb-4">
-            <h2 class="text-base font-semibold text-gray-800 mb-1">One-off Costs</h2>
-            <p class="text-xs text-gray-400 mb-4">MOT, services, repairs, tyres — logged as they happen</p>
-            <form id="oneoffForm" class="flex flex-wrap gap-3 items-end">
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Description</label>
-                    <input type="text" id="o-name" placeholder="e.g. MOT" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-32">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Amount (£)</label>
-                    <input type="number" id="o-amount" step="0.01" min="0" placeholder="0.00" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Date</label>
-                    <input type="date" id="o-date" required class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <div class="flex-1 min-w-36">
-                    <label class="text-xs font-medium text-gray-500 block mb-1">Notes</label>
-                    <input type="text" id="o-notes" placeholder="Optional" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
-                </div>
-                <button type="submit" class="gradient-bg text-white font-medium px-5 py-2 rounded-xl hover:opacity-90 transition text-sm">Add</button>
-            </form>
-        </div>
-
-        <div class="card p-6 mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-semibold text-gray-700">One-off History</h3>
-                <select id="yearFilter" onchange="loadOneoff()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400 bg-white">
-                    <option value="">All time</option>
-                </select>
-            </div>
-            <div id="oneoff-list"></div>
-        </div>
-
-    </div>
-
-    <div class="h-12"></div>
-    <script src="shared.js"></script>
-    <script>
-        initSharedPage('transport');
-
-        // â”€â”€ Year filter setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        const now = new Date();
-        const yearSel     = document.getElementById('yearFilter');
-        const fuelYearSel = document.getElementById('fuelYearFilter');
-        for (let y = now.getFullYear(); y >= now.getFullYear() - 5; y--) {
-            const opt = `<option value="${y}"${y === now.getFullYear() ? ' selected' : ''}>${y}</option>`;
-            yearSel.insertAdjacentHTML('beforeend', opt);
-            fuelYearSel.insertAdjacentHTML('beforeend', opt);
-        }
-
-        // â”€â”€ Helpers (same as fixed.html) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        function toMonthly(amount, freq) {
-            amount = parseFloat(amount) || 0;
-            if (freq === 'annual')    return amount / 12;
-            if (freq === 'weekly')    return amount * 52 / 12;
-            if (freq === 'quarterly') return amount / 3;
-            return amount;
-        }
-        function freqMonths(freq) {
-            if (freq === 'annual')    return 12;
-            if (freq === 'quarterly') return 3;
-            if (freq === 'weekly')    return 1 / 4.33;
-            return 1;
-        }
-        function paidCount(item) {
-            if (!item.start_date) return 0;
-            const start = new Date(item.start_date);
-            const monthsElapsed = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
-            return Math.max(0, Math.min(Math.floor(monthsElapsed / freqMonths(item.frequency)) + 1, item.total_installments));
-        }
-        function capitalise(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-
-        // â”€â”€ Shared icons & edit state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
-        const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
-        let editingRecurringId = null, editingFuelId = null, editingOneoffId = null;
-
-        // â”€â”€ Recurring section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        let recurringItems = [];
-
-        function editRecurringForm(i) {
-            const sd   = i.start_date ? i.start_date.split('T')[0] : '';
-            const inst = i.total_installments || '';
-            return `
-                <div class="py-3 border-b border-gray-50 last:border-0">
-                    <form onsubmit="saveRecurring(event,${i.id})" class="bg-gray-50 rounded-xl p-3 space-y-2">
-                        <div class="flex flex-wrap gap-2">
-                            <input id="er-name" value="${i.name}" placeholder="Name" required class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="er-amount" type="number" step="0.01" value="${i.amount}" required class="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <select id="er-frequency" class="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400">
-                                <option value="monthly" ${i.frequency==='monthly'?'selected':''}>Monthly</option>
-                                <option value="annual" ${i.frequency==='annual'?'selected':''}>Annual</option>
-                                <option value="weekly" ${i.frequency==='weekly'?'selected':''}>Weekly</option>
-                                <option value="quarterly" ${i.frequency==='quarterly'?'selected':''}>Quarterly</option>
-                            </select>
-                            <input id="er-start" type="date" value="${sd}" class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="er-inst" type="number" min="1" value="${inst}" placeholder="Payments" class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="er-notes" value="${i.notes||''}" placeholder="Notes" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
-                            <button type="button" onclick="editingRecurringId=null;renderRecurring()" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                        </div>
-                    </form>
-                </div>`;
-        }
-
-        async function saveRecurring(e, id) {
-            e.preventDefault();
-            const inst = document.getElementById('er-inst').value;
-            await fetch('/recurring/' + id, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: document.getElementById('er-name').value.trim(),
-                    category: 'transport',
-                    amount: document.getElementById('er-amount').value,
-                    frequency: document.getElementById('er-frequency').value,
-                    start_date: document.getElementById('er-start').value || null,
-                    notes: document.getElementById('er-notes').value.trim() || null,
-                    total_installments: inst ? parseInt(inst) : null
-                })
-            });
-            editingRecurringId = null;
-            loadRecurring();
-        }
-
-        async function loadRecurring() {
-            recurringItems = await fetch('/recurring?category=transport').then(r => r.json());
-            renderRecurring();
-        }
-
-        function recurringRow(i, isInstallment) {
-            if (editingRecurringId === i.id) return editRecurringForm(i);
-            const paid  = isInstallment ? paidCount(i) : null;
-            const total = isInstallment ? parseInt(i.total_installments) : null;
-            const done  = isInstallment && paid >= total;
-            const pct   = isInstallment ? Math.round(paid / total * 100) : null;
-
-            const progressBar = isInstallment ? `
-                <div class="mt-2">
-                    <div class="flex justify-between text-xs text-gray-400 mb-1">
-                        <span>${paid} of ${total} paid${done ? ' · <span class="text-green-500 font-medium">Complete!</span>' : ''}</span>
-                        <span>${total - paid > 0 ? (total - paid) + ' left' : ''}</span>
+    function editRecurringForm(i) {
+        const sd   = i.start_date ? i.start_date.split('T')[0] : '';
+        const inst = i.total_installments || '';
+        return `
+            <div style="padding:12px 0;border-bottom:1px solid var(--sp-ink-04);">
+                <form onsubmit="saveRecurring(event,${i.id})" style="background:var(--sp-panel);border-radius:12px;padding:12px;" class="space-y-2">
+                    <div class="flex flex-wrap gap-2">
+                        <input id="er-name" value="${i.name}" placeholder="Name" required class="sp-input flex-1 min-w-32"/>
+                        <input id="er-amount" type="number" step="0.01" value="${i.amount}" required class="sp-input w-28"/>
+                        <select id="er-frequency" class="sp-select w-32">
+                            <option value="monthly" ${i.frequency==='monthly'?'selected':''}>Monthly</option>
+                            <option value="annual" ${i.frequency==='annual'?'selected':''}>Annual</option>
+                            <option value="weekly" ${i.frequency==='weekly'?'selected':''}>Weekly</option>
+                            <option value="quarterly" ${i.frequency==='quarterly'?'selected':''}>Quarterly</option>
+                        </select>
+                        <input id="er-start" type="date" value="${sd}" class="sp-input w-36"/>
+                        <input id="er-inst" type="number" min="1" value="${inst}" placeholder="Payments" class="sp-input w-24"/>
+                        <input id="er-notes" value="${i.notes||''}" placeholder="Notes" class="sp-input flex-1 min-w-32"/>
                     </div>
-                    <div class="w-full bg-gray-100 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full transition-all duration-700 ${done ? 'bg-green-400' : 'bg-purple-500'}" style="width:${pct}%"></div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="sp-btn-primary" style="font-size:12px;padding:6px 16px;">Save</button>
+                        <button type="button" onclick="editingRecurringId=null;renderRecurring()" class="sp-btn-ghost" style="font-size:12px;padding:6px 16px;">Cancel</button>
                     </div>
-                </div>
-            ` : '';
+                </form>
+            </div>`;
+    }
 
-            return `
-                <div class="py-3 border-b border-gray-50 last:border-0 ${done ? 'opacity-50' : ''}">
-                    <div class="flex items-center gap-4">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2">
-                                <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                                ${done ? '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-medium">Finished</span>' : ''}
-                            </div>
-                            <p class="text-xs text-gray-400 mt-0.5">${capitalise(i.frequency)}${i.start_date ? ' · from ' + formatDate(i.start_date) : ''}${i.notes ? ' · ' + i.notes : ''}</p>
-                            ${progressBar}
-                        </div>
-                        <div class="text-right shrink-0">
-                            <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
-                            ${i.frequency !== 'monthly' ? `<p class="text-xs text-gray-400">${fmt(toMonthly(i.amount, i.frequency))}/mo</p>` : ''}
-                        </div>
-                        <button onclick="editingRecurringId=${i.id};renderRecurring()" class="text-gray-300 hover:text-purple-400 transition ml-2 shrink-0">${PENCIL}</button>
-                        <button onclick="deleteRecurring(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-1 shrink-0">${TRASH}</button>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderRecurring() {
-            const installments = recurringItems.filter(i => i.total_installments);
-            const ongoing      = recurringItems.filter(i => !i.total_installments);
-            const active       = installments.filter(i => paidCount(i) < parseInt(i.total_installments));
-
-            const monthly = [
-                ...ongoing.map(i => toMonthly(i.amount, i.frequency)),
-                ...active.map(i => toMonthly(i.amount, i.frequency))
-            ].reduce((s, v) => s + v, 0);
-
-            document.getElementById('stat-monthly').textContent     = fmt(monthly);
-            document.getElementById('stat-installments').textContent = active.length;
-
-            const instSec  = document.getElementById('installments-section');
-            const instList = document.getElementById('installments-list');
-            if (installments.length) {
-                instSec.classList.remove('hidden');
-                instList.innerHTML = installments.map(i => recurringRow(i, true)).join('');
-            } else {
-                instSec.classList.add('hidden');
-            }
-
-            const el = document.getElementById('recurring-list');
-            el.innerHTML = ongoing.length
-                ? ongoing.map(i => recurringRow(i, false)).join('')
-                : '<p class="text-gray-400 text-sm text-center py-4">No ongoing recurring costs yet.</p>';
-        }
-
-        document.getElementById('recurringForm').onsubmit = async e => {
-            e.preventDefault();
-            const inst = document.getElementById('r-installments').value;
-            await fetch('/recurring', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: document.getElementById('r-name').value.trim(),
-                    category: 'transport',
-                    amount: document.getElementById('r-amount').value,
-                    frequency: document.getElementById('r-frequency').value,
-                    start_date: document.getElementById('r-start').value || null,
-                    notes: document.getElementById('r-notes').value.trim() || null,
-                    total_installments: inst ? parseInt(inst) : null
-                })
-            });
-            e.target.reset();
-            loadRecurring();
-        };
-
-        async function deleteRecurring(id) {
-            const ok = await showModal({ title: 'Delete', message: 'Remove this recurring cost?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-            if (!ok) return;
-            await fetch('/recurring/' + id, { method: 'DELETE' });
-            loadRecurring();
-        }
-
-        // â”€â”€ One-off section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        let oneoffItems = [];
-
-        function editOneoffForm(i) {
-            return `
-                <div class="py-2 border-b border-gray-50 last:border-0">
-                    <form onsubmit="saveOneoff(event,${i.id})" class="bg-gray-50 rounded-xl p-3 space-y-2">
-                        <div class="flex flex-wrap gap-2">
-                            <input id="eo-name" value="${i.name}" placeholder="Description" required class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="eo-amount" type="number" step="0.01" value="${i.amount}" required class="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="eo-date" type="date" value="${i.date}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="eo-notes" value="${i.notes||''}" placeholder="Notes" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
-                            <button type="button" onclick="editingOneoffId=null;loadOneoff()" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                        </div>
-                    </form>
-                </div>`;
-        }
-
-        async function saveOneoff(e, id) {
-            e.preventDefault();
-            await fetch('/expense-log/' + id, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category: 'transport',
-                    name: document.getElementById('eo-name').value.trim(),
-                    amount: document.getElementById('eo-amount').value,
-                    date: document.getElementById('eo-date').value,
-                    notes: document.getElementById('eo-notes').value.trim() || null
-                })
-            });
-            editingOneoffId = null;
-            loadOneoff();
-        }
-
-        async function loadOneoff() {
-            const y    = yearSel.value;
-            const from = y ? `${y}-01-01` : '';
-            const to   = y ? `${y}-12-31` : '';
-            const qs   = from ? `?category=transport&from=${from}&to=${to}` : '?category=transport';
-            oneoffItems = await fetch('/expense-log' + qs).then(r => r.json());
-
-            document.getElementById('stat-year').textContent = fmt(oneoffItems.reduce((s, i) => s + parseFloat(i.amount), 0));
-
-            const el = document.getElementById('oneoff-list');
-            if (!oneoffItems.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No one-off costs logged yet.</p>'; return; }
-            el.innerHTML = oneoffItems.map(i => {
-                if (editingOneoffId === i.id) return editOneoffForm(i);
-                return `
-                <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${i.notes ? ' · ' + i.notes : ''}</p>
-                    </div>
-                    <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
-                    <button onclick="editingOneoffId=${i.id};loadOneoff()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
-                    <button onclick="deleteOneoff(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-1">${TRASH}</button>
-                </div>`;
-            }).join('');
-        }
-
-        document.getElementById('oneoffForm').onsubmit = async e => {
-            e.preventDefault();
-            await fetch('/expense-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category: 'transport',
-                    name: document.getElementById('o-name').value.trim(),
-                    amount: document.getElementById('o-amount').value,
-                    date: document.getElementById('o-date').value,
-                    notes: document.getElementById('o-notes').value.trim() || null
-                })
-            });
-            e.target.reset();
-            document.getElementById('o-date').value = new Date().toISOString().split('T')[0];
-            loadOneoff();
-        };
-
-        async function deleteOneoff(id) {
-            const ok = await showModal({ title: 'Delete', message: 'Remove this entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-            if (!ok) return;
-            await fetch('/expense-log/' + id, { method: 'DELETE' });
-            loadOneoff();
-        }
-
-        // â”€â”€ Fuel section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        let fuelItems = [];
-
-        function editFuelForm(i) {
-            return `
-                <div class="py-2 border-b border-gray-50 last:border-0">
-                    <form onsubmit="saveFuel(event,${i.id})" class="bg-gray-50 rounded-xl p-3 space-y-2">
-                        <div class="flex flex-wrap gap-2">
-                            <input id="ef-name" value="${i.name}" placeholder="Station" required class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ef-amount" type="number" step="0.01" value="${i.amount}" placeholder="£" required class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ef-litres" type="number" step="0.01" value="${i.litres||''}" placeholder="Litres" class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ef-date" type="date" value="${i.date}" required class="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                            <input id="ef-notes" value="${i.notes||''}" placeholder="Notes" class="flex-1 min-w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90 transition">Save</button>
-                            <button type="button" onclick="editingFuelId=null;loadFuel()" class="border border-gray-200 text-gray-500 text-xs font-medium px-4 py-1.5 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                        </div>
-                    </form>
-                </div>`;
-        }
-
-        async function saveFuel(e, id) {
-            e.preventDefault();
-            await fetch('/expense-log/' + id, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category: 'fuel',
-                    name: document.getElementById('ef-name').value.trim(),
-                    amount: document.getElementById('ef-amount').value,
-                    litres: document.getElementById('ef-litres').value || null,
-                    date: document.getElementById('ef-date').value,
-                    notes: document.getElementById('ef-notes').value.trim() || null
-                })
-            });
-            editingFuelId = null;
-            loadFuel();
-        }
-
-        async function loadFuel() {
-            const y    = fuelYearSel.value;
-            const from = y ? `${y}-01-01` : '';
-            const to   = y ? `${y}-12-31` : '';
-            const qs   = from ? `?category=fuel&from=${from}&to=${to}` : '?category=fuel';
-            fuelItems = await fetch('/expense-log' + qs).then(r => r.json());
-
-            const totalSpent  = fuelItems.reduce((s, i) => s + parseFloat(i.amount), 0);
-            const totalLitres = fuelItems.reduce((s, i) => s + (parseFloat(i.litres) || 0), 0);
-            const ppl         = totalLitres > 0 ? (totalSpent / totalLitres * 100) : 0;
-
-            document.getElementById('fuel-stat-spent').textContent  = fmt(totalSpent);
-            document.getElementById('fuel-stat-litres').textContent = totalLitres > 0 ? totalLitres.toFixed(1) + 'L' : '—';
-            document.getElementById('fuel-stat-ppl').textContent    = totalLitres > 0 ? ppl.toFixed(1) + 'p' : '—';
-
-            const el = document.getElementById('fuel-list');
-            if (!fuelItems.length) { el.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No fuel logged yet.</p>'; return; }
-            el.innerHTML = fuelItems.map(i => {
-                if (editingFuelId === i.id) return editFuelForm(i);
-                const litresStr = i.litres ? ` · ${parseFloat(i.litres).toFixed(1)}L` : '';
-                const pplStr    = i.litres ? ` · ${(parseFloat(i.amount) / parseFloat(i.litres) * 100).toFixed(1)}p/L` : '';
-                return `
-                    <div class="flex items-center gap-4 py-3 border-b border-gray-50 last:border-0">
-                        <div class="flex-1">
-                            <p class="text-sm font-medium text-gray-800">${i.name}</p>
-                            <p class="text-xs text-gray-400 mt-0.5">${formatDate(i.date)}${litresStr}${pplStr}${i.notes ? ' · ' + i.notes : ''}</p>
-                        </div>
-                        <p class="text-sm font-semibold text-gray-800">${fmt(i.amount)}</p>
-                        <button onclick="editingFuelId=${i.id};loadFuel()" class="text-gray-300 hover:text-purple-400 transition">${PENCIL}</button>
-                        <button onclick="deleteFuel(${i.id})" class="text-gray-300 hover:text-red-400 transition ml-1">${TRASH}</button>
-                    </div>`;
-            }).join('');
-        }
-
-        document.getElementById('fuelForm').onsubmit = async e => {
-            e.preventDefault();
-            await fetch('/expense-log', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    category: 'fuel',
-                    name: document.getElementById('fu-name').value.trim(),
-                    amount: document.getElementById('fu-amount').value,
-                    litres: document.getElementById('fu-litres').value || null,
-                    date: document.getElementById('fu-date').value,
-                    notes: document.getElementById('fu-notes').value.trim() || null
-                })
-            });
-            e.target.reset();
-            document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
-            loadFuel();
-        };
-
-        async function deleteFuel(id) {
-            const ok = await showModal({ title: 'Delete', message: 'Remove this fuel entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-            if (!ok) return;
-            await fetch('/expense-log/' + id, { method: 'DELETE' });
-            loadFuel();
-        }
-
-        document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
-        document.getElementById('o-date').value  = new Date().toISOString().split('T')[0];
+    async function saveRecurring(e, id) {
+        e.preventDefault();
+        const inst = document.getElementById('er-inst').value;
+        await fetch('/recurring/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('er-name').value.trim(),
+                category: 'transport',
+                amount: document.getElementById('er-amount').value,
+                frequency: document.getElementById('er-frequency').value,
+                start_date: document.getElementById('er-start').value || null,
+                notes: document.getElementById('er-notes').value.trim() || null,
+                total_installments: inst ? parseInt(inst) : null
+            })
+        });
+        editingRecurringId = null;
         loadRecurring();
-        loadFuel();
+    }
+
+    async function loadRecurring() {
+        recurringItems = await fetch('/recurring?category=transport').then(r => r.json());
+        renderRecurring();
+    }
+
+    function recurringRow(i, isInstallment) {
+        if (editingRecurringId === i.id) return editRecurringForm(i);
+        const paid  = isInstallment ? paidCount(i) : null;
+        const total = isInstallment ? parseInt(i.total_installments) : null;
+        const done  = isInstallment && paid >= total;
+        const pct   = isInstallment ? Math.round(paid / total * 100) : null;
+
+        const progressBar = isInstallment ? `
+            <div style="margin-top:8px;">
+                <div class="flex justify-between" style="font-size:12px;color:var(--sp-ink-50);margin-bottom:4px;">
+                    <span>${paid} of ${total} paid${done ? ' &middot; <span style="color:var(--sp-down);font-weight:500;">Complete!</span>' : ''}</span>
+                    <span>${total - paid > 0 ? (total - paid) + ' left' : ''}</span>
+                </div>
+                <div style="width:100%;background:var(--sp-ink-08);border-radius:999px;height:4px;">
+                    <div style="height:4px;border-radius:999px;transition:width 0.7s;width:${pct}%;background:${done ? 'var(--sp-down)' : 'var(--cat-transport-dot)'};"></div>
+                </div>
+            </div>
+        ` : '';
+
+        return `
+            <div style="padding:12px 0;border-bottom:1px solid var(--sp-ink-04);${done ? 'opacity:0.5;' : ''}">
+                <div class="flex items-center gap-4">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${i.name}</p>
+                            ${done ? '<span style="font-size:11px;background:var(--sp-down-bg);color:var(--sp-down);padding:2px 8px;border-radius:999px;font-weight:500;">Finished</span>' : ''}
+                        </div>
+                        <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${capitalise(i.frequency)}${i.start_date ? ' &middot; from ' + formatDate(i.start_date) : ''}${i.notes ? ' &middot; ' + i.notes : ''}</p>
+                        ${progressBar}
+                    </div>
+                    <div class="text-right" style="flex-shrink:0;">
+                        <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(i.amount)}</p>
+                        ${i.frequency !== 'monthly' ? `<p class="sp-num" style="font-size:12px;color:var(--sp-ink-50);">${fmt(toMonthly(i.amount, i.frequency))}/mo</p>` : ''}
+                    </div>
+                    <button onclick="editingRecurringId=${i.id};renderRecurring()" style="color:var(--sp-ink-30);margin-left:8px;flex-shrink:0;" class="hover:opacity-70 transition">${PENCIL}</button>
+                    <button onclick="deleteRecurring(${i.id})" style="color:var(--sp-ink-30);margin-left:4px;flex-shrink:0;" class="hover:opacity-70 transition">${TRASH}</button>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderRecurring() {
+        const installments = recurringItems.filter(i => i.total_installments);
+        const ongoing      = recurringItems.filter(i => !i.total_installments);
+        const active       = installments.filter(i => paidCount(i) < parseInt(i.total_installments));
+
+        const monthly = [
+            ...ongoing.map(i => toMonthly(i.amount, i.frequency)),
+            ...active.map(i => toMonthly(i.amount, i.frequency))
+        ].reduce((s, v) => s + v, 0);
+
+        document.getElementById('stat-monthly').textContent     = fmt(monthly);
+        document.getElementById('stat-installments').textContent = active.length;
+
+        const instSec  = document.getElementById('installments-section');
+        const instList = document.getElementById('installments-list');
+        if (installments.length) {
+            instSec.classList.remove('hidden');
+            instList.innerHTML = installments.map(i => recurringRow(i, true)).join('');
+        } else {
+            instSec.classList.add('hidden');
+        }
+
+        const el = document.getElementById('recurring-list');
+        el.innerHTML = ongoing.length
+            ? ongoing.map(i => recurringRow(i, false)).join('')
+            : '<p style="color:var(--sp-ink-50);font-size:13px;text-align:center;padding:16px 0;">No ongoing recurring costs yet.</p>';
+    }
+
+    document.getElementById('recurringForm').onsubmit = async e => {
+        e.preventDefault();
+        const inst = document.getElementById('r-installments').value;
+        await fetch('/recurring', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('r-name').value.trim(),
+                category: 'transport',
+                amount: document.getElementById('r-amount').value,
+                frequency: document.getElementById('r-frequency').value,
+                start_date: document.getElementById('r-start').value || null,
+                notes: document.getElementById('r-notes').value.trim() || null,
+                total_installments: inst ? parseInt(inst) : null
+            })
+        });
+        e.target.reset();
+        loadRecurring();
+    };
+
+    async function deleteRecurring(id) {
+        const ok = await showModal({ title: 'Delete', message: 'Remove this recurring cost?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (!ok) return;
+        await fetch('/recurring/' + id, { method: 'DELETE' });
+        loadRecurring();
+    }
+
+    // One-off section
+    let oneoffItems = [];
+
+    function editOneoffForm(i) {
+        return `
+            <div style="padding:8px 0;border-bottom:1px solid var(--sp-ink-04);">
+                <form onsubmit="saveOneoff(event,${i.id})" style="background:var(--sp-panel);border-radius:12px;padding:12px;" class="space-y-2">
+                    <div class="flex flex-wrap gap-2">
+                        <input id="eo-name" value="${i.name}" placeholder="Description" required class="sp-input flex-1 min-w-32"/>
+                        <input id="eo-amount" type="number" step="0.01" value="${i.amount}" required class="sp-input w-28"/>
+                        <input id="eo-date" type="date" value="${i.date}" required class="sp-input w-36"/>
+                        <input id="eo-notes" value="${i.notes||''}" placeholder="Notes" class="sp-input flex-1 min-w-32"/>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="sp-btn-primary" style="font-size:12px;padding:6px 16px;">Save</button>
+                        <button type="button" onclick="editingOneoffId=null;loadOneoff()" class="sp-btn-ghost" style="font-size:12px;padding:6px 16px;">Cancel</button>
+                    </div>
+                </form>
+            </div>`;
+    }
+
+    async function saveOneoff(e, id) {
+        e.preventDefault();
+        await fetch('/expense-log/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category: 'transport',
+                name: document.getElementById('eo-name').value.trim(),
+                amount: document.getElementById('eo-amount').value,
+                date: document.getElementById('eo-date').value,
+                notes: document.getElementById('eo-notes').value.trim() || null
+            })
+        });
+        editingOneoffId = null;
         loadOneoff();
-    </script>
+    }
+
+    async function loadOneoff() {
+        const y    = yearSel.value;
+        const from = y ? `${y}-01-01` : '';
+        const to   = y ? `${y}-12-31` : '';
+        const qs   = from ? `?category=transport&from=${from}&to=${to}` : '?category=transport';
+        oneoffItems = await fetch('/expense-log' + qs).then(r => r.json());
+
+        document.getElementById('stat-year').textContent = fmt(oneoffItems.reduce((s, i) => s + parseFloat(i.amount), 0));
+
+        const el = document.getElementById('oneoff-list');
+        if (!oneoffItems.length) { el.innerHTML = '<p style="color:var(--sp-ink-50);font-size:13px;text-align:center;padding:16px 0;">No one-off costs logged yet.</p>'; return; }
+        el.innerHTML = oneoffItems.map(i => {
+            if (editingOneoffId === i.id) return editOneoffForm(i);
+            return `
+            <div class="flex items-center gap-4" style="padding:12px 0;border-bottom:1px solid var(--sp-ink-04);">
+                <div class="flex-1">
+                    <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${i.name}</p>
+                    <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${formatDate(i.date)}${i.notes ? ' &middot; ' + i.notes : ''}</p>
+                </div>
+                <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(i.amount)}</p>
+                <button onclick="editingOneoffId=${i.id};loadOneoff()" style="color:var(--sp-ink-30);" class="hover:opacity-70 transition">${PENCIL}</button>
+                <button onclick="deleteOneoff(${i.id})" style="color:var(--sp-ink-30);margin-left:4px;" class="hover:opacity-70 transition">${TRASH}</button>
+            </div>`;
+        }).join('');
+    }
+
+    document.getElementById('oneoffForm').onsubmit = async e => {
+        e.preventDefault();
+        await fetch('/expense-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category: 'transport',
+                name: document.getElementById('o-name').value.trim(),
+                amount: document.getElementById('o-amount').value,
+                date: document.getElementById('o-date').value,
+                notes: document.getElementById('o-notes').value.trim() || null
+            })
+        });
+        e.target.reset();
+        document.getElementById('o-date').value = new Date().toISOString().split('T')[0];
+        loadOneoff();
+    };
+
+    async function deleteOneoff(id) {
+        const ok = await showModal({ title: 'Delete', message: 'Remove this entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (!ok) return;
+        await fetch('/expense-log/' + id, { method: 'DELETE' });
+        loadOneoff();
+    }
+
+    // Fuel section
+    let fuelItems = [];
+
+    function editFuelForm(i) {
+        return `
+            <div style="padding:8px 0;border-bottom:1px solid var(--sp-ink-04);">
+                <form onsubmit="saveFuel(event,${i.id})" style="background:var(--sp-panel);border-radius:12px;padding:12px;" class="space-y-2">
+                    <div class="flex flex-wrap gap-2">
+                        <input id="ef-name" value="${i.name}" placeholder="Station" required class="sp-input flex-1 min-w-32"/>
+                        <input id="ef-amount" type="number" step="0.01" value="${i.amount}" placeholder="£" required class="sp-input w-24"/>
+                        <input id="ef-litres" type="number" step="0.01" value="${i.litres||''}" placeholder="Litres" class="sp-input w-24"/>
+                        <input id="ef-date" type="date" value="${i.date}" required class="sp-input w-36"/>
+                        <input id="ef-notes" value="${i.notes||''}" placeholder="Notes" class="sp-input flex-1 min-w-32"/>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="sp-btn-primary" style="font-size:12px;padding:6px 16px;">Save</button>
+                        <button type="button" onclick="editingFuelId=null;loadFuel()" class="sp-btn-ghost" style="font-size:12px;padding:6px 16px;">Cancel</button>
+                    </div>
+                </form>
+            </div>`;
+    }
+
+    async function saveFuel(e, id) {
+        e.preventDefault();
+        await fetch('/expense-log/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category: 'fuel',
+                name: document.getElementById('ef-name').value.trim(),
+                amount: document.getElementById('ef-amount').value,
+                litres: document.getElementById('ef-litres').value || null,
+                date: document.getElementById('ef-date').value,
+                notes: document.getElementById('ef-notes').value.trim() || null
+            })
+        });
+        editingFuelId = null;
+        loadFuel();
+    }
+
+    async function loadFuel() {
+        const y    = fuelYearSel.value;
+        const from = y ? `${y}-01-01` : '';
+        const to   = y ? `${y}-12-31` : '';
+        const qs   = from ? `?category=fuel&from=${from}&to=${to}` : '?category=fuel';
+        fuelItems = await fetch('/expense-log' + qs).then(r => r.json());
+
+        const totalSpent  = fuelItems.reduce((s, i) => s + parseFloat(i.amount), 0);
+        const totalLitres = fuelItems.reduce((s, i) => s + (parseFloat(i.litres) || 0), 0);
+        const ppl         = totalLitres > 0 ? (totalSpent / totalLitres * 100) : 0;
+
+        document.getElementById('fuel-stat-spent').textContent  = fmt(totalSpent);
+        document.getElementById('fuel-stat-litres').textContent = totalLitres > 0 ? totalLitres.toFixed(1) + 'L' : '—';
+        document.getElementById('fuel-stat-ppl').textContent    = totalLitres > 0 ? ppl.toFixed(1) + 'p' : '—';
+
+        const el = document.getElementById('fuel-list');
+        if (!fuelItems.length) { el.innerHTML = '<p style="color:var(--sp-ink-50);font-size:13px;text-align:center;padding:16px 0;">No fuel logged yet.</p>'; return; }
+        el.innerHTML = fuelItems.map(i => {
+            if (editingFuelId === i.id) return editFuelForm(i);
+            const litresStr = i.litres ? ` &middot; ${parseFloat(i.litres).toFixed(1)}L` : '';
+            const pplStr    = i.litres ? ` &middot; ${(parseFloat(i.amount) / parseFloat(i.litres) * 100).toFixed(1)}p/L` : '';
+            return `
+                <div class="flex items-center gap-4" style="padding:12px 0;border-bottom:1px solid var(--sp-ink-04);">
+                    <div class="flex-1">
+                        <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${i.name}</p>
+                        <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${formatDate(i.date)}${litresStr}${pplStr}${i.notes ? ' &middot; ' + i.notes : ''}</p>
+                    </div>
+                    <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(i.amount)}</p>
+                    <button onclick="editingFuelId=${i.id};loadFuel()" style="color:var(--sp-ink-30);" class="hover:opacity-70 transition">${PENCIL}</button>
+                    <button onclick="deleteFuel(${i.id})" style="color:var(--sp-ink-30);margin-left:4px;" class="hover:opacity-70 transition">${TRASH}</button>
+                </div>`;
+        }).join('');
+    }
+
+    document.getElementById('fuelForm').onsubmit = async e => {
+        e.preventDefault();
+        await fetch('/expense-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                category: 'fuel',
+                name: document.getElementById('fu-name').value.trim(),
+                amount: document.getElementById('fu-amount').value,
+                litres: document.getElementById('fu-litres').value || null,
+                date: document.getElementById('fu-date').value,
+                notes: document.getElementById('fu-notes').value.trim() || null
+            })
+        });
+        e.target.reset();
+        document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
+        loadFuel();
+    };
+
+    async function deleteFuel(id) {
+        const ok = await showModal({ title: 'Delete', message: 'Remove this fuel entry?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (!ok) return;
+        await fetch('/expense-log/' + id, { method: 'DELETE' });
+        loadFuel();
+    }
+
+    document.getElementById('fu-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('o-date').value  = new Date().toISOString().split('T')[0];
+    loadRecurring();
+    loadFuel();
+    loadOneoff();
+</script>
 </body>
 </html>
-

@@ -6,666 +6,642 @@
     <title>Loan Tracker</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="spectrum.css"/>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
-        .nav-btn { transition: all 0.2s ease; }
-        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
-        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
-        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
-        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .modal-animate { animation: modalIn 0.18s ease-out; }
-        .tab-btn { border-bottom: 2px solid transparent; transition: all 0.2s; }
-        .tab-btn.active { border-color: #667eea; color: #667eea; }
-        .tab-btn:not(.active) { color: #9ca3af; }
-        .tab-btn:hover { color: #6b7280; }
-        .schedule-paid { background: #f0fdf4; }
-        .schedule-current { background: #faf5ff; }
-        .schedule-skipped { background: #fefce8; }
+        .schedule-paid { background: var(--sp-up-bg); }
+        .schedule-current { background: var(--cat-debts-bg); }
+        .schedule-skipped { background: var(--sp-warn-bg); }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-    <div class="gradient-bg">
-        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
-            <div class="mb-6">
-                <h1 class="text-2xl font-bold text-white">Loan Tracker</h1>
-                <p class="text-purple-200 text-sm mt-0.5">Track loan repayment & TRY to GBP conversions</p>
-            </div>
-            <div class="flex gap-2 overflow-x-auto" id="shared-nav"></div>
-        </div>
+<div class="sp-shell">
+  <main class="sp-main">
+    <div class="sp-body" id="main-content">
+      <div class="sp-card"><div class="sp-card-body" style="text-align:center;color:var(--sp-ink-50);font-size:13px;">Loading...</div></div>
     </div>
+  </main>
+</div>
 
-    <div class="max-w-5xl mx-auto px-6 -mt-8" id="main-content">
-        <div class="card p-6"><p class="text-gray-400 text-sm text-center">Loading...</p></div>
-    </div>
+<script src="shared.js"></script>
+<script src="spectrum-shell.js"></script>
+<script>
+    initSpectrum({
+      active: 'loan',
+      title: 'Loan Tracker',
+      subtitle: 'Track loan repayment & TRY to GBP conversions',
+    });
 
-    <div class="h-12"></div>
-    <script src="shared.js"></script>
-    <script>
-        initSharedPage('loan');
+    const today = new Date(); today.setHours(12,0,0,0);
+    const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
+    const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
 
-        const today = new Date(); today.setHours(12,0,0,0);
-        const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
-        const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+    let loan = null, schedule = [], transfers = [];
+    let activeTab = 'schedule';
+    let editingTransferId = null;
+    let scheduleFilter = 'all';
 
-        let loan = null, schedule = [], transfers = [];
-        let activeTab = 'schedule';
-        let editingTransferId = null;
-        let scheduleFilter = 'all';
+    function fmtTry(v) { return '₺' + parseFloat(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
-        function fmtTry(v) { return '₺' + parseFloat(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    // ─── Pre-filled data for import ──────────────────────────────────
+    const SCHEDULE_DATA = [
+        [1,'2024-06-15',18117.38,282.51,18399.89,532.14,17867.75],
+        [2,'2024-07-15',17867.75,269.63,18137.38,532.14,17605.24],
+        [3,'2024-08-15',17605.24,274.53,17879.77,0,17879.77],
+        [4,'2024-09-15',17879.77,278.81,18158.57,532.14,17626.43],
+        [5,'2024-10-15',17626.43,265.99,17892.42,532.14,17360.28],
+        [6,'2024-11-15',17360.28,270.71,17630.98,532.14,17098.84],
+        [7,'2024-12-15',17098.84,258.03,17356.87,532.14,16824.73],
+        [8,'2025-01-15',16824.73,262.36,17087.08,532.14,16554.94],
+        [9,'2025-02-15',16554.94,258.15,16813.09,532.14,16280.95],
+        [10,'2025-03-15',16280.95,229.31,16510.26,532.14,15978.11],
+        [11,'2025-04-15',15978.11,249.15,16227.27,532.14,15695.12],
+        [12,'2025-05-15',15695.12,236.85,15931.97,532.14,15399.83],
+        [13,'2025-06-15',15399.83,240.14,15639.96,532.14,15107.82],
+        [14,'2025-07-15',15107.82,227.98,15335.81,532.14,14803.66],
+        [15,'2025-08-15',14803.66,230.84,15034.50,532.14,14502.36],
+        [16,'2025-09-15',14502.36,226.14,14728.50,532.14,14196.36],
+        [17,'2025-10-15',14196.36,214.23,14410.59,532.14,13878.45],
+        [18,'2025-11-15',13878.45,216.41,14094.86,532.14,13562.72],
+        [19,'2025-12-15',13562.72,204.67,13767.38,532.14,13235.24],
+        [20,'2026-01-15',13235.24,206.38,13441.63,532.14,12909.48],
+        [21,'2026-02-15',12909.48,201.30,13110.79,532.14,12578.64],
+        [22,'2026-03-15',12578.64,177.16,12755.81,532.14,12223.66],
+        [23,'2026-04-15',12223.66,190.61,12414.27,532.14,11882.13],
+        [24,'2026-05-15',11882.13,179.31,12061.44,532.14,11529.30],
+        [25,'2026-06-15',11529.30,179.78,11709.08,532.14,11176.93],
+        [26,'2026-07-15',11176.93,168.66,11345.60,532.14,10813.46],
+        [27,'2026-08-15',10813.46,168.62,10982.08,532.14,10449.93],
+        [28,'2026-09-15',10449.93,162.95,10612.88,532.14,10080.74],
+        [29,'2026-10-15',10080.74,152.12,10232.86,532.14,9700.72],
+        [30,'2026-11-15',9700.72,151.27,9851.99,532.14,9319.85],
+        [31,'2026-12-15',9319.85,140.64,9460.49,532.14,8928.35],
+        [32,'2027-01-15',8928.35,139.22,9067.57,532.14,8535.43],
+        [33,'2027-02-15',8535.43,133.10,8668.52,532.14,8136.38],
+        [34,'2027-03-15',8136.38,114.60,8250.98,532.14,7718.84],
+        [35,'2027-04-15',7718.84,120.36,7839.20,532.14,7307.06],
+        [36,'2027-05-15',7307.06,110.27,7417.32,532.14,6885.18],
+        [37,'2027-06-15',6885.18,107.36,6992.54,532.14,6460.40],
+        [38,'2027-07-15',6460.40,97.49,6557.89,532.14,6025.75],
+        [39,'2027-08-15',6025.75,93.96,6119.71,532.14,5587.57],
+        [40,'2027-09-15',5587.57,87.13,5674.70,532.14,5142.56],
+        [41,'2027-10-15',5142.56,77.60,5220.16,532.14,4688.02],
+        [42,'2027-11-15',4688.02,73.10,4761.12,532.14,4228.98],
+        [43,'2027-12-15',4228.98,63.82,4292.80,532.14,3760.65],
+        [44,'2028-01-15',3760.65,58.64,3819.30,532.14,3287.15],
+        [45,'2028-02-15',3287.15,51.26,3338.41,532.14,2806.27],
+        [46,'2028-03-15',2806.27,40.94,2847.21,532.14,2315.06],
+        [47,'2028-04-15',2315.06,36.10,2351.16,532.14,1819.02],
+        [48,'2028-05-15',1819.02,27.45,1846.47,532.14,1314.33],
+        [49,'2028-06-15',1314.33,20.49,1334.82,532.14,802.68],
+        [50,'2028-07-15',802.68,12.11,814.79,532.14,282.65],
+        [51,'2028-08-15',282.65,4.41,287.06,287.06,0],
+    ];
 
-        // ─── Pre-filled data for import ──────────────────────────────────
-        // [no, due_date, opening, interest, total_owed, payment, closing]
-        const SCHEDULE_DATA = [
-            [1,'2024-06-15',18117.38,282.51,18399.89,532.14,17867.75],
-            [2,'2024-07-15',17867.75,269.63,18137.38,532.14,17605.24],
-            [3,'2024-08-15',17605.24,274.53,17879.77,0,17879.77],
-            [4,'2024-09-15',17879.77,278.81,18158.57,532.14,17626.43],
-            [5,'2024-10-15',17626.43,265.99,17892.42,532.14,17360.28],
-            [6,'2024-11-15',17360.28,270.71,17630.98,532.14,17098.84],
-            [7,'2024-12-15',17098.84,258.03,17356.87,532.14,16824.73],
-            [8,'2025-01-15',16824.73,262.36,17087.08,532.14,16554.94],
-            [9,'2025-02-15',16554.94,258.15,16813.09,532.14,16280.95],
-            [10,'2025-03-15',16280.95,229.31,16510.26,532.14,15978.11],
-            [11,'2025-04-15',15978.11,249.15,16227.27,532.14,15695.12],
-            [12,'2025-05-15',15695.12,236.85,15931.97,532.14,15399.83],
-            [13,'2025-06-15',15399.83,240.14,15639.96,532.14,15107.82],
-            [14,'2025-07-15',15107.82,227.98,15335.81,532.14,14803.66],
-            [15,'2025-08-15',14803.66,230.84,15034.50,532.14,14502.36],
-            [16,'2025-09-15',14502.36,226.14,14728.50,532.14,14196.36],
-            [17,'2025-10-15',14196.36,214.23,14410.59,532.14,13878.45],
-            [18,'2025-11-15',13878.45,216.41,14094.86,532.14,13562.72],
-            [19,'2025-12-15',13562.72,204.67,13767.38,532.14,13235.24],
-            [20,'2026-01-15',13235.24,206.38,13441.63,532.14,12909.48],
-            [21,'2026-02-15',12909.48,201.30,13110.79,532.14,12578.64],
-            [22,'2026-03-15',12578.64,177.16,12755.81,532.14,12223.66],
-            [23,'2026-04-15',12223.66,190.61,12414.27,532.14,11882.13],
-            [24,'2026-05-15',11882.13,179.31,12061.44,532.14,11529.30],
-            [25,'2026-06-15',11529.30,179.78,11709.08,532.14,11176.93],
-            [26,'2026-07-15',11176.93,168.66,11345.60,532.14,10813.46],
-            [27,'2026-08-15',10813.46,168.62,10982.08,532.14,10449.93],
-            [28,'2026-09-15',10449.93,162.95,10612.88,532.14,10080.74],
-            [29,'2026-10-15',10080.74,152.12,10232.86,532.14,9700.72],
-            [30,'2026-11-15',9700.72,151.27,9851.99,532.14,9319.85],
-            [31,'2026-12-15',9319.85,140.64,9460.49,532.14,8928.35],
-            [32,'2027-01-15',8928.35,139.22,9067.57,532.14,8535.43],
-            [33,'2027-02-15',8535.43,133.10,8668.52,532.14,8136.38],
-            [34,'2027-03-15',8136.38,114.60,8250.98,532.14,7718.84],
-            [35,'2027-04-15',7718.84,120.36,7839.20,532.14,7307.06],
-            [36,'2027-05-15',7307.06,110.27,7417.32,532.14,6885.18],
-            [37,'2027-06-15',6885.18,107.36,6992.54,532.14,6460.40],
-            [38,'2027-07-15',6460.40,97.49,6557.89,532.14,6025.75],
-            [39,'2027-08-15',6025.75,93.96,6119.71,532.14,5587.57],
-            [40,'2027-09-15',5587.57,87.13,5674.70,532.14,5142.56],
-            [41,'2027-10-15',5142.56,77.60,5220.16,532.14,4688.02],
-            [42,'2027-11-15',4688.02,73.10,4761.12,532.14,4228.98],
-            [43,'2027-12-15',4228.98,63.82,4292.80,532.14,3760.65],
-            [44,'2028-01-15',3760.65,58.64,3819.30,532.14,3287.15],
-            [45,'2028-02-15',3287.15,51.26,3338.41,532.14,2806.27],
-            [46,'2028-03-15',2806.27,40.94,2847.21,532.14,2315.06],
-            [47,'2028-04-15',2315.06,36.10,2351.16,532.14,1819.02],
-            [48,'2028-05-15',1819.02,27.45,1846.47,532.14,1314.33],
-            [49,'2028-06-15',1314.33,20.49,1334.82,532.14,802.68],
-            [50,'2028-07-15',802.68,12.11,814.79,532.14,282.65],
-            [51,'2028-08-15',282.65,4.41,287.06,287.06,0],
-        ];
+    const TRANSFER_DATA = [
+        ['2025-01-15',4500,43.39,43.93,9,4491,102.23],
+        ['2025-01-18',8000,43.09,43.63,16,7984,182.98],
+        ['2025-02-19',60000,45.64,46.21,120,59880,1295.82],
+        ['2025-02-23',14900,45.95,46.53,29.80,14870.20,319.61],
+        ['2025-03-13',8000,47.14,47.73,16,7984,167.28],
+        ['2025-03-13',40000,47.14,47.73,80,39920,836.38],
+        ['2025-03-14',2000,47.22,47.81,4,1996,41.75],
+        ['2025-04-22',52000,50.97,51.61,104,51896,1005.50],
+        ['2025-05-20',51000,51.95,52.60,102,50898,967.66],
+        ['2025-07-24',20000,54.93,55.61,40,19960,358.91],
+        ['2025-08-23',40000,55.35,56.04,80,39920,712.37],
+        ['2025-09-10',19260.83,55.81,56.51,38.52,19222.31,340.17],
+        ['2025-09-23',56800,55.96,56.66,113.60,56686.40,1000.46],
+        ['2025-10-09',45000,55.14,55.83,90,44910,804.47],
+        ['2025-11-13',60000,55.68,56.38,120,59880,1062.08],
+        ['2025-12-25',128700,57.94,58.67,257.40,128442.60,2189.42],
+        ['2026-01-13',56900,57.90,58.62,113.80,56786.20,968.69],
+        ['2026-03-12',122580.46,58.85,59.59,245.16,122335.30,2053.06],
+    ];
 
-        // [date, try_amount, google_rate, actual_rate, kambiyo, try_after_tax, gbp]
-        const TRANSFER_DATA = [
-            ['2025-01-15',4500,43.39,43.93,9,4491,102.23],
-            ['2025-01-18',8000,43.09,43.63,16,7984,182.98],
-            ['2025-02-19',60000,45.64,46.21,120,59880,1295.82],
-            ['2025-02-23',14900,45.95,46.53,29.80,14870.20,319.61],
-            ['2025-03-13',8000,47.14,47.73,16,7984,167.28],
-            ['2025-03-13',40000,47.14,47.73,80,39920,836.38],
-            ['2025-03-14',2000,47.22,47.81,4,1996,41.75],
-            ['2025-04-22',52000,50.97,51.61,104,51896,1005.50],
-            ['2025-05-20',51000,51.95,52.60,102,50898,967.66],
-            ['2025-07-24',20000,54.93,55.61,40,19960,358.91],
-            ['2025-08-23',40000,55.35,56.04,80,39920,712.37],
-            ['2025-09-10',19260.83,55.81,56.51,38.52,19222.31,340.17],
-            ['2025-09-23',56800,55.96,56.66,113.60,56686.40,1000.46],
-            ['2025-10-09',45000,55.14,55.83,90,44910,804.47],
-            ['2025-11-13',60000,55.68,56.38,120,59880,1062.08],
-            ['2025-12-25',128700,57.94,58.67,257.40,128442.60,2189.42],
-            ['2026-01-13',56900,57.90,58.62,113.80,56786.20,968.69],
-            ['2026-03-12',122580.46,58.85,59.59,245.16,122335.30,2053.06],
-        ];
+    // ─── Load ────────────────────────────────────────────────────────
+    async function load() {
+        const loans = await fetch('/loans').then(r => r.json());
+        if (!loans.length) { renderSetup(); return; }
+        loan = loans[0];
+        [schedule, transfers] = await Promise.all([
+            fetch(`/loans/${loan.id}/schedule`).then(r => r.json()),
+            fetch(`/loans/${loan.id}/transfers`).then(r => r.json())
+        ]);
+        renderTracker();
+    }
 
-        // ─── Load ────────────────────────────────────────────────────────
-        async function load() {
-            const loans = await fetch('/loans').then(r => r.json());
-            if (!loans.length) { renderSetup(); return; }
-            loan = loans[0];
-            [schedule, transfers] = await Promise.all([
-                fetch(`/loans/${loan.id}/schedule`).then(r => r.json()),
-                fetch(`/loans/${loan.id}/transfers`).then(r => r.json())
-            ]);
-            renderTracker();
-        }
-
-        // ─── Setup screen ───────────────────────────────────────────────
-        function renderSetup() {
-            document.getElementById('main-content').innerHTML = `
-                <div class="card p-6 mb-4">
-                    <h2 class="text-lg font-bold text-gray-800 mb-1">Set Up Your Loan</h2>
-                    <p class="text-sm text-gray-400 mb-5">Enter your loan details or use the quick import below.</p>
+    // ─── Setup screen ───────────────────────────────────────────────
+    function renderSetup() {
+        document.getElementById('main-content').innerHTML = `
+            <div class="sp-card mb-4">
+                <div class="sp-card-body">
+                    <h2 style="font-size:18px;font-weight:700;color:var(--sp-ink);margin-bottom:4px;">Set Up Your Loan</h2>
+                    <p style="font-size:13px;color:var(--sp-ink-50);margin-bottom:20px;">Enter your loan details or use the quick import below.</p>
                     <div class="flex flex-wrap gap-3 items-end mb-4">
                         <div class="flex-1 min-w-40">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Loan Name</label>
-                            <input id="s-name" value="UK Personal Loan" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Loan Name</label>
+                            <input id="s-name" value="UK Personal Loan" class="sp-input"/>
                         </div>
                         <div class="w-36">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Original Amount</label>
-                            <input id="s-amount" type="number" step="0.01" value="18117.38" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Original Amount</label>
+                            <input id="s-amount" type="number" step="0.01" value="18117.38" class="sp-input"/>
                         </div>
                         <div class="w-36">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Payment</label>
-                            <input id="s-monthly" type="number" step="0.01" value="532.14" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Monthly Payment</label>
+                            <input id="s-monthly" type="number" step="0.01" value="532.14" class="sp-input"/>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-3 items-end mb-4">
                         <div class="w-40">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
-                            <input id="s-start" type="date" value="2024-05-15" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Start Date</label>
+                            <input id="s-start" type="date" value="2024-05-15" class="sp-input"/>
                         </div>
                         <div class="w-40">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">End Date</label>
-                            <input id="s-end" type="date" value="2028-08-15" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">End Date</label>
+                            <input id="s-end" type="date" value="2028-08-15" class="sp-input"/>
                         </div>
                         <div class="w-32">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Installments</label>
-                            <input id="s-install" type="number" value="51" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Installments</label>
+                            <input id="s-install" type="number" value="51" class="sp-input"/>
                         </div>
                     </div>
                     <div class="flex flex-wrap gap-3 items-end mb-6">
                         <div class="w-32">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Annual Rate %</label>
-                            <input id="s-annual" type="number" step="0.01" value="18.36" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Annual Rate %</label>
+                            <input id="s-annual" type="number" step="0.01" value="18.36" class="sp-input"/>
                         </div>
                         <div class="w-32">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Rate %</label>
-                            <input id="s-monthly-rate" type="number" step="0.01" value="1.53" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Monthly Rate %</label>
+                            <input id="s-monthly-rate" type="number" step="0.01" value="1.53" class="sp-input"/>
                         </div>
                         <div class="w-40">
-                            <label class="text-xs font-medium text-gray-500 block mb-1">Daily Rate (decimal)</label>
-                            <input id="s-daily" type="number" step="0.0000000001" value="0.000503014" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                            <label class="sp-field-label">Daily Rate (decimal)</label>
+                            <input id="s-daily" type="number" step="0.0000000001" value="0.000503014" class="sp-input"/>
                         </div>
                     </div>
-                    <button onclick="quickImport()" class="gradient-bg text-white font-medium px-6 py-2.5 rounded-xl hover:opacity-90 transition text-sm flex items-center gap-2">
+                    <button onclick="quickImport()" class="sp-btn-primary flex items-center gap-2" style="padding:10px 24px;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                         Import Loan + 51 Payments + 18 TRY Transfers
                     </button>
-                    <p class="text-xs text-gray-400 mt-2">Creates your loan with the full payment schedule and all TRY conversion history.</p>
-                </div>`;
+                    <p style="font-size:12px;color:var(--sp-ink-50);margin-top:8px;">Creates your loan with the full payment schedule and all TRY conversion history.</p>
+                </div>
+            </div>`;
+    }
+
+    async function quickImport() {
+        const btn = event.target.closest('button');
+        btn.disabled = true; btn.textContent = 'Importing...';
+        try {
+            const loanRes = await fetch('/loans', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    name: document.getElementById('s-name').value.trim(),
+                    original_amount: document.getElementById('s-amount').value,
+                    monthly_payment: document.getElementById('s-monthly').value,
+                    start_date: document.getElementById('s-start').value,
+                    end_date: document.getElementById('s-end').value,
+                    total_installments: document.getElementById('s-install').value,
+                    annual_rate: document.getElementById('s-annual').value,
+                    monthly_rate: document.getElementById('s-monthly-rate').value,
+                    daily_rate: document.getElementById('s-daily').value
+                })
+            });
+            const newLoan = await loanRes.json();
+
+            const schedRows = SCHEDULE_DATA.map(r => ({
+                installment_no: r[0], due_date: r[1], opening_balance: r[2],
+                interest: r[3], total_owed: r[4], payment: r[5], closing_balance: r[6]
+            }));
+            await fetch(`/loans/${newLoan.id}/schedule/bulk`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ rows: schedRows })
+            });
+
+            const transRows = TRANSFER_DATA.map(r => ({
+                transfer_date: r[0], try_amount: r[1], google_rate: r[2],
+                actual_rate: r[3], kambiyo_rate: 0.002, kambiyo_amount: r[4],
+                try_after_tax: r[5], gbp_amount: r[6]
+            }));
+            await fetch(`/loans/${newLoan.id}/transfers/bulk`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ rows: transRows })
+            });
+
+            load();
+        } catch (err) {
+            alert('Import failed: ' + err.message);
+            btn.disabled = false; btn.textContent = 'Import Loan + Schedule + Transfers';
+        }
+    }
+
+    // ─── Tracker rendering ──────────────────────────────────────────
+    function renderTracker() {
+        const todayStr = today.toISOString().split('T')[0];
+        const paidCount = schedule.filter(s => parseFloat(s.payment) > 0 && s.due_date.split('T')[0] <= todayStr).length;
+        const totalPaid = schedule.filter(s => s.due_date.split('T')[0] <= todayStr).reduce((sum,s) => sum + parseFloat(s.payment), 0);
+        const totalInterest = schedule.reduce((sum,s) => sum + parseFloat(s.interest), 0);
+        const currentBalance = getCurrentBalance();
+        const totalTry = transfers.reduce((s,t) => s + parseFloat(t.try_amount), 0);
+        const totalGbpConverted = transfers.reduce((s,t) => s + parseFloat(t.gbp_amount), 0);
+        const nextPayment = schedule.find(s => s.due_date.split('T')[0] > todayStr);
+        const progress = ((parseFloat(loan.original_amount) - currentBalance) / parseFloat(loan.original_amount) * 100);
+
+        let nextDueText = 'Completed';
+        if (nextPayment) {
+            const nd = new Date(nextPayment.due_date.split('T')[0] + 'T12:00:00');
+            const diff = Math.round((nd - today) / 86400000);
+            nextDueText = diff === 0 ? 'Due today!' : diff > 0 ? `In ${diff} days (${formatDate(nextPayment.due_date)})` : `Overdue by ${Math.abs(diff)} days`;
         }
 
-        async function quickImport() {
-            const btn = event.target.closest('button');
-            btn.disabled = true; btn.textContent = 'Importing...';
-            try {
-                // 1. Create loan
-                const loanRes = await fetch('/loans', {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        name: document.getElementById('s-name').value.trim(),
-                        original_amount: document.getElementById('s-amount').value,
-                        monthly_payment: document.getElementById('s-monthly').value,
-                        start_date: document.getElementById('s-start').value,
-                        end_date: document.getElementById('s-end').value,
-                        total_installments: document.getElementById('s-install').value,
-                        annual_rate: document.getElementById('s-annual').value,
-                        monthly_rate: document.getElementById('s-monthly-rate').value,
-                        daily_rate: document.getElementById('s-daily').value
-                    })
-                });
-                const newLoan = await loanRes.json();
-
-                // 2. Import schedule
-                const schedRows = SCHEDULE_DATA.map(r => ({
-                    installment_no: r[0], due_date: r[1], opening_balance: r[2],
-                    interest: r[3], total_owed: r[4], payment: r[5], closing_balance: r[6]
-                }));
-                await fetch(`/loans/${newLoan.id}/schedule/bulk`, {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ rows: schedRows })
-                });
-
-                // 3. Import transfers
-                const transRows = TRANSFER_DATA.map(r => ({
-                    transfer_date: r[0], try_amount: r[1], google_rate: r[2],
-                    actual_rate: r[3], kambiyo_rate: 0.002, kambiyo_amount: r[4],
-                    try_after_tax: r[5], gbp_amount: r[6]
-                }));
-                await fetch(`/loans/${newLoan.id}/transfers/bulk`, {
-                    method: 'POST', headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ rows: transRows })
-                });
-
-                load();
-            } catch (err) {
-                alert('Import failed: ' + err.message);
-                btn.disabled = false; btn.textContent = 'Import Loan + Schedule + Transfers';
-            }
-        }
-
-        // ─── Tracker rendering ──────────────────────────────────────────
-        function renderTracker() {
-            const todayStr = today.toISOString().split('T')[0];
-            const paidCount = schedule.filter(s => parseFloat(s.payment) > 0 && s.due_date.split('T')[0] <= todayStr).length;
-            const totalPaid = schedule.filter(s => s.due_date.split('T')[0] <= todayStr).reduce((sum,s) => sum + parseFloat(s.payment), 0);
-            const totalInterest = schedule.reduce((sum,s) => sum + parseFloat(s.interest), 0);
-            const remaining = schedule.length ? parseFloat(schedule[schedule.length-1].closing_balance) === 0
-                ? schedule.filter(s => s.due_date.split('T')[0] > todayStr).reduce((sum,s) => sum + parseFloat(s.payment), 0)
-                : parseFloat(schedule.find(s => s.due_date.split('T')[0] > todayStr)?.opening_balance || 0)
-                : parseFloat(loan.original_amount);
-            const currentBalance = getCurrentBalance();
-            const totalTry = transfers.reduce((s,t) => s + parseFloat(t.try_amount), 0);
-            const totalGbpConverted = transfers.reduce((s,t) => s + parseFloat(t.gbp_amount), 0);
-            const nextPayment = schedule.find(s => s.due_date.split('T')[0] > todayStr);
-            const progress = ((parseFloat(loan.original_amount) - currentBalance) / parseFloat(loan.original_amount) * 100);
-
-            // Next payment countdown
-            let nextDueText = 'Completed';
-            if (nextPayment) {
-                const nd = new Date(nextPayment.due_date.split('T')[0] + 'T12:00:00');
-                const diff = Math.round((nd - today) / 86400000);
-                nextDueText = diff === 0 ? 'Due today!' : diff > 0 ? `In ${diff} days (${formatDate(nextPayment.due_date)})` : `Overdue by ${Math.abs(diff)} days`;
-            }
-
-            document.getElementById('main-content').innerHTML = `
-                <!-- Overview card -->
-                <div class="card p-6 mb-4">
+        document.getElementById('main-content').innerHTML = `
+            <!-- Overview card -->
+            <div class="sp-card mb-4">
+                <div class="sp-card-body">
                     <div class="flex items-start justify-between mb-4">
                         <div>
-                            <h2 class="text-lg font-bold text-gray-800">${loan.name}</h2>
-                            <p class="text-xs text-gray-400 mt-0.5">Started ${formatDate(loan.start_date)} &middot; Ends ${formatDate(loan.end_date)}</p>
+                            <h2 style="font-size:18px;font-weight:700;color:var(--sp-ink);">${loan.name}</h2>
+                            <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">Started ${formatDate(loan.start_date)} &middot; Ends ${formatDate(loan.end_date)}</p>
                             <div class="flex gap-3 mt-1.5">
-                                ${loan.annual_rate ? `<span class="text-xs bg-red-50 text-red-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.annual_rate)}% APR</span>` : ''}
-                                ${loan.monthly_rate ? `<span class="text-xs bg-orange-50 text-orange-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.monthly_rate)}%/mo</span>` : ''}
-                                ${loan.daily_rate ? `<span class="text-xs bg-gray-100 text-gray-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.daily_rate).toFixed(6)}/day</span>` : ''}
+                                ${loan.annual_rate ? `<span style="font-size:12px;background:var(--sp-down-bg);color:var(--sp-down);padding:2px 8px;border-radius:999px;font-weight:500;">${parseFloat(loan.annual_rate)}% APR</span>` : ''}
+                                ${loan.monthly_rate ? `<span style="font-size:12px;background:var(--sp-warn-bg);color:var(--sp-warn);padding:2px 8px;border-radius:999px;font-weight:500;">${parseFloat(loan.monthly_rate)}%/mo</span>` : ''}
+                                ${loan.daily_rate ? `<span style="font-size:12px;background:var(--sp-panel);color:var(--sp-ink-50);padding:2px 8px;border-radius:999px;font-weight:500;">${parseFloat(loan.daily_rate).toFixed(6)}/day</span>` : ''}
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-xs text-gray-400">Next payment</p>
-                            <p class="text-sm font-semibold ${nextPayment ? 'text-purple-600' : 'text-green-600'}">${nextDueText}</p>
+                            <p style="font-size:12px;color:var(--sp-ink-50);">Next payment</p>
+                            <p style="font-size:13px;font-weight:600;color:${nextPayment ? 'var(--cat-debts-fg)' : 'var(--sp-up)'};">${nextDueText}</p>
                         </div>
                     </div>
-                    <div class="mb-2 flex items-center justify-between text-xs text-gray-500">
+                    <div class="mb-2 flex items-center justify-between" style="font-size:12px;color:var(--sp-ink-50);">
                         <span>Paid: ${fmt(totalPaid)}</span>
                         <span>Remaining: ${fmt(currentBalance)}</span>
                     </div>
-                    <div class="w-full bg-gray-100 rounded-full h-3 mb-1">
-                        <div class="h-3 rounded-full gradient-bg transition-all duration-700" style="width:${Math.min(progress,100).toFixed(1)}%"></div>
+                    <div class="w-full rounded-full h-3 mb-1" style="background:var(--sp-ink-08);">
+                        <div class="h-3 rounded-full transition-all duration-700" style="width:${Math.min(progress,100).toFixed(1)}%;background:var(--cat-debts-dot);"></div>
                     </div>
-                    <p class="text-xs text-gray-400 text-center">${progress.toFixed(1)}% paid &middot; ${paidCount} of ${schedule.length} payments made</p>
+                    <p style="font-size:12px;color:var(--sp-ink-50);text-align:center;">${progress.toFixed(1)}% paid &middot; ${paidCount} of ${schedule.length} payments made</p>
                 </div>
+            </div>
 
-                <!-- Stats -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                    <div class="card p-4">
-                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Original Loan</p>
-                        <p class="text-xl font-bold text-gray-800 mt-1">${fmt(loan.original_amount)}</p>
-                    </div>
-                    <div class="card p-4">
-                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Balance</p>
-                        <p class="text-xl font-bold text-gray-800 mt-1">${fmt(currentBalance)}</p>
-                    </div>
-                    <div class="card p-4">
-                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Interest</p>
-                        <p class="text-xl font-bold text-red-500 mt-1">${fmt(totalInterest)}</p>
-                    </div>
-                    <div class="card p-4">
-                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">TRY Converted</p>
-                        <p class="text-lg font-bold text-gray-800 mt-1">${fmt(totalGbpConverted)}</p>
-                        <p class="text-xs text-gray-400">${fmtTry(totalTry)}</p>
-                    </div>
+            <!-- Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="sp-kpi">
+                    <div class="sp-kpi-label">Original Loan</div>
+                    <div class="sp-kpi-value">${fmt(loan.original_amount)}</div>
                 </div>
-
-                <!-- Tabs -->
-                <div class="card overflow-hidden mb-6">
-                    <div class="flex border-b border-gray-100 px-6 pt-3">
-                        <button onclick="switchTab('schedule')" class="tab-btn pb-3 px-4 text-sm font-medium ${activeTab==='schedule'?'active':''}">Payment Schedule</button>
-                        <button onclick="switchTab('transfers')" class="tab-btn pb-3 px-4 text-sm font-medium ${activeTab==='transfers'?'active':''}">TRY Transfers (${transfers.length})</button>
-                    </div>
-                    <div id="tab-content"></div>
+                <div class="sp-kpi">
+                    <div class="sp-kpi-label">Balance</div>
+                    <div class="sp-kpi-value">${fmt(currentBalance)}</div>
                 </div>
-            `;
+                <div class="sp-kpi">
+                    <div class="sp-kpi-label">Total Interest</div>
+                    <div class="sp-kpi-value" style="color:var(--sp-down);">${fmt(totalInterest)}</div>
+                </div>
+                <div class="sp-kpi">
+                    <div class="sp-kpi-label">TRY Converted</div>
+                    <div class="sp-kpi-value">${fmt(totalGbpConverted)}</div>
+                    <p style="font-size:12px;color:var(--sp-ink-50);">${fmtTry(totalTry)}</p>
+                </div>
+            </div>
 
-            if (activeTab === 'schedule') renderScheduleTab();
-            else renderTransfersTab();
-        }
+            <!-- Tabs -->
+            <div class="sp-card overflow-hidden mb-6">
+                <div class="flex gap-2 px-6 pt-3 pb-0" style="border-bottom:1px solid var(--sp-ink-04);">
+                    <button onclick="switchTab('schedule')" class="sp-pill ${activeTab==='schedule'?'sp-pill-active':''}" style="border-radius:8px 8px 0 0;">Payment Schedule</button>
+                    <button onclick="switchTab('transfers')" class="sp-pill ${activeTab==='transfers'?'sp-pill-active':''}" style="border-radius:8px 8px 0 0;">TRY Transfers (${transfers.length})</button>
+                </div>
+                <div id="tab-content"></div>
+            </div>
+        `;
 
-        function getCurrentBalance() {
-            const todayStr = today.toISOString().split('T')[0];
-            // Find the last installment that has passed
-            for (let i = schedule.length - 1; i >= 0; i--) {
-                if (schedule[i].due_date.split('T')[0] <= todayStr) {
-                    return parseFloat(schedule[i].closing_balance);
-                }
+        if (activeTab === 'schedule') renderScheduleTab();
+        else renderTransfersTab();
+    }
+
+    function getCurrentBalance() {
+        const todayStr = today.toISOString().split('T')[0];
+        for (let i = schedule.length - 1; i >= 0; i--) {
+            if (schedule[i].due_date.split('T')[0] <= todayStr) {
+                return parseFloat(schedule[i].closing_balance);
             }
-            return parseFloat(loan.original_amount);
         }
+        return parseFloat(loan.original_amount);
+    }
 
-        function switchTab(tab) { activeTab = tab; renderTracker(); }
+    function switchTab(tab) { activeTab = tab; renderTracker(); }
 
-        // ─── Schedule tab ───────────────────────────────────────────────
-        function renderScheduleTab() {
-            const el = document.getElementById('tab-content');
-            const todayStr = today.toISOString().split('T')[0];
-            // Find current installment (next unpaid one)
-            const currentIdx = schedule.findIndex(s => s.due_date.split('T')[0] > todayStr);
+    // ─── Schedule tab ───────────────────────────────────────────────
+    function renderScheduleTab() {
+        const el = document.getElementById('tab-content');
+        const todayStr = today.toISOString().split('T')[0];
+        const currentIdx = schedule.findIndex(s => s.due_date.split('T')[0] > todayStr);
 
-            let filtered = schedule;
-            if (scheduleFilter === 'upcoming') filtered = schedule.filter(s => s.due_date.split('T')[0] >= todayStr);
-            if (scheduleFilter === 'paid') filtered = schedule.filter(s => s.due_date.split('T')[0] < todayStr && parseFloat(s.payment) > 0);
+        let filtered = schedule;
+        if (scheduleFilter === 'upcoming') filtered = schedule.filter(s => s.due_date.split('T')[0] >= todayStr);
+        if (scheduleFilter === 'paid') filtered = schedule.filter(s => s.due_date.split('T')[0] < todayStr && parseFloat(s.payment) > 0);
 
-            el.innerHTML = `
-                <div class="px-6 py-3 flex items-center gap-3 border-b border-gray-50">
-                    <span class="text-xs text-gray-400">Show:</span>
-                    <button onclick="scheduleFilter='all';renderTracker()" class="text-xs px-3 py-1 rounded-full ${scheduleFilter==='all'?'gradient-bg text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition">All (${schedule.length})</button>
-                    <button onclick="scheduleFilter='paid';renderTracker()" class="text-xs px-3 py-1 rounded-full ${scheduleFilter==='paid'?'gradient-bg text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition">Paid</button>
-                    <button onclick="scheduleFilter='upcoming';renderTracker()" class="text-xs px-3 py-1 rounded-full ${scheduleFilter==='upcoming'?'gradient-bg text-white':'bg-gray-100 text-gray-600 hover:bg-gray-200'} transition">Upcoming</button>
+        el.innerHTML = `
+            <div class="px-6 py-3 flex items-center gap-3" style="border-bottom:1px solid var(--sp-ink-04);">
+                <span style="font-size:12px;color:var(--sp-ink-50);">Show:</span>
+                <button onclick="scheduleFilter='all';renderTracker()" class="sp-pill ${scheduleFilter==='all'?'sp-pill-active':''}" style="font-size:12px;">All (${schedule.length})</button>
+                <button onclick="scheduleFilter='paid';renderTracker()" class="sp-pill ${scheduleFilter==='paid'?'sp-pill-active':''}" style="font-size:12px;">Paid</button>
+                <button onclick="scheduleFilter='upcoming';renderTracker()" class="sp-pill ${scheduleFilter==='upcoming'?'sp-pill-active':''}" style="font-size:12px;">Upcoming</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr style="font-size:12px;color:var(--sp-ink-50);font-weight:500;border-bottom:1px solid var(--sp-ink-04);">
+                            <th class="text-left px-6 py-2.5">#</th>
+                            <th class="text-left py-2.5">Due Date</th>
+                            <th class="text-right py-2.5">Balance</th>
+                            <th class="text-right py-2.5">Interest</th>
+                            <th class="text-right py-2.5">Payment</th>
+                            <th class="text-right py-2.5">Remaining</th>
+                            <th class="text-center py-2.5 pr-6">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(s => {
+                            const dueStr = s.due_date.split('T')[0];
+                            const isPast = dueStr < todayStr;
+                            const isCurrent = schedule[currentIdx]?.id === s.id;
+                            const hasPmt = parseFloat(s.payment) > 0;
+                            const isSkipped = isPast && !hasPmt;
+
+                            let rowClass = '';
+                            let badge = '';
+                            if (isCurrent) {
+                                rowClass = 'schedule-current';
+                                badge = `<span style="font-size:12px;background:var(--cat-debts-bg);color:var(--cat-debts-fg);font-weight:600;padding:2px 8px;border-radius:999px;">Due</span>`;
+                            } else if (isSkipped) {
+                                rowClass = 'schedule-skipped';
+                                badge = `<span style="font-size:12px;background:var(--sp-warn-bg);color:var(--sp-warn);font-weight:500;padding:2px 8px;border-radius:999px;">Skipped</span>`;
+                            } else if (isPast && hasPmt) {
+                                rowClass = 'schedule-paid';
+                                badge = `<span style="font-size:12px;background:var(--sp-up-bg);color:var(--sp-up);font-weight:500;padding:2px 8px;border-radius:999px;">Paid</span>`;
+                            } else {
+                                badge = `<span style="font-size:12px;color:var(--sp-ink-30);">Upcoming</span>`;
+                            }
+
+                            return `<tr class="${rowClass}" style="border-bottom:1px solid var(--sp-ink-04);">
+                                <td class="px-6 py-2.5" style="color:var(--sp-ink-50);font-weight:500;">${s.installment_no}</td>
+                                <td class="py-2.5" style="color:var(--sp-ink);">${formatDate(s.due_date)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${fmt(s.opening_balance)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-down);">${fmt(s.interest)}</td>
+                                <td class="py-2.5 text-right" style="font-weight:600;color:${hasPmt ? 'var(--sp-ink)' : 'var(--sp-ink-30)'};">${hasPmt ? fmt(s.payment) : '—'}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink);">${fmt(s.closing_balance)}</td>
+                                <td class="py-2.5 text-center pr-6">${badge}</td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    // ─── Transfers tab ──────────────────────────────────────────────
+    function renderTransfersTab() {
+        const el = document.getElementById('tab-content');
+        const totalTry = transfers.reduce((s,t) => s + parseFloat(t.try_amount), 0);
+        const totalGbp = transfers.reduce((s,t) => s + parseFloat(t.gbp_amount), 0);
+        const avgRate = transfers.length ? (totalTry / totalGbp).toFixed(2) : '—';
+
+        el.innerHTML = `
+            <div class="px-6 py-3 flex items-center justify-between" style="border-bottom:1px solid var(--sp-ink-04);">
+                <div class="flex items-center gap-3">
+                    <span style="font-size:12px;color:var(--sp-ink-50);">Avg rate: <strong style="color:var(--sp-ink);">${avgRate} TRY/GBP</strong></span>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-xs text-gray-400 font-medium border-b border-gray-100">
-                                <th class="text-left px-6 py-2.5">#</th>
-                                <th class="text-left py-2.5">Due Date</th>
-                                <th class="text-right py-2.5">Balance</th>
-                                <th class="text-right py-2.5">Interest</th>
-                                <th class="text-right py-2.5">Payment</th>
-                                <th class="text-right py-2.5">Remaining</th>
-                                <th class="text-center py-2.5 pr-6">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filtered.map(s => {
-                                const dueStr = s.due_date.split('T')[0];
-                                const isPast = dueStr < todayStr;
-                                const isCurrent = schedule[currentIdx]?.id === s.id;
-                                const hasPmt = parseFloat(s.payment) > 0;
-                                const isSkipped = isPast && !hasPmt;
+                <button onclick="showAddTransfer()" style="font-size:13px;font-weight:500;color:var(--cat-debts-fg);transition:opacity 0.15s;" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">+ Add Transfer</button>
+            </div>
+            <div id="add-transfer-panel" class="hidden"></div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr style="font-size:12px;color:var(--sp-ink-50);font-weight:500;border-bottom:1px solid var(--sp-ink-04);">
+                            <th class="text-left px-6 py-2.5">Date</th>
+                            <th class="text-right py-2.5">TRY Received</th>
+                            <th class="text-right py-2.5">Google Rate</th>
+                            <th class="text-right py-2.5">Actual Rate</th>
+                            <th class="text-right py-2.5">Kambiyo</th>
+                            <th class="text-right py-2.5">Net TRY</th>
+                            <th class="text-right py-2.5">GBP</th>
+                            <th class="text-right py-2.5 pr-6"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${transfers.map(t => {
+                            if (editingTransferId === t.id) return transferEditRow(t);
+                            return `<tr style="border-bottom:1px solid var(--sp-ink-04);transition:background 0.15s;" onmouseover="this.style.background='var(--sp-panel)'" onmouseout="this.style.background='transparent'">
+                                <td class="px-6 py-2.5" style="color:var(--sp-ink);">${formatDate(t.transfer_date)}</td>
+                                <td class="py-2.5 text-right" style="font-weight:500;color:var(--sp-ink);">${fmtTry(t.try_amount)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.google_rate).toFixed(2)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.actual_rate).toFixed(2)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-down);">${fmtTry(t.kambiyo_amount)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${fmtTry(t.try_after_tax)}</td>
+                                <td class="py-2.5 text-right" style="font-weight:700;color:var(--sp-up);">${fmt(t.gbp_amount)}</td>
+                                <td class="py-2.5 text-right pr-6">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <button onclick="editingTransferId=${t.id};renderTracker()" style="color:var(--sp-ink-30);transition:color 0.15s;padding:4px;" onmouseover="this.style.color='var(--cat-debts-fg)'" onmouseout="this.style.color='var(--sp-ink-30)'">${PENCIL}</button>
+                                        <button onclick="deleteTransfer(${t.id})" style="color:var(--sp-ink-30);transition:color 0.15s;padding:4px;" onmouseover="this.style.color='var(--sp-down)'" onmouseout="this.style.color='var(--sp-ink-30)'">${TRASH}</button>
+                                    </div>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                        <tr style="background:var(--sp-panel);font-weight:600;">
+                            <td class="px-6 py-3" style="color:var(--sp-ink);">Total (${transfers.length} transfers)</td>
+                            <td class="py-3 text-right" style="color:var(--sp-ink);">${fmtTry(totalTry)}</td>
+                            <td colspan="4"></td>
+                            <td class="py-3 text-right" style="color:var(--sp-up);">${fmt(totalGbp)}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>`;
+    }
 
-                                let rowClass = '';
-                                let badge = '';
-                                if (isCurrent) {
-                                    rowClass = 'schedule-current';
-                                    badge = '<span class="text-xs bg-purple-100 text-purple-600 font-semibold px-2 py-0.5 rounded-full">Due</span>';
-                                } else if (isSkipped) {
-                                    rowClass = 'schedule-skipped';
-                                    badge = '<span class="text-xs bg-yellow-100 text-yellow-600 font-medium px-2 py-0.5 rounded-full">Skipped</span>';
-                                } else if (isPast && hasPmt) {
-                                    rowClass = 'schedule-paid';
-                                    badge = '<span class="text-xs bg-green-100 text-green-600 font-medium px-2 py-0.5 rounded-full">Paid</span>';
-                                } else {
-                                    badge = '<span class="text-xs text-gray-300">Upcoming</span>';
-                                }
-
-                                return `<tr class="${rowClass} border-b border-gray-50 last:border-0">
-                                    <td class="px-6 py-2.5 text-gray-500 font-medium">${s.installment_no}</td>
-                                    <td class="py-2.5 text-gray-700">${formatDate(s.due_date)}</td>
-                                    <td class="py-2.5 text-right text-gray-600">${fmt(s.opening_balance)}</td>
-                                    <td class="py-2.5 text-right text-red-400">${fmt(s.interest)}</td>
-                                    <td class="py-2.5 text-right font-semibold ${hasPmt ? 'text-gray-800' : 'text-gray-300'}">${hasPmt ? fmt(s.payment) : '—'}</td>
-                                    <td class="py-2.5 text-right text-gray-700">${fmt(s.closing_balance)}</td>
-                                    <td class="py-2.5 text-center pr-6">${badge}</td>
-                                </tr>`;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>`;
-        }
-
-        // ─── Transfers tab ──────────────────────────────────────────────
-        function renderTransfersTab() {
-            const el = document.getElementById('tab-content');
-            const totalTry = transfers.reduce((s,t) => s + parseFloat(t.try_amount), 0);
-            const totalGbp = transfers.reduce((s,t) => s + parseFloat(t.gbp_amount), 0);
-            const avgRate = transfers.length ? (totalTry / totalGbp).toFixed(2) : '—';
-
-            el.innerHTML = `
-                <div class="px-6 py-3 flex items-center justify-between border-b border-gray-50">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xs text-gray-400">Avg rate: <strong class="text-gray-600">${avgRate} TRY/GBP</strong></span>
+    function transferEditRow(t) {
+        return `<tr style="background:var(--cat-debts-bg);border-bottom:1px solid var(--sp-ink-04);">
+            <td colspan="8" class="px-6 py-3">
+                <form onsubmit="saveTransferEdit(event,${t.id})" class="flex flex-wrap gap-2 items-end">
+                    <div>
+                        <label class="sp-field-label">Date</label>
+                        <input id="te-date" type="date" value="${t.transfer_date.split('T')[0]}" class="sp-input" style="width:144px;"/>
                     </div>
-                    <button onclick="showAddTransfer()" class="text-sm text-purple-600 font-medium hover:text-purple-800 transition">+ Add Transfer</button>
-                </div>
-                <div id="add-transfer-panel" class="hidden"></div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-xs text-gray-400 font-medium border-b border-gray-100">
-                                <th class="text-left px-6 py-2.5">Date</th>
-                                <th class="text-right py-2.5">TRY Received</th>
-                                <th class="text-right py-2.5">Google Rate</th>
-                                <th class="text-right py-2.5">Actual Rate</th>
-                                <th class="text-right py-2.5">Kambiyo</th>
-                                <th class="text-right py-2.5">Net TRY</th>
-                                <th class="text-right py-2.5">GBP</th>
-                                <th class="text-right py-2.5 pr-6"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${transfers.map(t => {
-                                if (editingTransferId === t.id) return transferEditRow(t);
-                                return `<tr class="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition">
-                                    <td class="px-6 py-2.5 text-gray-700">${formatDate(t.transfer_date)}</td>
-                                    <td class="py-2.5 text-right font-medium text-gray-800">${fmtTry(t.try_amount)}</td>
-                                    <td class="py-2.5 text-right text-gray-500">${parseFloat(t.google_rate).toFixed(2)}</td>
-                                    <td class="py-2.5 text-right text-gray-500">${parseFloat(t.actual_rate).toFixed(2)}</td>
-                                    <td class="py-2.5 text-right text-red-400">${fmtTry(t.kambiyo_amount)}</td>
-                                    <td class="py-2.5 text-right text-gray-600">${fmtTry(t.try_after_tax)}</td>
-                                    <td class="py-2.5 text-right font-bold text-green-600">${fmt(t.gbp_amount)}</td>
-                                    <td class="py-2.5 text-right pr-6">
-                                        <div class="flex items-center justify-end gap-1">
-                                            <button onclick="editingTransferId=${t.id};renderTracker()" class="text-gray-300 hover:text-purple-400 transition p-1">${PENCIL}</button>
-                                            <button onclick="deleteTransfer(${t.id})" class="text-gray-300 hover:text-red-400 transition p-1">${TRASH}</button>
-                                        </div>
-                                    </td>
-                                </tr>`;
-                            }).join('')}
-                            <tr class="bg-gray-50 font-semibold">
-                                <td class="px-6 py-3 text-gray-700">Total (${transfers.length} transfers)</td>
-                                <td class="py-3 text-right text-gray-800">${fmtTry(totalTry)}</td>
-                                <td colspan="4"></td>
-                                <td class="py-3 text-right text-green-600">${fmt(totalGbp)}</td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>`;
-        }
+                    <div>
+                        <label class="sp-field-label">TRY Amount</label>
+                        <input id="te-try" type="number" step="0.01" value="${t.try_amount}" class="sp-input" style="width:128px;" oninput="recalcEdit()"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">Google Rate</label>
+                        <input id="te-google" type="number" step="0.01" value="${t.google_rate}" class="sp-input" style="width:96px;"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">Actual Rate</label>
+                        <input id="te-actual" type="number" step="0.01" value="${t.actual_rate}" class="sp-input" style="width:96px;" oninput="recalcEdit()"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">Kambiyo %</label>
+                        <input id="te-kambiyo" type="number" step="0.01" value="${(parseFloat(t.kambiyo_rate)*100).toFixed(2)}" class="sp-input" style="width:80px;" oninput="recalcEdit()"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">GBP Result</label>
+                        <span id="te-result" style="font-size:13px;font-weight:700;color:var(--sp-up);display:block;padding:6px 0;">${fmt(t.gbp_amount)}</span>
+                    </div>
+                    <div class="flex gap-1">
+                        <button type="submit" class="sp-btn-primary" style="font-size:12px;padding:6px 16px;">Save</button>
+                        <button type="button" onclick="editingTransferId=null;renderTracker()" class="sp-btn-ghost" style="font-size:12px;padding:6px 12px;">Cancel</button>
+                    </div>
+                </form>
+            </td>
+        </tr>`;
+    }
 
-        function transferEditRow(t) {
-            return `<tr class="bg-purple-50 border-b border-gray-50">
-                <td colspan="8" class="px-6 py-3">
-                    <form onsubmit="saveTransferEdit(event,${t.id})" class="flex flex-wrap gap-2 items-end">
-                        <div>
-                            <label class="text-xs text-gray-400 block">Date</label>
-                            <input id="te-date" type="date" value="${t.transfer_date.split('T')[0]}" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-36 focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block">TRY Amount</label>
-                            <input id="te-try" type="number" step="0.01" value="${t.try_amount}" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-32 focus:outline-none focus:border-purple-400" oninput="recalcEdit()"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block">Google Rate</label>
-                            <input id="te-google" type="number" step="0.01" value="${t.google_rate}" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-24 focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block">Actual Rate</label>
-                            <input id="te-actual" type="number" step="0.01" value="${t.actual_rate}" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-24 focus:outline-none focus:border-purple-400" oninput="recalcEdit()"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block">Kambiyo %</label>
-                            <input id="te-kambiyo" type="number" step="0.01" value="${(parseFloat(t.kambiyo_rate)*100).toFixed(2)}" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm w-20 focus:outline-none focus:border-purple-400" oninput="recalcEdit()"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-400 block">GBP Result</label>
-                            <span id="te-result" class="text-sm font-bold text-green-600 block py-1.5">${fmt(t.gbp_amount)}</span>
-                        </div>
+    function recalcEdit() {
+        const tryAmt = parseFloat(document.getElementById('te-try')?.value) || 0;
+        const rate = parseFloat(document.getElementById('te-actual')?.value) || 1;
+        const kambiyoPct = parseFloat(document.getElementById('te-kambiyo')?.value) || 0;
+        const tax = tryAmt * (kambiyoPct / 100);
+        const net = tryAmt - tax;
+        const gbp = rate > 0 ? net / rate : 0;
+        const el = document.getElementById('te-result');
+        if (el) el.textContent = fmt(gbp);
+    }
+
+    async function saveTransferEdit(e, id) {
+        e.preventDefault();
+        const tryAmt = parseFloat(document.getElementById('te-try').value);
+        const rate = parseFloat(document.getElementById('te-actual').value);
+        const kambiyoPct = parseFloat(document.getElementById('te-kambiyo').value) / 100;
+        const tax = tryAmt * kambiyoPct;
+        const net = tryAmt - tax;
+        const gbp = rate > 0 ? net / rate : 0;
+
+        await fetch('/loan-transfers/' + id, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                transfer_date: document.getElementById('te-date').value,
+                try_amount: tryAmt,
+                google_rate: parseFloat(document.getElementById('te-google').value) || null,
+                actual_rate: rate,
+                kambiyo_rate: kambiyoPct,
+                kambiyo_amount: Math.round(tax * 100) / 100,
+                try_after_tax: Math.round(net * 100) / 100,
+                gbp_amount: Math.round(gbp * 100) / 100
+            })
+        });
+        editingTransferId = null;
+        transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
+        renderTracker();
+    }
+
+    async function deleteTransfer(id) {
+        const ok = await showModal({ title: 'Delete', message: 'Remove this TRY transfer?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (!ok) return;
+        await fetch('/loan-transfers/' + id, { method: 'DELETE' });
+        transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
+        renderTracker();
+    }
+
+    // ─── Add new transfer ───────────────────────────────────────────
+    function showAddTransfer() {
+        const panel = document.getElementById('add-transfer-panel');
+        panel.classList.remove('hidden');
+        panel.innerHTML = `
+            <div class="px-6 py-4" style="background:var(--cat-debts-bg);border-bottom:1px solid var(--sp-ink-04);">
+                <p style="font-size:13px;font-weight:600;color:var(--sp-ink);margin-bottom:12px;">New TRY Transfer</p>
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div>
+                        <label class="sp-field-label">Date</label>
+                        <input id="nt-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="sp-input" style="width:144px;"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">TRY Amount</label>
+                        <input id="nt-try" type="number" step="0.01" placeholder="50000" class="sp-input" style="width:128px;" oninput="recalcNew()"/>
+                    </div>
+                    <div>
+                        <label class="sp-field-label">Google Rate</label>
                         <div class="flex gap-1">
-                            <button type="submit" class="gradient-bg text-white text-xs font-medium px-4 py-1.5 rounded-lg hover:opacity-90">Save</button>
-                            <button type="button" onclick="editingTransferId=null;renderTracker()" class="border border-gray-200 text-gray-500 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50">Cancel</button>
-                        </div>
-                    </form>
-                </td>
-            </tr>`;
-        }
-
-        function recalcEdit() {
-            const tryAmt = parseFloat(document.getElementById('te-try')?.value) || 0;
-            const rate = parseFloat(document.getElementById('te-actual')?.value) || 1;
-            const kambiyoPct = parseFloat(document.getElementById('te-kambiyo')?.value) || 0;
-            const tax = tryAmt * (kambiyoPct / 100);
-            const net = tryAmt - tax;
-            const gbp = rate > 0 ? net / rate : 0;
-            const el = document.getElementById('te-result');
-            if (el) el.textContent = fmt(gbp);
-        }
-
-        async function saveTransferEdit(e, id) {
-            e.preventDefault();
-            const tryAmt = parseFloat(document.getElementById('te-try').value);
-            const rate = parseFloat(document.getElementById('te-actual').value);
-            const kambiyoPct = parseFloat(document.getElementById('te-kambiyo').value) / 100;
-            const tax = tryAmt * kambiyoPct;
-            const net = tryAmt - tax;
-            const gbp = rate > 0 ? net / rate : 0;
-
-            await fetch('/loan-transfers/' + id, {
-                method: 'PUT', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({
-                    transfer_date: document.getElementById('te-date').value,
-                    try_amount: tryAmt,
-                    google_rate: parseFloat(document.getElementById('te-google').value) || null,
-                    actual_rate: rate,
-                    kambiyo_rate: kambiyoPct,
-                    kambiyo_amount: Math.round(tax * 100) / 100,
-                    try_after_tax: Math.round(net * 100) / 100,
-                    gbp_amount: Math.round(gbp * 100) / 100
-                })
-            });
-            editingTransferId = null;
-            transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
-            renderTracker();
-        }
-
-        async function deleteTransfer(id) {
-            const ok = await showModal({ title: 'Delete', message: 'Remove this TRY transfer?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-            if (!ok) return;
-            await fetch('/loan-transfers/' + id, { method: 'DELETE' });
-            transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
-            renderTracker();
-        }
-
-        // ─── Add new transfer ───────────────────────────────────────────
-        function showAddTransfer() {
-            const panel = document.getElementById('add-transfer-panel');
-            panel.classList.remove('hidden');
-            panel.innerHTML = `
-                <div class="px-6 py-4 bg-purple-50 border-b border-purple-100">
-                    <p class="text-sm font-semibold text-gray-700 mb-3">New TRY Transfer</p>
-                    <div class="flex flex-wrap gap-3 items-end">
-                        <div>
-                            <label class="text-xs text-gray-500 block mb-1">Date</label>
-                            <input id="nt-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:border-purple-400"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 block mb-1">TRY Amount</label>
-                            <input id="nt-try" type="number" step="0.01" placeholder="50000" class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-32 focus:outline-none focus:border-purple-400" oninput="recalcNew()"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 block mb-1">Google Rate</label>
-                            <div class="flex gap-1">
-                                <input id="nt-google" type="number" step="0.01" placeholder="58.00" class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:border-purple-400"/>
-                                <button onclick="fetchRate()" class="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-lg hover:bg-blue-200 transition" title="Fetch current rate">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                </button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 block mb-1">Actual Rate</label>
-                            <input id="nt-actual" type="number" step="0.01" placeholder="58.50" class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-24 focus:outline-none focus:border-purple-400" oninput="recalcNew()"/>
-                        </div>
-                        <div>
-                            <label class="text-xs text-gray-500 block mb-1">Kambiyo %</label>
-                            <input id="nt-kambiyo" type="number" step="0.01" value="0.20" class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:border-purple-400" oninput="recalcNew()"/>
+                            <input id="nt-google" type="number" step="0.01" placeholder="58.00" class="sp-input" style="width:96px;"/>
+                            <button onclick="fetchRate()" class="sp-btn-ghost" style="padding:6px;" title="Fetch current rate">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 mt-3">
-                        <div class="flex-1">
-                            <span class="text-xs text-gray-400">Tax: <strong id="nt-tax" class="text-gray-600">—</strong></span>
-                            <span class="text-xs text-gray-400 ml-3">Net TRY: <strong id="nt-net" class="text-gray-600">—</strong></span>
-                            <span class="text-xs text-gray-400 ml-3">GBP: <strong id="nt-gbp" class="text-green-600 text-sm">—</strong></span>
-                        </div>
-                        <button onclick="saveNewTransfer()" class="gradient-bg text-white text-sm font-medium px-5 py-2 rounded-xl hover:opacity-90 transition">Save</button>
-                        <button onclick="document.getElementById('add-transfer-panel').classList.add('hidden')" class="border border-gray-200 text-gray-500 text-sm px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+                    <div>
+                        <label class="sp-field-label">Actual Rate</label>
+                        <input id="nt-actual" type="number" step="0.01" placeholder="58.50" class="sp-input" style="width:96px;" oninput="recalcNew()"/>
                     </div>
-                </div>`;
-        }
+                    <div>
+                        <label class="sp-field-label">Kambiyo %</label>
+                        <input id="nt-kambiyo" type="number" step="0.01" value="0.20" class="sp-input" style="width:80px;" oninput="recalcNew()"/>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 mt-3">
+                    <div class="flex-1">
+                        <span style="font-size:12px;color:var(--sp-ink-50);">Tax: <strong id="nt-tax" style="color:var(--sp-ink);">—</strong></span>
+                        <span style="font-size:12px;color:var(--sp-ink-50);margin-left:12px;">Net TRY: <strong id="nt-net" style="color:var(--sp-ink);">—</strong></span>
+                        <span style="font-size:12px;color:var(--sp-ink-50);margin-left:12px;">GBP: <strong id="nt-gbp" style="color:var(--sp-up);font-size:13px;">—</strong></span>
+                    </div>
+                    <button onclick="saveNewTransfer()" class="sp-btn-primary" style="font-size:13px;padding:8px 20px;">Save</button>
+                    <button onclick="document.getElementById('add-transfer-panel').classList.add('hidden')" class="sp-btn-ghost" style="font-size:13px;padding:8px 16px;">Cancel</button>
+                </div>
+            </div>`;
+    }
 
-        function recalcNew() {
-            const tryAmt = parseFloat(document.getElementById('nt-try')?.value) || 0;
-            const rate = parseFloat(document.getElementById('nt-actual')?.value) || 0;
-            const kPct = parseFloat(document.getElementById('nt-kambiyo')?.value) || 0;
-            const tax = tryAmt * (kPct / 100);
-            const net = tryAmt - tax;
-            const gbp = rate > 0 ? net / rate : 0;
-            document.getElementById('nt-tax').textContent = fmtTry(tax);
-            document.getElementById('nt-net').textContent = fmtTry(net);
-            document.getElementById('nt-gbp').textContent = fmt(gbp);
-        }
+    function recalcNew() {
+        const tryAmt = parseFloat(document.getElementById('nt-try')?.value) || 0;
+        const rate = parseFloat(document.getElementById('nt-actual')?.value) || 0;
+        const kPct = parseFloat(document.getElementById('nt-kambiyo')?.value) || 0;
+        const tax = tryAmt * (kPct / 100);
+        const net = tryAmt - tax;
+        const gbp = rate > 0 ? net / rate : 0;
+        document.getElementById('nt-tax').textContent = fmtTry(tax);
+        document.getElementById('nt-net').textContent = fmtTry(net);
+        document.getElementById('nt-gbp').textContent = fmt(gbp);
+    }
 
-        async function fetchRate() {
-            const btn = event.target.closest('button');
-            btn.disabled = true;
-            try {
-                const data = await fetch('/api/exchange-rate').then(r => r.json());
-                if (data.rate) {
-                    document.getElementById('nt-google').value = data.rate.toFixed(2);
-                    // Pre-fill actual rate slightly higher (typical spread)
-                    const actualEl = document.getElementById('nt-actual');
-                    if (!actualEl.value) actualEl.value = (data.rate * 1.01).toFixed(2);
-                    recalcNew();
-                }
-            } catch { alert('Could not fetch rate'); }
-            btn.disabled = false;
-        }
+    async function fetchRate() {
+        const btn = event.target.closest('button');
+        btn.disabled = true;
+        try {
+            const data = await fetch('/api/exchange-rate').then(r => r.json());
+            if (data.rate) {
+                document.getElementById('nt-google').value = data.rate.toFixed(2);
+                const actualEl = document.getElementById('nt-actual');
+                if (!actualEl.value) actualEl.value = (data.rate * 1.01).toFixed(2);
+                recalcNew();
+            }
+        } catch { alert('Could not fetch rate'); }
+        btn.disabled = false;
+    }
 
-        async function saveNewTransfer() {
-            const tryAmt = parseFloat(document.getElementById('nt-try').value);
-            const rate = parseFloat(document.getElementById('nt-actual').value);
-            const kPct = parseFloat(document.getElementById('nt-kambiyo').value) / 100;
-            if (!tryAmt || !rate) { alert('Enter TRY amount and actual rate'); return; }
-            const tax = tryAmt * kPct;
-            const net = tryAmt - tax;
-            const gbp = net / rate;
+    async function saveNewTransfer() {
+        const tryAmt = parseFloat(document.getElementById('nt-try').value);
+        const rate = parseFloat(document.getElementById('nt-actual').value);
+        const kPct = parseFloat(document.getElementById('nt-kambiyo').value) / 100;
+        if (!tryAmt || !rate) { alert('Enter TRY amount and actual rate'); return; }
+        const tax = tryAmt * kPct;
+        const net = tryAmt - tax;
+        const gbp = net / rate;
 
-            await fetch(`/loans/${loan.id}/transfers`, {
-                method: 'POST', headers: {'Content-Type':'application/json'},
-                body: JSON.stringify({
-                    transfer_date: document.getElementById('nt-date').value,
-                    try_amount: tryAmt,
-                    google_rate: parseFloat(document.getElementById('nt-google').value) || null,
-                    actual_rate: rate,
-                    kambiyo_rate: kPct,
-                    kambiyo_amount: Math.round(tax * 100) / 100,
-                    try_after_tax: Math.round(net * 100) / 100,
-                    gbp_amount: Math.round(gbp * 100) / 100
-                })
-            });
-            transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
-            renderTracker();
-        }
+        await fetch(`/loans/${loan.id}/transfers`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                transfer_date: document.getElementById('nt-date').value,
+                try_amount: tryAmt,
+                google_rate: parseFloat(document.getElementById('nt-google').value) || null,
+                actual_rate: rate,
+                kambiyo_rate: kPct,
+                kambiyo_amount: Math.round(tax * 100) / 100,
+                try_after_tax: Math.round(net * 100) / 100,
+                gbp_amount: Math.round(gbp * 100) / 100
+            })
+        });
+        transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
+        renderTracker();
+    }
 
-        load();
-    </script>
+    load();
+</script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,216 +6,196 @@
     <title>Spend Tracker</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="spectrum.css"/>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .card { background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04); }
-        .nav-btn { transition: all 0.2s ease; }
-        .nav-btn.active { background: rgba(255,255,255,0.2); color: white; }
-        .nav-btn:not(.active) { color: rgba(255,255,255,0.65); }
-        .nav-btn:hover { background: rgba(255,255,255,0.15); color: white; }
-        .upload-area { border: 2px dashed #e2e8f0; transition: all 0.2s ease; }
-        .upload-area:hover { border-color: #667eea; background: #f8f7ff; }
         .tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; }
         .bar { height: 8px; border-radius: 999px; transition: width 0.6s ease; }
         .ml-13 { margin-left: 52px; }
-        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .modal-animate { animation: modalIn 0.18s ease-out; }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-    <!-- Header -->
-    <div class="gradient-bg">
-        <div class="max-w-5xl mx-auto px-6 pt-8 pb-16">
-            <div class="flex items-center justify-between mb-8">
-                <div>
-                    <h1 class="text-2xl font-bold text-white">Spend Tracker</h1>
-                    <p class="text-purple-200 text-sm mt-0.5">Track every penny you spend</p>
+<div class="sp-shell">
+  <main class="sp-main">
+    <div class="sp-body">
+
+      <!-- Tab pills -->
+      <div class="flex gap-2 mb-6 flex-wrap">
+        <button onclick="showTab('upload')" id="tab-upload" class="sp-pill">Upload</button>
+        <button onclick="showTab('manual')" id="tab-manual" class="sp-pill">Manual Entry</button>
+        <button onclick="showTab('dashboard')" id="tab-dashboard" class="sp-pill sp-pill-active">Dashboard</button>
+        <button onclick="showTab('history')" id="tab-history" class="sp-pill">History</button>
+      </div>
+
+      <!-- Upload Tab -->
+      <div id="page-upload" class="hidden">
+        <div class="sp-card max-w-lg mx-auto">
+          <div class="sp-card-head"><div><h3 class="sp-card-title">Scan a Receipt</h3></div></div>
+          <div class="sp-card-body">
+            <form id="uploadForm">
+              <label class="rounded-2xl p-8 flex flex-col items-center cursor-pointer block mb-4" style="border:2px dashed var(--sp-ink-08);transition:all 0.2s;" onmouseover="this.style.borderColor='var(--cat-groceries-dot)';this.style.background='var(--cat-groceries-bg)'" onmouseout="this.style.borderColor='var(--sp-ink-08)';this.style.background='transparent'">
+                <div class="w-14 h-14 rounded-full flex items-center justify-center mb-3" style="background:var(--cat-groceries-bg);">
+                  <svg class="w-7 h-7" style="color:var(--cat-groceries-fg);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
                 </div>
+                <p style="font-size:14px;font-weight:500;color:var(--sp-ink);">Choose a receipt photo</p>
+                <p style="font-size:13px;color:var(--sp-ink-50);margin-top:4px;">JPG, PNG up to 10MB</p>
+                <input type="file" id="receiptImage" accept="image/*" class="hidden" />
+              </label>
+              <p id="fileName" class="text-center text-sm font-medium mb-4 hidden" style="color:var(--cat-groceries-fg);"></p>
+              <button type="submit" class="sp-btn-primary w-full" style="padding:12px;">Scan Receipt</button>
+            </form>
+            <div id="loadingMsg" class="hidden mt-6 flex flex-col items-center">
+              <div class="w-8 h-8 rounded-full animate-spin mb-3" style="border:3px solid var(--sp-ink-08);border-top-color:var(--cat-groceries-dot);"></div>
+              <p style="font-size:13px;color:var(--sp-ink-50);">Reading your receipt...</p>
             </div>
-            <!-- Cross-page nav -->
-            <div class="flex gap-2 overflow-x-auto mb-3" id="shared-nav"></div>
-            <!-- Tab nav -->
-            <div class="flex gap-2 flex-wrap">
-                <button onclick="showTab('upload')" id="tab-upload" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Upload</button>
-                <button onclick="showTab('manual')" id="tab-manual" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">Manual Entry</button>
-                <button onclick="showTab('dashboard')" id="tab-dashboard" class="nav-btn active px-5 py-2 rounded-full text-sm font-medium">Dashboard</button>
-                <button onclick="showTab('history')" id="tab-history" class="nav-btn px-5 py-2 rounded-full text-sm font-medium">History</button>
-            </div>
+          </div>
         </div>
-    </div>
-
-    <!-- Content -->
-    <div class="max-w-5xl mx-auto px-6 -mt-8">
-
-        <!-- Upload Tab -->
-        <div id="page-upload" class="hidden">
-            <div class="card p-8 max-w-lg mx-auto">
-                <h2 class="text-lg font-semibold text-gray-800 mb-6">Scan a Receipt</h2>
-                <form id="uploadForm">
-                    <label class="upload-area rounded-2xl p-8 flex flex-col items-center cursor-pointer block mb-4">
-                        <div class="w-14 h-14 rounded-full bg-purple-50 flex items-center justify-center mb-3">
-                            <svg class="w-7 h-7 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            </svg>
-                        </div>
-                        <p class="text-gray-700 font-medium">Choose a receipt photo</p>
-                        <p class="text-gray-400 text-sm mt-1">JPG, PNG up to 10MB</p>
-                        <input type="file" id="receiptImage" accept="image/*" class="hidden" />
-                    </label>
-                    <p id="fileName" class="text-center text-sm text-purple-600 font-medium mb-4 hidden"></p>
-                    <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
-                        Scan Receipt
-                    </button>
-                </form>
-                <div id="loadingMsg" class="hidden mt-6 flex flex-col items-center">
-                    <div class="w-8 h-8 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3" style="border-width:3px"></div>
-                    <p class="text-gray-500 text-sm">Reading your receipt...</p>
-                </div>
+        <div id="resultCard" class="sp-card max-w-lg mx-auto mt-4 hidden">
+          <div class="sp-card-body">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--sp-up-bg);">
+                <svg class="w-4 h-4" style="color:var(--sp-up);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+              </div>
+              <h2 id="scan-card-title" style="font-size:16px;font-weight:600;color:var(--sp-ink);">Receipt Scanned</h2>
             </div>
-            <div id="resultCard" class="card p-6 max-w-lg mx-auto mt-4 hidden">
-                <div class="flex items-center gap-2 mb-4">
-                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                        </svg>
-                    </div>
-                    <h2 id="scan-card-title" class="text-lg font-semibold text-gray-800">Receipt Scanned</h2>
-                </div>
-                <div id="resultContent"></div>
-            </div>
+            <div id="resultContent"></div>
+          </div>
         </div>
+      </div>
 
-        <!-- Manual Entry Tab -->
-        <div id="page-manual" class="hidden">
-            <div class="card p-8 max-w-lg mx-auto">
-                <h2 class="text-lg font-semibold text-gray-800 mb-6">Manual Entry</h2>
-                <form id="manualForm" class="space-y-4">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 block mb-1">Shop Name</label>
-                        <input type="text" id="m-shop" placeholder="e.g. Tesco" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-400"/>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 block mb-1">Date</label>
-                        <input type="date" id="m-date" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-400"/>
-                    </div>
-
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 block mb-2">Items</label>
-                        <div id="manualItems" class="space-y-2"></div>
-                        <button type="button" onclick="addManualItem()" class="mt-2 text-sm text-purple-600 font-medium hover:text-purple-800">+ Add item</button>
-                    </div>
-
-                    <button type="submit" class="w-full gradient-bg text-white font-semibold py-3 rounded-xl hover:opacity-90 transition">
-                        Save Entry
-                    </button>
-                </form>
-            </div>
+      <!-- Manual Entry Tab -->
+      <div id="page-manual" class="hidden">
+        <div class="sp-card max-w-lg mx-auto">
+          <div class="sp-card-head"><div><h3 class="sp-card-title">Manual Entry</h3></div></div>
+          <div class="sp-card-body">
+            <form id="manualForm" class="space-y-4">
+              <div>
+                <label class="sp-field-label">Shop Name</label>
+                <input type="text" id="m-shop" placeholder="e.g. Tesco" class="sp-input"/>
+              </div>
+              <div>
+                <label class="sp-field-label">Date</label>
+                <input type="date" id="m-date" class="sp-input"/>
+              </div>
+              <div>
+                <label class="sp-field-label mb-2">Items</label>
+                <div id="manualItems" class="space-y-2"></div>
+                <button type="button" onclick="addManualItem()" style="font-size:13px;font-weight:500;color:var(--cat-groceries-fg);margin-top:8px;">+ Add item</button>
+              </div>
+              <button type="submit" class="sp-btn-primary w-full" style="padding:12px;">Save Entry</button>
+            </form>
+          </div>
         </div>
+      </div>
 
-        <!-- Dashboard Tab -->
-        <div id="page-dashboard">
-            <div class="flex justify-end mb-4">
-                <select id="dashPeriod" onchange="setDashboardPeriod(this.value)" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400 bg-white shadow-sm">
-                    <option value="all">All Time</option>
-                    <option value="this-month">This Month</option>
-                    <option value="last-month">Last Month</option>
-                    <option value="last-3-months">Last 3 Months</option>
-                    <option value="last-6-months">Last 6 Months</option>
-                    <option value="this-year">This Year</option>
-                    <option value="last-year">Last Year</option>
-                </select>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div class="card p-4">
-                    <p id="stat-month-label" class="text-xs text-gray-400 font-medium uppercase tracking-wide">This Month</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-month">—</p>
-                </div>
-                <div class="card p-4">
-                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Total Spent</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-total">—</p>
-                </div>
-                <div class="card p-4">
-                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Receipts</p>
-                    <p class="text-2xl font-bold text-gray-800 mt-1" id="stat-receipts">—</p>
-                </div>
-                <div class="card p-4">
-                    <p class="text-xs text-gray-400 font-medium uppercase tracking-wide">Top Shop</p>
-                    <p class="text-lg font-bold text-gray-800 mt-1 truncate" id="stat-topshop">—</p>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div class="card p-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">Monthly Spending</h3>
-                    <div id="monthlyStats"></div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">By Category</h3>
-                    <div id="categoryStats"></div>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div class="card p-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">By Shop</h3>
-                    <div id="shopStats"></div>
-                </div>
-                <div class="card p-6">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-4">Most Bought Items</h3>
-                    <div id="frequentItems"></div>
-                </div>
-            </div>
+      <!-- Dashboard Tab -->
+      <div id="page-dashboard">
+        <div class="flex justify-end mb-4">
+          <select id="dashPeriod" onchange="setDashboardPeriod(this.value)" class="sp-select" style="width:auto;">
+            <option value="all">All Time</option>
+            <option value="this-month">This Month</option>
+            <option value="last-month">Last Month</option>
+            <option value="last-3-months">Last 3 Months</option>
+            <option value="last-6-months">Last 6 Months</option>
+            <option value="this-year">This Year</option>
+            <option value="last-year">Last Year</option>
+          </select>
         </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="sp-kpi">
+            <div class="sp-kpi-label" id="stat-month-label">This Month</div>
+            <div class="sp-kpi-value" id="stat-month">&mdash;</div>
+          </div>
+          <div class="sp-kpi">
+            <div class="sp-kpi-label">Total Spent</div>
+            <div class="sp-kpi-value" id="stat-total">&mdash;</div>
+          </div>
+          <div class="sp-kpi">
+            <div class="sp-kpi-label">Receipts</div>
+            <div class="sp-kpi-value" id="stat-receipts">&mdash;</div>
+          </div>
+          <div class="sp-kpi">
+            <div class="sp-kpi-label">Top Shop</div>
+            <div class="sp-kpi-value truncate" id="stat-topshop">&mdash;</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div class="sp-card">
+            <div class="sp-card-head"><div><h3 class="sp-card-title">Monthly Spending</h3></div></div>
+            <div class="sp-card-body"><div id="monthlyStats"></div></div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-head"><div><h3 class="sp-card-title">By Category</h3></div></div>
+            <div class="sp-card-body"><div id="categoryStats"></div></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div class="sp-card">
+            <div class="sp-card-head"><div><h3 class="sp-card-title">By Shop</h3></div></div>
+            <div class="sp-card-body"><div id="shopStats"></div></div>
+          </div>
+          <div class="sp-card">
+            <div class="sp-card-head"><div><h3 class="sp-card-title">Most Bought Items</h3></div></div>
+            <div class="sp-card-body"><div id="frequentItems"></div></div>
+          </div>
+        </div>
+      </div>
 
-        <!-- History Tab -->
-        <div id="page-history" class="hidden">
-            <div class="card p-4 mb-4 flex flex-wrap gap-3 items-center">
-                <input type="text" id="filterShop" placeholder="Filter by shop..." oninput="renderHistory()" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400 flex-1 min-w-40"/>
-                <select id="sortBy" onchange="renderHistory()" class="border border-gray-200 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-purple-400">
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="expensive">Most expensive</option>
-                    <option value="cheapest">Cheapest first</option>
-                    <option value="uploaded">Last uploaded</option>
-                </select>
-            </div>
-            <div class="card p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-semibold text-gray-800">Receipt History</h2>
-                    <div class="flex items-center gap-3">
-                        <a href="/export/receipts/csv" class="flex items-center gap-1.5 text-sm text-purple-600 font-medium hover:text-purple-800">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                            By receipt
-                        </a>
-                        <a href="/export/csv" class="flex items-center gap-1.5 text-sm text-gray-400 font-medium hover:text-gray-600">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                            </svg>
-                            By item
-                        </a>
-                    </div>
-                </div>
-                <div id="historyContent"></div>
-            </div>
+      <!-- History Tab -->
+      <div id="page-history" class="hidden">
+        <div class="sp-card mb-4">
+          <div class="sp-card-body flex flex-wrap gap-3 items-center">
+            <input type="text" id="filterShop" placeholder="Filter by shop..." oninput="renderHistory()" class="sp-input flex-1 min-w-40"/>
+            <select id="sortBy" onchange="renderHistory()" class="sp-select" style="width:auto;">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="expensive">Most expensive</option>
+              <option value="cheapest">Cheapest first</option>
+              <option value="uploaded">Last uploaded</option>
+            </select>
+          </div>
         </div>
+        <div class="sp-card mb-6">
+          <div class="sp-card-head">
+            <div><h3 class="sp-card-title">Receipt History</h3></div>
+            <div class="flex items-center gap-3">
+              <a href="/export/receipts/csv" class="flex items-center gap-1.5" style="font-size:13px;font-weight:500;color:var(--cat-groceries-fg);" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                By receipt
+              </a>
+              <a href="/export/csv" class="flex items-center gap-1.5" style="font-size:13px;font-weight:500;color:var(--sp-ink-50);" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                By item
+              </a>
+            </div>
+          </div>
+          <div class="sp-card-body"><div id="historyContent"></div></div>
+        </div>
+      </div>
 
     </div>
+  </main>
+</div>
 
-    <div class="h-12"></div>
-
-    <!-- Category Detail Modal -->
-    <div id="cat-modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div class="card p-6 w-full max-w-md modal-animate" style="max-height:80vh; display:flex; flex-direction:column;">
+<!-- Category Detail Modal -->
+<div id="cat-modal-overlay" class="hidden fixed inset-0 flex items-center justify-center z-50 p-4" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);">
+    <div class="sp-card" style="width:100%;max-width:28rem;max-height:80vh;display:flex;flex-direction:column;animation:modalIn 0.18s ease-out;">
+        <div class="sp-card-body" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
             <div class="flex items-start justify-between mb-4 flex-shrink-0">
                 <div>
-                    <h3 id="cat-modal-title" class="font-semibold text-gray-800"></h3>
-                    <p id="cat-modal-sub" class="text-xs text-gray-400 mt-0.5"></p>
+                    <h3 id="cat-modal-title" style="font-weight:600;color:var(--sp-ink);"></h3>
+                    <p id="cat-modal-sub" style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;"></p>
                 </div>
-                <button onclick="document.getElementById('cat-modal-overlay').classList.add('hidden')" class="text-gray-300 hover:text-gray-500 ml-4 flex-shrink-0">
+                <button onclick="document.getElementById('cat-modal-overlay').classList.add('hidden')" style="color:var(--sp-ink-30);margin-left:16px;flex-shrink:0;" onmouseover="this.style.color='var(--sp-ink-50)'" onmouseout="this.style.color='var(--sp-ink-30)'">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
@@ -224,22 +204,36 @@
             <div id="cat-modal-content" class="overflow-y-auto"></div>
         </div>
     </div>
+</div>
 
-    <!-- Custom Modal -->
-    <div id="modal-overlay" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div id="modal-card" class="card p-6 w-full max-w-sm modal-animate">
-            <p id="modal-title" class="font-semibold text-gray-800 mb-1"></p>
-            <p id="modal-message" class="text-gray-500 text-sm mb-5"></p>
-            <div id="modal-input-wrap" class="hidden mb-5">
-                <input id="modal-input" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-400"/>
+<!-- Custom Modal -->
+<div id="modal-overlay" class="hidden fixed inset-0 flex items-center justify-center z-50 p-4" style="background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);">
+    <div id="modal-card" class="sp-card" style="width:100%;max-width:24rem;animation:modalIn 0.18s ease-out;">
+        <div class="sp-card-body">
+            <p id="modal-title" style="font-weight:600;color:var(--sp-ink);margin-bottom:4px;"></p>
+            <p id="modal-message" style="color:var(--sp-ink-50);font-size:13px;margin-bottom:20px;"></p>
+            <div id="modal-input-wrap" class="hidden" style="margin-bottom:20px;">
+                <input id="modal-input" class="sp-input"/>
             </div>
             <div id="modal-buttons" class="flex gap-2"></div>
         </div>
     </div>
+</div>
 
-    <script src="shared.js"></script>
-    <script src="app.js"></script>
-    <script>initSharedPage('groceries'); loadDashboard();</script>
+<style>
+    @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+</style>
+
+<script src="shared.js"></script>
+<script src="spectrum-shell.js"></script>
+<script src="app.js"></script>
+<script>
+    initSpectrum({
+      active: 'groceries',
+      title: 'Spend Tracker',
+      subtitle: 'Track every penny you spend',
+    });
+    loadDashboard();
+</script>
 </body>
 </html>
-
