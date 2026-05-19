@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Bills</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,7 +15,7 @@
     <div class="sp-body">
 
       <!-- KPI row: 4 cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5" id="kpi-row">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 sp-grid-2" id="kpi-row">
         <div class="sp-kpi">
           <div class="sp-kpi-label">This Month</div>
           <div class="sp-kpi-value sp-num" id="stat-month">—</div>
@@ -37,7 +37,7 @@
       </div>
 
       <!-- Two-column: Recurring (left) + Log form (right) -->
-      <div class="grid gap-4 mb-4" style="grid-template-columns: 1.4fr 1fr;">
+      <div class="grid gap-4 mb-4 sp-grid-hero" style="grid-template-columns: 1.4fr 1fr;">
 
         <!-- Recurring Bills -->
         <div class="sp-card">

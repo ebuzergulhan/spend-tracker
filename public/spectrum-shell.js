@@ -63,6 +63,7 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
   // Sidebar
   const sidebarHtml = `
     <aside class="sp-sidebar">
+      <button class="sp-sidebar-close" aria-label="Close menu" data-sp-close>×</button>
       <a href="home.html" class="sp-logo" style="text-decoration:none;color:inherit">
         <span class="sp-logo-mark">£</span>
         <span class="sp-logo-name">Penny</span>
@@ -88,11 +89,19 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
   `;
   shell.insertAdjacentHTML('afterbegin', sidebarHtml);
 
+  // Scrim (mobile drawer backdrop)
+  if (!shell.querySelector('.sp-scrim')) {
+    shell.insertAdjacentHTML('beforeend', `<div class="sp-scrim" data-sp-close></div>`);
+  }
+
   // Header (only if .sp-main exists and has no <header>)
   const main = shell.querySelector('.sp-main');
   if (main && !main.querySelector('.sp-header')) {
     main.insertAdjacentHTML('afterbegin', `
       <header class="sp-header">
+        <button class="sp-hamburger" aria-label="Open menu" data-sp-open>
+          <span class="sp-hamburger-icon"><span></span></span>
+        </button>
         <div>
           <h1>${title || ''}</h1>
           ${subtitle ? `<div class="sp-subtitle">${subtitle}</div>` : ''}
@@ -102,6 +111,39 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
           ${period ? `<button class="sp-pill">${period} <span style="opacity:.5">▾</span></button>` : ''}
         </div>
       </header>
+    `);
+  }
+
+  // Bottom tab bar (mobile only; CSS hides it ≥768px). Five slots, middle
+  // one is a FAB linking to + Log expense.
+  if (main && !main.querySelector('.sp-bottomnav')) {
+    const BOTTOM_ITEMS = [
+      { id: 'home',     label: 'Home',     href: 'home.html',     icon: 'home' },
+      { id: 'upcoming', label: 'Upcoming', href: 'upcoming.html', icon: 'clock' },
+      { id: 'add',      label: 'Add',      href: 'index.html',    icon: 'plus', fab: true },
+      { id: 'monthly',  label: 'Monthly',  href: 'monthly.html',  icon: 'bars' },
+      { id: 'more',     label: 'More',     href: '#',             icon: 'menu', openMenu: true },
+    ];
+    const ICONS = {
+      home:  '<svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>',
+      clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
+      plus:  '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+      bars:  '<svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19V14"/></svg>',
+      menu:  '<svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+    };
+    main.insertAdjacentHTML('beforeend', `
+      <nav class="sp-bottomnav" aria-label="Primary">
+        ${BOTTOM_ITEMS.map(it => {
+          const cls = ['sp-bottomnav-item'];
+          if (it.fab) cls.push('sp-bottomnav-item--fab');
+          if (it.id === active) cls.push('is-active');
+          const attr = it.openMenu ? 'data-sp-open' : '';
+          return `<a href="${it.href}" class="${cls.join(' ')}" ${attr}>
+            <span class="sp-bottomnav-icon">${ICONS[it.icon]}</span>
+            <span>${it.label}</span>
+          </a>`;
+        }).join('')}
+      </nav>
     `);
   }
 
@@ -120,6 +162,17 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
       </div>
     `);
   }
+  // Wire up hamburger / scrim / close button
+  const open  = () => shell.classList.add('is-nav-open');
+  const close = () => shell.classList.remove('is-nav-open');
+  shell.querySelectorAll('[data-sp-open]').forEach(el =>
+    el.addEventListener('click', e => { e.preventDefault(); open(); })
+  );
+  shell.querySelectorAll('[data-sp-close]').forEach(el =>
+    el.addEventListener('click', e => { e.preventDefault(); close(); })
+  );
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  window.addEventListener('resize', () => { if (window.innerWidth >= 768) close(); });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────

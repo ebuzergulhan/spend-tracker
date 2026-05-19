@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Finance Home</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -15,7 +15,7 @@
     <div class="sp-body">
 
       <!-- Hero: total + Coming up -->
-      <div class="grid gap-4 mb-4" style="grid-template-columns: 1.05fr 1.4fr;">
+      <div class="grid gap-4 mb-4 sp-grid-hero" style="grid-template-columns: 1.05fr 1.4fr;">
 
         <!-- Total this month -->
         <div class="sp-card">
@@ -56,7 +56,7 @@
           <!-- Stacked bar -->
           <div id="stacked-bar" class="flex mb-5" style="height: 14px; border-radius: 6px; overflow: hidden; background: var(--sp-ink-04);"></div>
           <!-- Category list -->
-          <div id="breakdown-list" class="grid gap-y-2.5" style="grid-template-columns: 1fr 1fr; column-gap: 32px;"></div>
+          <div id="breakdown-list" class="grid gap-y-2.5 sp-grid-2" style="grid-template-columns: 1fr 1fr; column-gap: 32px;"></div>
         </div>
       </div>
 
