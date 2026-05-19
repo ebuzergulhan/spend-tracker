@@ -219,13 +219,13 @@
             });
 
             const values = {
-                groceries:     isThisMonth ? (homeData?.groceries || 0) : 0,
-                outabout:      isThisMonth ? (homeData?.outabout   || 0) : 0,
-                fixed:         recurringBySection.fixed         || 0,
-                bills:         recurringBySection.bills         || 0,
-                transport:     recurringBySection.transport     || 0,
-                subscriptions: recurringBySection.subscriptions || 0,
-                shopping:      isThisMonth ? (homeData?.shopping  || 0) : 0,
+                groceries:     isThisMonth ? (homeData?.groceries     || 0) : 0,
+                outabout:      isThisMonth ? (homeData?.outabout      || 0) : 0,
+                fixed:         isThisMonth ? (homeData?.fixed         || 0) : (recurringBySection.fixed         || 0),
+                bills:         isThisMonth ? (homeData?.bills         || 0) : (recurringBySection.bills         || 0),
+                transport:     isThisMonth ? (homeData?.transport     || 0) : (recurringBySection.transport     || 0),
+                subscriptions: isThisMonth ? (homeData?.subscriptions || 0) : (recurringBySection.subscriptions || 0),
+                shopping:      isThisMonth ? (homeData?.shopping      || 0) : 0,
             };
 
             const recurringDue = payments.reduce((s, p) => s + p.amount, 0);
@@ -259,13 +259,21 @@
                         }
                         return true;
                     });
+                    const recurringAmt = recurringBySection[s.key] || 0;
+                    const oneTimeAmt   = isThisMonth ? Math.max(0, (values[s.key] || 0) - recurringAmt) : 0;
                     subItems = `<div class="bg-gray-50 px-6 py-3 space-y-2 border-t border-gray-100">
                         ${activeItems.length ? activeItems.map(r => `
                             <div class="flex items-center justify-between text-sm">
                                 <span class="text-gray-600">${r.name}</span>
                                 <span class="font-medium text-gray-700">${fmt(r.amount)}<span class="text-xs text-gray-400 font-normal">/${r.frequency === 'annual' ? 'yr' : r.frequency === 'quarterly' ? 'qtr' : 'mo'}</span></span>
                             </div>`).join('')
-                        : '<p class="text-xs text-gray-400">No active items this month.</p>'}
+                        : '<p class="text-xs text-gray-400">No recurring items this month.</p>'}
+                        ${oneTimeAmt > 0 ? `
+                            <div class="flex items-center justify-between text-sm pt-2 mt-1 border-t border-gray-200">
+                                <span class="text-gray-500 italic">One-time payments this month</span>
+                                <span class="font-medium text-gray-700">${fmt(oneTimeAmt)}</span>
+                            </div>` : ''}
+                        <a href="${s.href}" class="text-xs text-purple-500 hover:text-purple-700 block pt-1">View all ${s.label} →</a>
                     </div>`;
                 } else if (isOpen && s.type === 'actual') {
                     subItems = `<div class="bg-gray-50 px-6 py-3 border-t border-gray-100">
