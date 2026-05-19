@@ -48,14 +48,14 @@ function showModal({ title = '', message = '', type = 'alert', inputDefault = ''
         if (type === 'confirm' || type === 'prompt') {
             const cancel = document.createElement('button');
             cancel.textContent = cancelLabel;
-            cancel.className = 'flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-xl hover:bg-gray-50 transition text-sm';
+            cancel.className = 'flex-1 sp-btn-ghost';
             cancel.onclick = () => { overlay.classList.add('hidden'); resolve(null); };
             buttons.appendChild(cancel);
         }
 
         const ok = document.createElement('button');
         ok.textContent = confirmLabel;
-        ok.className = 'flex-1 gradient-bg text-white font-medium py-2.5 rounded-xl hover:opacity-90 transition text-sm';
+        ok.className = 'flex-1 sp-btn-primary';
         ok.onclick = () => {
             overlay.classList.add('hidden');
             resolve(type === 'prompt' ? input.value : true);
