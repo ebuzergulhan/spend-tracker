@@ -168,7 +168,7 @@
                             <input id="s-monthly" type="number" step="0.01" value="532.14" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-3 items-end mb-6">
+                    <div class="flex flex-wrap gap-3 items-end mb-4">
                         <div class="w-40">
                             <label class="text-xs font-medium text-gray-500 block mb-1">Start Date</label>
                             <input id="s-start" type="date" value="2024-05-15" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
@@ -180,6 +180,20 @@
                         <div class="w-32">
                             <label class="text-xs font-medium text-gray-500 block mb-1">Installments</label>
                             <input id="s-install" type="number" value="51" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-3 items-end mb-6">
+                        <div class="w-32">
+                            <label class="text-xs font-medium text-gray-500 block mb-1">Annual Rate %</label>
+                            <input id="s-annual" type="number" step="0.01" value="18.36" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div class="w-32">
+                            <label class="text-xs font-medium text-gray-500 block mb-1">Monthly Rate %</label>
+                            <input id="s-monthly-rate" type="number" step="0.01" value="1.53" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
+                        </div>
+                        <div class="w-40">
+                            <label class="text-xs font-medium text-gray-500 block mb-1">Daily Rate (decimal)</label>
+                            <input id="s-daily" type="number" step="0.0000000001" value="0.000503014" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-400"/>
                         </div>
                     </div>
                     <button onclick="quickImport()" class="gradient-bg text-white font-medium px-6 py-2.5 rounded-xl hover:opacity-90 transition text-sm flex items-center gap-2">
@@ -203,7 +217,10 @@
                         monthly_payment: document.getElementById('s-monthly').value,
                         start_date: document.getElementById('s-start').value,
                         end_date: document.getElementById('s-end').value,
-                        total_installments: document.getElementById('s-install').value
+                        total_installments: document.getElementById('s-install').value,
+                        annual_rate: document.getElementById('s-annual').value,
+                        monthly_rate: document.getElementById('s-monthly-rate').value,
+                        daily_rate: document.getElementById('s-daily').value
                     })
                 });
                 const newLoan = await loanRes.json();
@@ -267,6 +284,11 @@
                         <div>
                             <h2 class="text-lg font-bold text-gray-800">${loan.name}</h2>
                             <p class="text-xs text-gray-400 mt-0.5">Started ${formatDate(loan.start_date)} &middot; Ends ${formatDate(loan.end_date)}</p>
+                            <div class="flex gap-3 mt-1.5">
+                                ${loan.annual_rate ? `<span class="text-xs bg-red-50 text-red-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.annual_rate)}% APR</span>` : ''}
+                                ${loan.monthly_rate ? `<span class="text-xs bg-orange-50 text-orange-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.monthly_rate)}%/mo</span>` : ''}
+                                ${loan.daily_rate ? `<span class="text-xs bg-gray-100 text-gray-500 font-medium px-2 py-0.5 rounded-full">${parseFloat(loan.daily_rate).toFixed(6)}/day</span>` : ''}
+                            </div>
                         </div>
                         <div class="text-right">
                             <p class="text-xs text-gray-400">Next payment</p>

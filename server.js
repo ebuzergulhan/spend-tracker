@@ -537,10 +537,16 @@ app.post('/manual', async (req, res) => {
             start_date DATE NOT NULL,
             end_date DATE,
             total_installments INTEGER,
+            annual_rate NUMERIC(8,4),
+            monthly_rate NUMERIC(8,4),
+            daily_rate NUMERIC(12,10),
             notes TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     `);
+    await db.query(`ALTER TABLE loans ADD COLUMN IF NOT EXISTS annual_rate NUMERIC(8,4)`);
+    await db.query(`ALTER TABLE loans ADD COLUMN IF NOT EXISTS monthly_rate NUMERIC(8,4)`);
+    await db.query(`ALTER TABLE loans ADD COLUMN IF NOT EXISTS daily_rate NUMERIC(12,10)`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS loan_schedule (
             id SERIAL PRIMARY KEY,
@@ -1346,12 +1352,14 @@ app.get('/loans', async (req, res) => {
 
 app.post('/loans', async (req, res) => {
     try {
-        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, notes } = req.body;
+        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, annual_rate, monthly_rate, daily_rate, notes } = req.body;
         const result = await db.query(
-            `INSERT INTO loans (name, original_amount, monthly_payment, start_date, end_date, total_installments, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            `INSERT INTO loans (name, original_amount, monthly_payment, start_date, end_date, total_installments, annual_rate, monthly_rate, daily_rate, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
             [name, parseFloat(original_amount), parseFloat(monthly_payment), start_date, end_date || null,
-             total_installments ? parseInt(total_installments) : null, notes || null]
+             total_installments ? parseInt(total_installments) : null,
+             annual_rate ? parseFloat(annual_rate) : null, monthly_rate ? parseFloat(monthly_rate) : null,
+             daily_rate ? parseFloat(daily_rate) : null, notes || null]
         );
         res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1359,11 +1367,13 @@ app.post('/loans', async (req, res) => {
 
 app.put('/loans/:id', async (req, res) => {
     try {
-        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, notes } = req.body;
+        const { name, original_amount, monthly_payment, start_date, end_date, total_installments, annual_rate, monthly_rate, daily_rate, notes } = req.body;
         const result = await db.query(
-            `UPDATE loans SET name=$1, original_amount=$2, monthly_payment=$3, start_date=$4, end_date=$5, total_installments=$6, notes=$7 WHERE id=$8 RETURNING *`,
+            `UPDATE loans SET name=$1, original_amount=$2, monthly_payment=$3, start_date=$4, end_date=$5, total_installments=$6, annual_rate=$7, monthly_rate=$8, daily_rate=$9, notes=$10 WHERE id=$11 RETURNING *`,
             [name, parseFloat(original_amount), parseFloat(monthly_payment), start_date, end_date || null,
-             total_installments ? parseInt(total_installments) : null, notes || null, req.params.id]
+             total_installments ? parseInt(total_installments) : null,
+             annual_rate ? parseFloat(annual_rate) : null, monthly_rate ? parseFloat(monthly_rate) : null,
+             daily_rate ? parseFloat(daily_rate) : null, notes || null, req.params.id]
         );
         res.json(result.rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
