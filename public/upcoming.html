@@ -223,8 +223,9 @@
             isThisMonth ? 'Total this month (actual + recurring)' : 'Recurring total next month';
 
         const maxVal = Math.max(...Object.values(values), 1);
+        const sorted = [...SECTIONS].sort((a, b) => (values[b.key] || 0) - (values[a.key] || 0));
 
-        const html = SECTIONS.map(s => {
+        const html = sorted.map(s => {
             const val     = values[s.key] || 0;
             const pct     = (val / maxVal * 100).toFixed(1);
             const isOpen  = expandedCat === s.key;

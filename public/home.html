@@ -100,7 +100,8 @@
   }
 
   function renderStackedBar(data, total) {
-    document.getElementById('stacked-bar').innerHTML = SECTIONS.map(s => {
+    const sorted = [...SECTIONS].sort((a, b) => (data[b.key] || 0) - (data[a.key] || 0));
+    document.getElementById('stacked-bar').innerHTML = sorted.map(s => {
       const v = data[s.key] || 0;
       if (!v) return '';
       return `<div title="${s.label}: ${fmt(v)}" style="flex:${v}; background: var(--cat-${s.catKey}-dot);"></div>`;
@@ -108,8 +109,9 @@
   }
 
   function renderBreakdown(data, total) {
+    const sorted = [...SECTIONS].sort((a, b) => (data[b.key] || 0) - (data[a.key] || 0));
     const maxVal = Math.max(...SECTIONS.map(s => data[s.key] || 0), 1);
-    document.getElementById('breakdown-list').innerHTML = SECTIONS.map(s => {
+    document.getElementById('breakdown-list').innerHTML = sorted.map(s => {
       const v = data[s.key] || 0;
       const pct = total ? (v / total) * 100 : 0;
       const dPct = (v / maxVal) * 100;
