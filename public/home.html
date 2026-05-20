@@ -92,7 +92,7 @@
 
     let total = 0;
     SECTIONS.forEach(s => { total += (data[s.key] || 0); });
-    document.getElementById('sum-total').textContent = fmt0(total);
+    document.getElementById('sum-total').textContent = fmt(total);
 
     renderStackedBar(data, total);
     renderBreakdown(data, total);
