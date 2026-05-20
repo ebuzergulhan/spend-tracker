@@ -316,11 +316,11 @@
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">Total Paid</div>
                     <div class="sp-kpi-value">${fmt(totalPaid)}</div>
-                    <p style="font-size:12px;color:var(--sp-down);">Interest: ${fmt(interestPaid)}</p>
+                    <p style="font-size:12px;color:var(--sp-up);">Interest: ${fmt(interestPaid)}</p>
                 </div>
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">Total Interest</div>
-                    <div class="sp-kpi-value" style="color:var(--sp-down);">${fmt(totalInterest)}</div>
+                    <div class="sp-kpi-value" style="color:var(--sp-up);">${fmt(totalInterest)}</div>
                 </div>
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">TRY Converted</div>
@@ -329,7 +329,7 @@
                 </div>
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">Converted − Paid</div>
-                    <div class="sp-kpi-value" style="color:${totalGbpConverted - totalPaid >= 0 ? 'var(--sp-up)' : 'var(--sp-down)'};">${totalGbpConverted - totalPaid >= 0 ? '' : '−'}${fmt(Math.abs(totalGbpConverted - totalPaid))}</div>
+                    <div class="sp-kpi-value" style="color:${totalGbpConverted - totalPaid >= 0 ? 'var(--sp-down)' : 'var(--sp-up)'};">${totalGbpConverted - totalPaid >= 0 ? '' : '−'}${fmt(Math.abs(totalGbpConverted - totalPaid))}</div>
                 </div>
             </div>
 
@@ -344,8 +344,8 @@
                                 <div>Days since last payment: <strong style="color:var(--sp-ink);">${daysSincePayment}</strong></div>
                                 <div>Accrued daily interest: <strong style="color:var(--sp-ink);">${fmt(accruedInterest)}</strong></div>
                                 <div style="margin-top:4px;">Settlement amount: <strong style="color:var(--sp-ink);">${fmt(settlementAmount)}</strong></div>
-                                <div>Interest you save: <strong style="color:var(--sp-up);">${fmt(interestSavedSettle)}</strong></div>
-                                <div>Months saved: <strong style="color:var(--sp-up);">${remainingMonths}</strong></div>
+                                <div>Interest you save: <strong style="color:var(--sp-down);">${fmt(interestSavedSettle)}</strong></div>
+                                <div>Months saved: <strong style="color:var(--sp-down);">${remainingMonths}</strong></div>
                             </div>
                         </div>
                         <div style="background:var(--sp-panel);border-radius:12px;padding:16px;">
@@ -479,7 +479,7 @@
                                 badge = `<span style="font-size:12px;background:var(--sp-warn-bg);color:var(--sp-warn);font-weight:500;padding:2px 8px;border-radius:999px;">Skipped</span>`;
                             } else if (isPast && hasPmt) {
                                 rowClass = 'schedule-paid';
-                                badge = `<span style="font-size:12px;background:var(--sp-up-bg);color:var(--sp-up);font-weight:500;padding:2px 8px;border-radius:999px;">Paid</span>`;
+                                badge = `<span style="font-size:12px;background:var(--sp-down-bg);color:var(--sp-down);font-weight:500;padding:2px 8px;border-radius:999px;">Paid</span>`;
                             } else {
                                 badge = `<span style="font-size:12px;color:var(--sp-ink-30);">Upcoming</span>`;
                             }
@@ -488,8 +488,8 @@
                                 <td class="px-6 py-2.5" style="color:var(--sp-ink-50);font-weight:500;">${s.installment_no}</td>
                                 <td class="py-2.5" style="color:var(--sp-ink);">${formatDate(s.due_date)}</td>
                                 <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${fmt(s.opening_balance)}</td>
-                                <td class="py-2.5 text-right" style="color:var(--sp-down);">${fmt(s.interest)}</td>
-                                <td class="py-2.5 text-right" style="font-weight:600;color:${hasPmt ? 'var(--sp-ink)' : 'var(--sp-ink-30)'};">${hasPmt ? fmt(s.payment) : '—'}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-up);">${fmt(s.interest)}</td>
+                                <td class="py-2.5 text-right" style="font-weight:600;color:${hasPmt ? 'var(--sp-down)' : 'var(--sp-ink-30)'};">${hasPmt ? fmt(s.payment) : '—'}</td>
                                 <td class="py-2.5 text-right" style="color:var(--sp-ink);">${fmt(s.closing_balance)}</td>
                                 <td class="py-2.5 text-center pr-6">${badge}</td>
                             </tr>`;
