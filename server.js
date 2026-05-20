@@ -871,18 +871,19 @@ app.delete('/debt-documents/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─── Exchange Rate ───────────────────────────────────────────────────────────
+// ─── Exchange Rate (TCMB only) ───────────────────────────────────────────────
+// Resolves to the latest TCMB business day — skips weekends/future dates back to Friday.
+// Returns: { inverse: TRY per foreign (e.g. 61.23), rate: foreign per TRY, source, date }
+// ForexSelling is used because the user is buying foreign currency with TRY.
 
 app.get('/api/exchange-rate', async (req, res) => {
-    const from     = (req.query.from || 'TRY').toUpperCase();
-    const to       = (req.query.to   || 'GBP').toUpperCase();
-    const dateParam = req.query.date; // YYYY-MM-DD
+    const to        = (req.query.to || 'GBP').toUpperCase();
+    const dateParam = req.query.date; // YYYY-MM-DD, optional
 
-    // Resolve the TCMB URL for a given date, skipping weekends back to Friday
     function tcmbUrl(dateStr) {
         const d = new Date(dateStr + 'T12:00:00');
-        const today = new Date();
-        if (d > today) { d.setTime(today.getTime()); }
+        const now = new Date();
+        if (d > now) d.setTime(now.getTime());
         while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
         const dd   = String(d.getDate()).padStart(2, '0');
         const mm   = String(d.getMonth() + 1).padStart(2, '0');
@@ -890,30 +891,21 @@ app.get('/api/exchange-rate', async (req, res) => {
         return `https://www.tcmb.gov.tr/kurlar/${yyyy}${mm}/${dd}${mm}${yyyy}.xml`;
     }
 
-    const url = dateParam ? tcmbUrl(dateParam) : 'https://www.tcmb.gov.tr/kurlar/today.xml';
+    // Always build a date-specific URL so weekend/holiday handling is consistent
+    const refDate = dateParam || new Date().toISOString().split('T')[0];
+    const url = tcmbUrl(refDate);
 
     try {
         const xml = await fetch(url).then(r => r.text());
         const re  = new RegExp(`<Currency[^>]*CurrencyCode="${to}"[^>]*>[\\s\\S]*?<ForexSelling>([\\d.]+)<\\/ForexSelling>`, 'i');
         const match = xml.match(re);
-        if (!match) throw new Error(`${to} not found in TCMB response`);
-        // Parse the date from the XML header e.g. Date="16/05/2026"
-        const xmlDate = (xml.match(/Date="(\d{2})\/(\d{2})\/(\d{4})"/) || []);
-        const rateDate = xmlDate.length ? `${xmlDate[3]}-${xmlDate[2]}-${xmlDate[1]}` : dateParam || 'today';
+        if (!match) return res.status(422).json({ error: `${to} not found in TCMB data for ${refDate}` });
+        const xmlDate = xml.match(/Date="(\d{2})\/(\d{2})\/(\d{4})"/);
+        const rateDate = xmlDate ? `${xmlDate[3]}-${xmlDate[2]}-${xmlDate[1]}` : refDate;
         const tryPerForeign = parseFloat(match[1]);
-        const rate = 1 / tryPerForeign;
-        return res.json({ rate, inverse: tryPerForeign, source: 'TCMB', date: rateDate });
-    } catch (tcmbErr) {
-        try {
-            const fbUrl = dateParam
-                ? `https://api.frankfurter.app/${dateParam}?from=${from}&to=${to}`
-                : `https://api.frankfurter.app/latest?from=${from}&to=${to}`;
-            const data = await fetch(fbUrl).then(r => r.json());
-            const rate = data.rates[to];
-            return res.json({ rate, inverse: 1 / rate, source: 'Frankfurter', date: data.date });
-        } catch {
-            res.status(503).json({ error: 'Exchange rate unavailable. Try again or enter manually.' });
-        }
+        res.json({ inverse: tryPerForeign, rate: 1 / tryPerForeign, source: 'TCMB', date: rateDate });
+    } catch (err) {
+        res.status(503).json({ error: `TCMB rate unavailable: ${err.message}. Enter the rate manually.` });
     }
 });
 
@@ -1538,19 +1530,6 @@ app.delete('/loan-transfer-receipts/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Exchange rate proxy (TRY per GBP)
-app.get('/api/exchange-rate', (req, res) => {
-    require('https').get('https://open.er-api.com/v6/latest/GBP', (resp) => {
-        let data = '';
-        resp.on('data', chunk => data += chunk);
-        resp.on('end', () => {
-            try {
-                const json = JSON.parse(data);
-                res.json({ rate: json.rates?.TRY || null, source: 'open.er-api.com', updated: json.time_last_update_utc });
-            } catch { res.status(500).json({ error: 'Parse error' }); }
-        });
-    }).on('error', () => res.status(500).json({ error: 'Failed to fetch exchange rate' }));
-});
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

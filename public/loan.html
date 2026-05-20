@@ -686,18 +686,14 @@
         const btn = event?.target?.closest('button');
         if (btn) btn.disabled = true;
         try {
-            const dateStr = dateVal || document.getElementById('nt-date')?.value || '';
-            const url = dateStr ? `/api/exchange-rate?date=${dateStr}` : '/api/exchange-rate';
-            const data = await fetch(url).then(r => r.json());
-            // API returns inverse = TRY per GBP (e.g. 61), rate = GBP per TRY (e.g. 0.016)
-            // We store rates as TRY/GBP, so use data.inverse
-            const tryPerGbp = data.inverse || (data.rate ? (data.rate < 1 ? 1 / data.rate : data.rate) : null);
-            if (tryPerGbp) {
-                document.getElementById('nt-google').value = tryPerGbp.toFixed(2);
-                document.getElementById('nt-actual').value = (tryPerGbp * 1.0125).toFixed(2);
-                recalcNew();
-            }
-        } catch { alert('Could not fetch rate'); }
+            const dateStr = dateVal || document.getElementById('nt-date')?.value || new Date().toISOString().split('T')[0];
+            const data = await fetch(`/api/exchange-rate?date=${dateStr}`).then(r => r.json());
+            if (data.error) { alert(data.error); return; }
+            // data.inverse = TRY per GBP from TCMB ForexSelling (e.g. 61.23)
+            document.getElementById('nt-google').value = data.inverse.toFixed(2);
+            document.getElementById('nt-actual').value = (data.inverse * 1.0125).toFixed(2);
+            recalcNew();
+        } catch (e) { alert('Could not reach TCMB. Enter the rate manually.'); }
         if (btn) btn.disabled = false;
     }
 
