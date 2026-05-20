@@ -423,7 +423,7 @@
                         <tr style="font-size:12px;color:var(--sp-ink-50);font-weight:500;border-bottom:1px solid var(--sp-ink-04);">
                             <th class="text-left px-6 py-2.5">Date</th>
                             <th class="text-right py-2.5">TRY Received</th>
-                            <th class="text-right py-2.5">Google Rate</th>
+                            <th class="text-right py-2.5">TCMB Forex Selling</th>
                             <th class="text-right py-2.5">Actual Rate</th>
                             <th class="text-right py-2.5">Kambiyo</th>
                             <th class="text-right py-2.5">Net TRY</th>
@@ -485,7 +485,7 @@
                         <input id="te-try" type="number" step="0.01" value="${t.try_amount}" class="sp-input" style="width:128px;" oninput="recalcEdit()"/>
                     </div>
                     <div>
-                        <label class="sp-field-label">Google Rate</label>
+                        <label class="sp-field-label">TCMB Forex Selling Rate</label>
                         <input id="te-google" type="number" step="0.01" value="${t.google_rate}" class="sp-input" style="width:96px;"/>
                     </div>
                     <div>
@@ -641,7 +641,7 @@
                         <input id="nt-try" type="number" step="0.01" placeholder="50000" class="sp-input" style="width:128px;" oninput="recalcNew()"/>
                     </div>
                     <div>
-                        <label class="sp-field-label">Google Rate</label>
+                        <label class="sp-field-label">TCMB Forex Selling Rate</label>
                         <div class="flex gap-1">
                             <input id="nt-google" type="number" step="0.01" placeholder="58.00" class="sp-input" style="width:96px;" oninput="onGoogleRateChange()"/>
                             <button onclick="fetchRate()" class="sp-btn-ghost" style="padding:6px;" title="Fetch current rate">
