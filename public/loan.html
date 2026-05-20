@@ -247,6 +247,17 @@
         const currentBalance = getCurrentBalance();
         const totalTry = transfers.reduce((s,t) => s + parseFloat(t.try_amount), 0);
         const totalGbpConverted = transfers.reduce((s,t) => s + parseFloat(t.gbp_amount), 0);
+        const interestPaid = schedule.filter(s => parseFloat(s.payment) > 0 && s.due_date.split('T')[0] <= todayStr).reduce((sum,s) => sum + parseFloat(s.interest), 0);
+        const remainingInterest = schedule.filter(s => s.due_date.split('T')[0] > todayStr).reduce((sum,s) => sum + parseFloat(s.interest), 0);
+        const convertedVsInterest = totalGbpConverted - totalInterest;
+        const dailyRate = parseFloat(loan.daily_rate) || 0.000503014;
+        const lastPaidSch = [...schedule].filter(s => parseFloat(s.payment) > 0 && s.due_date.split('T')[0] <= todayStr).pop();
+        const lastPaidDate = lastPaidSch ? new Date(lastPaidSch.due_date.split('T')[0] + 'T12:00:00') : today;
+        const daysSincePayment = Math.max(0, Math.round((today - lastPaidDate) / 86400000));
+        const accruedInterest = currentBalance * dailyRate * daysSincePayment;
+        const settlementAmount = currentBalance + accruedInterest;
+        const interestSavedSettle = remainingInterest - accruedInterest;
+        const remainingMonths = schedule.filter(s => s.due_date.split('T')[0] > todayStr).length;
         const nextPayment = schedule.find(s => s.due_date.split('T')[0] > todayStr);
         const progress = ((parseFloat(loan.original_amount) - currentBalance) / parseFloat(loan.original_amount) * 100);
 
@@ -288,7 +299,7 @@
             </div>
 
             <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 sp-grid-2">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 sp-grid-2">
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">Original Loan</div>
                     <div class="sp-kpi-value">${fmt(loan.original_amount)}</div>
@@ -298,13 +309,50 @@
                     <div class="sp-kpi-value">${fmt(currentBalance)}</div>
                 </div>
                 <div class="sp-kpi">
-                    <div class="sp-kpi-label">Total Interest</div>
-                    <div class="sp-kpi-value" style="color:var(--sp-down);">${fmt(totalInterest)}</div>
+                    <div class="sp-kpi-label">Total Paid</div>
+                    <div class="sp-kpi-value">${fmt(totalPaid)}</div>
+                    <p style="font-size:12px;color:var(--sp-down);">Interest: ${fmt(interestPaid)}</p>
                 </div>
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">TRY Converted</div>
                     <div class="sp-kpi-value">${fmt(totalGbpConverted)}</div>
                     <p style="font-size:12px;color:var(--sp-ink-50);">${fmtTry(totalTry)}</p>
+                </div>
+                <div class="sp-kpi">
+                    <div class="sp-kpi-label">Converted − Interest</div>
+                    <div class="sp-kpi-value" style="color:${convertedVsInterest >= 0 ? 'var(--sp-up)' : 'var(--sp-down)'};">${convertedVsInterest >= 0 ? '' : '−'}${fmt(Math.abs(convertedVsInterest))}</div>
+                    <p style="font-size:12px;color:var(--sp-down);">Total interest: ${fmt(totalInterest)}</p>
+                </div>
+            </div>
+
+            <!-- Early Payoff Calculator -->
+            <div class="sp-card mb-4">
+                <div class="sp-card-body">
+                    <h3 style="font-size:16px;font-weight:700;color:var(--sp-ink);margin-bottom:16px;">Early Payoff Calculator</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div style="background:var(--sp-up-bg);border-radius:12px;padding:16px;">
+                            <p style="font-size:14px;font-weight:600;color:var(--sp-ink);margin-bottom:10px;">Settle Today</p>
+                            <div style="font-size:13px;color:var(--sp-ink-50);line-height:2;">
+                                <div>Days since last payment: <strong style="color:var(--sp-ink);">${daysSincePayment}</strong></div>
+                                <div>Accrued daily interest: <strong style="color:var(--sp-down);">${fmt(accruedInterest)}</strong></div>
+                                <div style="margin-top:4px;font-size:15px;">Settlement amount: <strong style="color:var(--sp-ink);">${fmt(settlementAmount)}</strong></div>
+                                <div style="font-size:15px;">Interest you save: <strong style="color:var(--sp-up);">${fmt(interestSavedSettle)}</strong></div>
+                                <div>Months saved: <strong style="color:var(--sp-up);">${remainingMonths}</strong></div>
+                            </div>
+                        </div>
+                        <div style="background:var(--sp-panel);border-radius:12px;padding:16px;">
+                            <p style="font-size:14px;font-weight:600;color:var(--sp-ink);margin-bottom:10px;">Extra Payment Simulator</p>
+                            <p style="font-size:12px;color:var(--sp-ink-50);margin-bottom:10px;">See how a one-off extra payment reduces your loan.</p>
+                            <div class="flex gap-2 items-end mb-3">
+                                <div class="flex-1">
+                                    <label class="sp-field-label">Extra amount (£)</label>
+                                    <input id="calc-extra" type="number" step="0.01" placeholder="2000" class="sp-input"/>
+                                </div>
+                                <button onclick="calcExtraPayment()" class="sp-btn-primary" style="font-size:13px;padding:8px 16px;">Calculate</button>
+                            </div>
+                            <div id="calc-result" style="font-size:13px;color:var(--sp-ink-50);line-height:2;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -330,6 +378,47 @@
             }
         }
         return parseFloat(loan.original_amount);
+    }
+
+    function calcExtraPayment() {
+        const extra = parseFloat(document.getElementById('calc-extra').value) || 0;
+        const el = document.getElementById('calc-result');
+        if (extra <= 0) { el.innerHTML = 'Enter an amount above £0.'; return; }
+
+        const dRate = parseFloat(loan.daily_rate) || 0.000503014;
+        const monthlyPmt = parseFloat(loan.monthly_payment);
+        const curBal = getCurrentBalance();
+        const todayStr = today.toISOString().split('T')[0];
+        const remInt = schedule.filter(s => s.due_date.split('T')[0] > todayStr).reduce((sum,s) => sum + parseFloat(s.interest), 0);
+        const remMo = schedule.filter(s => s.due_date.split('T')[0] > todayStr).length;
+
+        let balance = curBal - extra;
+        if (balance <= 0) {
+            el.innerHTML = `<div>${fmt(extra)} covers the full balance!</div>
+                <div>Interest saved: <strong style="color:var(--sp-up);">${fmt(remInt)}</strong></div>
+                <div>Months saved: <strong style="color:var(--sp-up);">${remMo}</strong></div>`;
+            return;
+        }
+
+        let months = 0, totalInt = 0;
+        while (balance > 0.01 && months < 600) {
+            const interest = balance * dRate * 30;
+            totalInt += interest;
+            const principal = monthlyPmt - interest;
+            if (principal <= 0) break;
+            balance = Math.max(0, balance - principal);
+            months++;
+        }
+
+        const intSaved = remInt - totalInt;
+        const moSaved = remMo - months;
+        const endDate = new Date(today); endDate.setMonth(endDate.getMonth() + months);
+
+        el.innerHTML = `<div>New balance: <strong style="color:var(--sp-ink);">${fmt(curBal - extra)}</strong></div>
+            <div>Remaining payments: <strong>${months}</strong> <span style="color:var(--sp-ink-30);">(was ${remMo})</span></div>
+            <div>Months saved: <strong style="color:var(--sp-up);">${moSaved}</strong></div>
+            <div>Interest saved: <strong style="color:var(--sp-up);">${fmt(intSaved)}</strong></div>
+            <div>New end date: <strong>~${formatDate(endDate.toISOString())}</strong></div>`;
     }
 
     function switchTab(tab) { activeTab = tab; renderTracker(); }
