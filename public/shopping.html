@@ -429,14 +429,34 @@
         const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
         const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
 
-        const [allReceipts, monthCats, cats, places] = await Promise.all([
+        const [allReceipts, monthCats, cats, places, recurring] = await Promise.all([
             fetch('/shopping').then(r => r.json()),
             fetch(`/stats/shopping/categories?from=${monthStart}&to=${monthEnd}`).then(r => r.json()),
             fetch('/stats/shopping/categories').then(r => r.json()),
-            fetch('/stats/shopping/places').then(r => r.json())
+            fetch('/stats/shopping/places').then(r => r.json()),
+            fetch('/recurring').then(r => r.json())
         ]);
 
-        const monthTotal = monthCats.reduce((s, c) => s + parseFloat(c.total_spent), 0);
+        // Add recurring shopping instalments
+        let recurMonthly = 0;
+        recurring.filter(r => r.category === 'shopping' && parseFloat(r.amount) > 0).forEach(r => {
+            if (!r.start_date) return;
+            const start = new Date(r.start_date.split('T')[0] + 'T12:00:00');
+            const sy = start.getFullYear(), sm = start.getMonth() + 1;
+            if (now.getFullYear() < sy || (now.getFullYear() === sy && now.getMonth() + 1 < sm)) return;
+            if (r.total_installments) {
+                const elapsed = (now.getFullYear() - sy) * 12 + (now.getMonth() + 1 - sm);
+                if (elapsed >= parseInt(r.total_installments)) return;
+            }
+            const freq = r.frequency || 'monthly';
+            let amt = parseFloat(r.amount);
+            if (freq === 'annual') amt /= 12;
+            else if (freq === 'weekly') amt = amt * 52 / 12;
+            else if (freq === 'quarterly') amt /= 3;
+            recurMonthly += amt;
+        });
+
+        const monthTotal = monthCats.reduce((s, c) => s + parseFloat(c.total_spent), 0) + recurMonthly;
         const allTotal   = allReceipts.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
         document.getElementById('stat-month').textContent  = fmt(monthTotal);
         document.getElementById('stat-total').textContent  = fmt(allTotal);
