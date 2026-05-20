@@ -299,7 +299,7 @@
             </div>
 
             <!-- Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4 sp-grid-2">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4 sp-grid-2">
                 <div class="sp-kpi">
                     <div class="sp-kpi-label">Original Loan</div>
                     <div class="sp-kpi-value">${fmt(loan.original_amount)}</div>
@@ -314,14 +314,17 @@
                     <p style="font-size:12px;color:var(--sp-down);">Interest: ${fmt(interestPaid)}</p>
                 </div>
                 <div class="sp-kpi">
+                    <div class="sp-kpi-label">Total Interest</div>
+                    <div class="sp-kpi-value" style="color:var(--sp-down);">${fmt(totalInterest)}</div>
+                </div>
+                <div class="sp-kpi">
                     <div class="sp-kpi-label">TRY Converted</div>
                     <div class="sp-kpi-value">${fmt(totalGbpConverted)}</div>
                     <p style="font-size:12px;color:var(--sp-ink-50);">${fmtTry(totalTry)}</p>
                 </div>
                 <div class="sp-kpi">
-                    <div class="sp-kpi-label">Converted − Interest</div>
-                    <div class="sp-kpi-value" style="color:${convertedVsInterest >= 0 ? 'var(--sp-up)' : 'var(--sp-down)'};">${convertedVsInterest >= 0 ? '' : '−'}${fmt(Math.abs(convertedVsInterest))}</div>
-                    <p style="font-size:12px;color:var(--sp-down);">Total interest: ${fmt(totalInterest)}</p>
+                    <div class="sp-kpi-label">Converted − Paid</div>
+                    <div class="sp-kpi-value" style="color:${totalGbpConverted - totalPaid >= 0 ? 'var(--sp-up)' : 'var(--sp-down)'};">${totalGbpConverted - totalPaid >= 0 ? '' : '−'}${fmt(Math.abs(totalGbpConverted - totalPaid))}</div>
                 </div>
             </div>
 
