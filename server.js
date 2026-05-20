@@ -1186,7 +1186,7 @@ app.get('/report/monthly', async (req, res) => {
             groceries:     Math.round((groc[m]||0)*100)/100,
             outabout:      Math.round((out[m]||0)*100)/100,
             shopping:      Math.round((shop[m]||0)*100)/100,
-            bills:         Math.round((log.bill||0)*100)/100,
+            bills: Math.round(((log.bill||0) + (rec.bills||0))*100)/100,
             fuel:          Math.round((log.fuel||0)*100)/100,
             transport:     Math.round(((log.transport||0)+(rec.transport||0))*100)/100,
             fixed:         Math.round((rec.fixed||0)*100)/100,
