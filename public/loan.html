@@ -35,11 +35,14 @@
     const today = new Date(); today.setHours(12,0,0,0);
     const PENCIL = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>`;
     const TRASH  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
+    const CLIP   = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>`;
 
     let loan = null, schedule = [], transfers = [];
     let activeTab = 'schedule';
     let editingTransferId = null;
     let scheduleFilter = 'all';
+    let receiptsPanelTransferId = null;
+    const receiptCache = {};
 
     function fmtTry(v) { return '₺' + parseFloat(v||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
@@ -431,21 +434,31 @@
                     <tbody>
                         ${transfers.map(t => {
                             if (editingTransferId === t.id) return transferEditRow(t);
-                            return `<tr style="border-bottom:1px solid var(--sp-ink-04);transition:background 0.15s;" onmouseover="this.style.background='var(--sp-panel)'" onmouseout="this.style.background='transparent'">
+                            const isOpen = receiptsPanelTransferId === t.id;
+                            const rCount = parseInt(t.receipt_count) || 0;
+                            const receiptPanel = isOpen ? `<tr style="background:var(--sp-panel);">
+                                <td colspan="8" class="px-6 py-3" style="border-bottom:1px solid var(--sp-ink-04);">
+                                    <div id="receipts-panel-${t.id}">
+                                        <span style="font-size:12px;color:var(--sp-ink-50);">Loading receipts…</span>
+                                    </div>
+                                </td>
+                            </tr>` : '';
+                            return `<tr style="border-bottom:${isOpen?'none':'1px solid var(--sp-ink-04)'};transition:background 0.15s;" onmouseover="this.style.background='var(--sp-panel)'" onmouseout="this.style.background='${isOpen?'var(--sp-panel)':'transparent'}'">
                                 <td class="px-6 py-2.5" style="color:var(--sp-ink);">${formatDate(t.transfer_date)}</td>
                                 <td class="py-2.5 text-right" style="font-weight:500;color:var(--sp-ink);">${fmtTry(t.try_amount)}</td>
-                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.google_rate).toFixed(2)}</td>
-                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.actual_rate).toFixed(2)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.google_rate||0).toFixed(2)}</td>
+                                <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${parseFloat(t.actual_rate||0).toFixed(2)}</td>
                                 <td class="py-2.5 text-right" style="color:var(--sp-down);">${fmtTry(t.kambiyo_amount)}</td>
                                 <td class="py-2.5 text-right" style="color:var(--sp-ink-50);">${fmtTry(t.try_after_tax)}</td>
                                 <td class="py-2.5 text-right" style="font-weight:700;color:var(--sp-up);">${fmt(t.gbp_amount)}</td>
                                 <td class="py-2.5 text-right pr-6">
                                     <div class="flex items-center justify-end gap-1">
+                                        <button onclick="toggleReceiptsPanel(${t.id})" style="position:relative;color:${isOpen?'var(--cat-debts-fg)':'var(--sp-ink-30)'};transition:color 0.15s;padding:4px;" onmouseover="this.style.color='var(--cat-debts-fg)'" onmouseout="this.style.color='${isOpen?'var(--cat-debts-fg)':'var(--sp-ink-30)'}'" title="Bank receipts">${CLIP}${rCount>0?`<span style="position:absolute;top:0;right:0;background:var(--cat-debts-dot);color:#fff;font-size:9px;font-weight:700;border-radius:999px;min-width:14px;height:14px;display:flex;align-items:center;justify-content:center;line-height:1;">${rCount}</span>`:''}</button>
                                         <button onclick="editingTransferId=${t.id};renderTracker()" style="color:var(--sp-ink-30);transition:color 0.15s;padding:4px;" onmouseover="this.style.color='var(--cat-debts-fg)'" onmouseout="this.style.color='var(--sp-ink-30)'">${PENCIL}</button>
                                         <button onclick="deleteTransfer(${t.id})" style="color:var(--sp-ink-30);transition:color 0.15s;padding:4px;" onmouseover="this.style.color='var(--sp-down)'" onmouseout="this.style.color='var(--sp-ink-30)'">${TRASH}</button>
                                     </div>
                                 </td>
-                            </tr>`;
+                            </tr>${receiptPanel}`;
                         }).join('')}
                         <tr style="background:var(--sp-panel);font-weight:600;">
                             <td class="px-6 py-3" style="color:var(--sp-ink);">Total (${transfers.length} transfers)</td>
@@ -542,6 +555,75 @@
         renderTracker();
     }
 
+    // ─── Transfer Receipts ──────────────────────────────────────────
+    function toggleReceiptsPanel(transferId) {
+        if (receiptsPanelTransferId === transferId) {
+            receiptsPanelTransferId = null;
+            renderTracker();
+        } else {
+            receiptsPanelTransferId = transferId;
+            renderTracker();
+            loadReceipts(transferId);
+        }
+    }
+
+    async function loadReceipts(transferId) {
+        const panel = document.getElementById(`receipts-panel-${transferId}`);
+        if (!panel) return;
+        const receipts = await fetch(`/loan-transfers/${transferId}/receipts`).then(r => r.json());
+        receiptCache[transferId] = receipts;
+        renderReceiptsPanel(transferId);
+    }
+
+    function renderReceiptsPanel(transferId) {
+        const panel = document.getElementById(`receipts-panel-${transferId}`);
+        if (!panel) return;
+        const receipts = receiptCache[transferId] || [];
+        const fileItems = receipts.map(r => {
+            const ext = r.original_name.split('.').pop().toLowerCase();
+            const isImg = ['jpg','jpeg','png','gif','webp'].includes(ext);
+            return `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--sp-bg);border:1px solid var(--sp-ink-08);border-radius:8px;padding:5px 10px;font-size:12px;">
+                <a href="/uploads/loan-receipts/${r.filename}" target="_blank" style="color:var(--sp-ink);text-decoration:none;display:flex;align-items:center;gap:4px;" title="${r.original_name}">
+                    ${isImg ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>' : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>'}
+                    <span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.original_name}</span>
+                </a>
+                <button onclick="deleteReceipt(${r.id},${transferId})" style="color:var(--sp-ink-30);transition:color 0.15s;line-height:1;" onmouseover="this.style.color='var(--sp-down)'" onmouseout="this.style.color='var(--sp-ink-30)'" title="Remove">${TRASH}</button>
+            </div>`;
+        }).join('');
+
+        panel.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+                <p style="font-size:13px;font-weight:600;color:var(--sp-ink);">Bank Receipts${receipts.length ? ` (${receipts.length})` : ''}</p>
+                <label style="font-size:12px;font-weight:500;color:var(--cat-debts-fg);cursor:pointer;">
+                    + Add Receipt
+                    <input type="file" accept="image/*,.pdf,.jpg,.jpeg,.png" multiple style="display:none;" onchange="uploadReceipts(${transferId}, this)"/>
+                </label>
+            </div>
+            ${receipts.length === 0
+                ? `<p style="font-size:12px;color:var(--sp-ink-50);">No receipts yet — click <strong>+ Add Receipt</strong> to upload bank confirmation files.</p>`
+                : `<div class="flex flex-wrap gap-2">${fileItems}</div>`}`;
+    }
+
+    async function uploadReceipts(transferId, input) {
+        const files = input.files;
+        if (!files.length) return;
+        const formData = new FormData();
+        for (const f of files) formData.append('receipts', f);
+        await fetch(`/loan-transfers/${transferId}/receipts`, { method: 'POST', body: formData });
+        transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
+        renderTransfersTab();          // re-renders panel with "Loading…" placeholder
+        await loadReceipts(transferId); // then fills the panel
+    }
+
+    async function deleteReceipt(receiptId, transferId) {
+        const ok = await showModal({ title: 'Delete Receipt', message: 'Remove this receipt file?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (!ok) return;
+        await fetch(`/loan-transfer-receipts/${receiptId}`, { method: 'DELETE' });
+        transfers = await fetch(`/loans/${loan.id}/transfers`).then(r => r.json());
+        renderTransfersTab();
+        await loadReceipts(transferId);
+    }
+
     // ─── Add new transfer ───────────────────────────────────────────
     function showAddTransfer() {
         const panel = document.getElementById('add-transfer-panel');
@@ -552,7 +634,7 @@
                 <div class="flex flex-wrap gap-3 items-end">
                     <div>
                         <label class="sp-field-label">Date</label>
-                        <input id="nt-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="sp-input" style="width:144px;"/>
+                        <input id="nt-date" type="date" value="${new Date().toISOString().split('T')[0]}" class="sp-input" style="width:144px;" onchange="fetchRate(this.value)"/>
                     </div>
                     <div>
                         <label class="sp-field-label">TRY Amount</label>
@@ -561,7 +643,7 @@
                     <div>
                         <label class="sp-field-label">Google Rate</label>
                         <div class="flex gap-1">
-                            <input id="nt-google" type="number" step="0.01" placeholder="58.00" class="sp-input" style="width:96px;"/>
+                            <input id="nt-google" type="number" step="0.01" placeholder="58.00" class="sp-input" style="width:96px;" oninput="onGoogleRateChange()"/>
                             <button onclick="fetchRate()" class="sp-btn-ghost" style="padding:6px;" title="Fetch current rate">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                             </button>
@@ -600,19 +682,29 @@
         document.getElementById('nt-gbp').textContent = fmt(gbp);
     }
 
-    async function fetchRate() {
-        const btn = event.target.closest('button');
-        btn.disabled = true;
+    async function fetchRate(dateVal) {
+        const btn = event?.target?.closest('button');
+        if (btn) btn.disabled = true;
         try {
-            const data = await fetch('/api/exchange-rate').then(r => r.json());
-            if (data.rate) {
-                document.getElementById('nt-google').value = data.rate.toFixed(2);
-                const actualEl = document.getElementById('nt-actual');
-                if (!actualEl.value) actualEl.value = (data.rate * 1.01).toFixed(2);
+            const dateStr = dateVal || document.getElementById('nt-date')?.value || '';
+            const url = dateStr ? `/api/exchange-rate?date=${dateStr}` : '/api/exchange-rate';
+            const data = await fetch(url).then(r => r.json());
+            // API returns inverse = TRY per GBP (e.g. 61), rate = GBP per TRY (e.g. 0.016)
+            // We store rates as TRY/GBP, so use data.inverse
+            const tryPerGbp = data.inverse || (data.rate ? (data.rate < 1 ? 1 / data.rate : data.rate) : null);
+            if (tryPerGbp) {
+                document.getElementById('nt-google').value = tryPerGbp.toFixed(2);
+                document.getElementById('nt-actual').value = (tryPerGbp * 1.0125).toFixed(2);
                 recalcNew();
             }
         } catch { alert('Could not fetch rate'); }
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
+    }
+
+    function onGoogleRateChange() {
+        const g = parseFloat(document.getElementById('nt-google')?.value) || 0;
+        if (g > 0) { document.getElementById('nt-actual').value = (g * 1.0125).toFixed(2); }
+        recalcNew();
     }
 
     async function saveNewTransfer() {

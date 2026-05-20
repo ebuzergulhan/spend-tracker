@@ -7,6 +7,7 @@ const multer = require('multer');
 const upload = multer({ dest: 'uploads/receipts-tmp/' });
 const debtDocUpload = multer({ dest: 'uploads/debt-docs/' });
 const paymentReceiptUpload = multer({ dest: 'uploads/debt-receipts/' });
+const loanReceiptUpload = multer({ dest: 'uploads/loan-receipts/' });
 const PORT = process.env.PORT || 3001;
 
 const Anthropic = require('@anthropic-ai/sdk');
@@ -16,6 +17,7 @@ if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { rec
 if (!fs.existsSync('uploads/debt-receipts')) fs.mkdirSync('uploads/debt-receipts', { recursive: true });
 if (!fs.existsSync('uploads/receipts')) fs.mkdirSync('uploads/receipts', { recursive: true });
 if (!fs.existsSync('uploads/receipts-tmp')) fs.mkdirSync('uploads/receipts-tmp', { recursive: true });
+if (!fs.existsSync('uploads/loan-receipts')) fs.mkdirSync('uploads/loan-receipts', { recursive: true });
 
 const anthropic = new Anthropic();
 
@@ -50,6 +52,17 @@ app.get('/uploads/debt-receipts/:filename', async (req, res) => {
         res.sendFile(path.resolve('uploads/debt-receipts', fn));
     } catch { res.status(404).send('Not found'); }
 });
+app.get('/uploads/loan-receipts/:filename', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT original_name FROM loan_transfer_receipts WHERE filename=$1`, [req.params.filename]);
+        const name = row.rows[0]?.original_name || req.params.filename;
+        const ext  = path.extname(name).toLowerCase();
+        res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${name}"`);
+        res.sendFile(path.resolve('uploads/loan-receipts', req.params.filename));
+    } catch { res.status(404).send('Not found'); }
+});
+
 app.get('/uploads/receipts/:filename', (req, res) => {
     const fp = path.resolve('uploads/receipts', req.params.filename);
     if (!fs.existsSync(fp)) return res.status(404).send('Not found');
@@ -575,6 +588,15 @@ app.post('/manual', async (req, res) => {
             gbp_amount NUMERIC(10,2) NOT NULL,
             notes TEXT,
             created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS loan_transfer_receipts (
+            id SERIAL PRIMARY KEY,
+            transfer_id INTEGER REFERENCES loan_transfers(id) ON DELETE CASCADE,
+            filename TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            uploaded_at TIMESTAMPTZ DEFAULT NOW()
         )
     `);
 })();
@@ -1411,7 +1433,12 @@ app.post('/loans/:id/schedule/bulk', async (req, res) => {
 
 app.get('/loans/:id/transfers', async (req, res) => {
     const result = await db.query(
-        'SELECT * FROM loan_transfers WHERE loan_id = $1 ORDER BY transfer_date DESC', [req.params.id]
+        `SELECT t.*, COUNT(r.id)::int AS receipt_count
+         FROM loan_transfers t
+         LEFT JOIN loan_transfer_receipts r ON r.transfer_id = t.id
+         WHERE t.loan_id = $1
+         GROUP BY t.id
+         ORDER BY t.transfer_date DESC`, [req.params.id]
     );
     res.json(result.rows);
 });
@@ -1465,7 +1492,48 @@ app.put('/loan-transfers/:id', async (req, res) => {
 
 app.delete('/loan-transfers/:id', async (req, res) => {
     try {
+        const receipts = await db.query(`SELECT filename FROM loan_transfer_receipts WHERE transfer_id = $1`, [req.params.id]);
+        for (const r of receipts.rows) {
+            const fp = `uploads/loan-receipts/${r.filename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
         await db.query('DELETE FROM loan_transfers WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── Loan Transfer Receipts ──────────────────────────────────────────────────
+
+app.get('/loan-transfers/:id/receipts', async (req, res) => {
+    const result = await db.query(
+        `SELECT * FROM loan_transfer_receipts WHERE transfer_id = $1 ORDER BY uploaded_at`, [req.params.id]
+    );
+    res.json(result.rows);
+});
+
+app.post('/loan-transfers/:id/receipts', loanReceiptUpload.array('receipts', 10), async (req, res) => {
+    try {
+        const files = req.files || [];
+        const rows = [];
+        for (const file of files) {
+            const result = await db.query(
+                `INSERT INTO loan_transfer_receipts (transfer_id, filename, original_name) VALUES ($1, $2, $3) RETURNING *`,
+                [req.params.id, file.filename, file.originalname]
+            );
+            rows.push(result.rows[0]);
+        }
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/loan-transfer-receipts/:id', async (req, res) => {
+    try {
+        const row = await db.query(`SELECT filename FROM loan_transfer_receipts WHERE id = $1`, [req.params.id]);
+        if (row.rows[0]) {
+            const fp = `uploads/loan-receipts/${row.rows[0].filename}`;
+            if (fs.existsSync(fp)) fs.unlinkSync(fp);
+        }
+        await db.query(`DELETE FROM loan_transfer_receipts WHERE id = $1`, [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
