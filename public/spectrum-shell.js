@@ -35,6 +35,7 @@ const SPECTRUM_NAV = [
     { id: 'home',     label: 'Home',           href: 'home.html' },
     { id: 'upcoming', label: 'Upcoming',       href: 'upcoming.html' },
     { id: 'monthly',  label: 'Monthly Report', href: 'monthly.html' },
+    { id: 'turkey',   label: 'Turkey Trip',    href: 'turkey.html' },
   ]},
   { group: 'Spending', items: [
     { id: 'groceries', cat: 'groceries' },

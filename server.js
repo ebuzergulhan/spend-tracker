@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3001;
 
 const Anthropic = require('@anthropic-ai/sdk');
 const { Pool } = require('pg');
+const { summarize, CATEGORIES } = require('./turkey-logic');
 const fs = require('fs');
 if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
 if (!fs.existsSync('uploads/debt-receipts')) fs.mkdirSync('uploads/debt-receipts', { recursive: true });
@@ -71,7 +72,7 @@ app.get('/uploads/receipts/:filename', (req, res) => {
     res.setHeader('Content-Disposition', `inline; filename="${req.params.filename}"`);
     res.sendFile(fp);
 });
-app.use(express.json());
+app.use(express.json({ limit: '12mb' })); // 12mb so receipt-scan images (base64) fit
 
 // If the new shop name matches or contains an existing canonical name, use the canonical one.
 // This merges "ALDI STORES Edgbaston Road Birmingham" → "ALDI STORES" automatically.
@@ -436,6 +437,18 @@ app.post('/manual', async (req, res) => {
 
 // Create tables on startup
 (async () => {
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS turkey_expenses (
+            id SERIAL PRIMARY KEY,
+            date DATE,
+            description TEXT NOT NULL,
+            category TEXT NOT NULL,
+            amount NUMERIC(12,2) NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'TRY',
+            source TEXT NOT NULL DEFAULT 'manual',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
     await db.query(`
         CREATE TABLE IF NOT EXISTS recurring_expenses (
             id SERIAL PRIMARY KEY,
@@ -1528,6 +1541,145 @@ app.delete('/loan-transfer-receipts/:id', async (req, res) => {
         await db.query(`DELETE FROM loan_transfer_receipts WHERE id = $1`, [req.params.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ─── Turkey Trip ─────────────────────────────────────────────────────────────
+// Spend logged during a trip to Turkey — stored in the currency actually paid
+// (TRY or GBP), shown totalled in Lira with a live GBP (£) equivalent from TCMB.
+// Mirrors the local test server (turkey-local.js); shared maths in ./turkey-logic.js.
+
+const TURKEY_CATS = CATEGORIES;
+
+async function turkeyRate() {
+    function tcmbUrl(dateStr) {
+        const d = new Date(dateStr + 'T12:00:00');
+        const now = new Date();
+        if (d > now) d.setTime(now.getTime());
+        while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() - 1);
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        return `https://www.tcmb.gov.tr/kurlar/${yyyy}${mm}/${dd}${mm}${yyyy}.xml`;
+    }
+    const refDate = new Date().toISOString().split('T')[0];
+    try {
+        const xml = await fetch(tcmbUrl(refDate)).then(r => r.text());
+        const m = xml.match(/<Currency[^>]*CurrencyCode="GBP"[^>]*>[\s\S]*?<ForexSelling>([\d.]+)<\/ForexSelling>/i);
+        if (!m) throw new Error('GBP not found');
+        const xd = xml.match(/Date="(\d{2})\/(\d{2})\/(\d{4})"/);
+        const date = xd ? `${xd[3]}-${xd[2]}-${xd[1]}` : refDate;
+        return { tryPerGbp: parseFloat(m[1]), date, source: 'TCMB' };
+    } catch (e) {
+        return { tryPerGbp: 45.0, date: refDate, source: 'fallback' };
+    }
+}
+
+function turkeyPromptRules(today) {
+    return `Return ONLY a valid JSON object (no markdown, no code fences) with exactly this shape:\n`
+        + `{"amount": 0, "currency": "TRY", "category": "Food & Drink", "date": "YYYY-MM-DD", "description": "short label"}\n`
+        + `Rules: amount is a plain number with no symbol. currency is "TRY" (Turkish Lira) by default, "GBP" only if clearly pounds/£/GBP. `
+        + `category must be exactly one of: ${TURKEY_CATS.join(' | ')}. date is YYYY-MM-DD, defaulting to today (${today}); resolve "yesterday" relative to today. description is a short human label.`;
+}
+
+function turkeyParseJson(response, today, fallbackDesc, source) {
+    const block = (response.content || []).find(b => b.type === 'text') || response.content[0];
+    const clean = String(block.text || '').replace(/```json\n?|\n?```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    parsed.amount = parseFloat(parsed.amount) || 0;
+    parsed.currency = parsed.currency === 'GBP' ? 'GBP' : 'TRY';
+    if (TURKEY_CATS.indexOf(parsed.category) < 0) parsed.category = 'Other';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(parsed.date || '')) parsed.date = today;
+    parsed.description = String(parsed.description || '').trim() || fallbackDesc;
+    parsed.source = source;
+    return parsed;
+}
+
+async function turkeyParseText(text) {
+    const today = new Date().toISOString().slice(0, 10);
+    const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5', max_tokens: 400,
+        messages: [{ role: 'user', content: `A note about money spent in Turkey: "${text}".\n\n${turkeyPromptRules(today)}` }],
+    });
+    return turkeyParseJson(response, today, text.slice(0, 60), 'chat');
+}
+
+async function turkeyParseReceipt(base64Image, mediaType) {
+    const today = new Date().toISOString().slice(0, 10);
+    const response = await anthropic.messages.create({
+        model: 'claude-haiku-4-5', max_tokens: 400,
+        messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
+            { type: 'text', text: `This is a shop receipt (usually Turkish, in Turkish Lira ₺). Summarise the WHOLE receipt as ONE expense: amount = the grand TOTAL, description = the shop/business name.\n\n${turkeyPromptRules(today)}` },
+        ] }],
+    });
+    return turkeyParseJson(response, today, 'Receipt', 'receipt');
+}
+
+function normalizeTurkeyExpense(b) {
+    const amount = parseFloat(b.amount);
+    if (!(amount > 0)) return null;
+    const description = String(b.description || '').trim();
+    if (!description) return null;
+    const currency = b.currency === 'GBP' ? 'GBP' : 'TRY';
+    const category = TURKEY_CATS.indexOf(b.category) >= 0 ? b.category : 'Other';
+    const today = new Date().toISOString().slice(0, 10);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(b.date || '') ? b.date : today;
+    const source = ['receipt', 'manual', 'chat'].indexOf(b.source) >= 0 ? b.source : 'manual';
+    return { date, description, category, amount, currency, source };
+}
+
+app.get('/turkey/summary', async (req, res) => {
+    try {
+        const { rows } = await db.query(
+            `SELECT id, to_char(date, 'YYYY-MM-DD') AS date, description, category,
+                    amount::float8 AS amount, currency, source, created_at::text AS created_at
+             FROM turkey_expenses ORDER BY date DESC NULLS LAST, created_at DESC`
+        );
+        let rate;
+        const override = parseFloat(req.query.rate);
+        if (override > 0) rate = { tryPerGbp: override, source: 'manual', date: new Date().toISOString().slice(0, 10) };
+        else rate = await turkeyRate();
+        res.json({ rate, summary: summarize(rows, rate.tryPerGbp) });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/turkey/chat', async (req, res) => {
+    try {
+        const text = String(req.body.text || '').trim();
+        if (!text) return res.status(400).json({ error: 'Type what you spent first.' });
+        res.json({ expense: await turkeyParseText(text) });
+    } catch (e) { res.status(502).json({ error: 'Couldn’t read that automatically — try the form below.', detail: e.message }); }
+});
+
+app.post('/turkey/scan', async (req, res) => {
+    try {
+        const image = String(req.body.image || '');
+        const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const mediaType = allowed.indexOf(req.body.media_type) >= 0 ? req.body.media_type : 'image/jpeg';
+        if (!image) return res.status(400).json({ error: 'No image received.' });
+        res.json({ expense: await turkeyParseReceipt(image, mediaType) });
+    } catch (e) { res.status(502).json({ error: 'Couldn’t read that receipt — try again or use the form.', detail: e.message }); }
+});
+
+app.post('/turkey/expenses', async (req, res) => {
+    try {
+        const exp = normalizeTurkeyExpense(req.body);
+        if (!exp) return res.status(400).json({ error: 'Need a description and an amount greater than zero.' });
+        const { rows } = await db.query(
+            `INSERT INTO turkey_expenses (date, description, category, amount, currency, source)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [exp.date, exp.description, exp.category, exp.amount, exp.currency, exp.source]
+        );
+        res.json({ saved: rows[0] });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/turkey/expenses/:id', async (req, res) => {
+    try {
+        await db.query(`DELETE FROM turkey_expenses WHERE id = $1`, [req.params.id]);
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 

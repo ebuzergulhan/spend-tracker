@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Turkey Trip</title>
+    <!-- Self-contained: no external CSS/JS, so nothing external can break rendering. -->
+    <style>
+        :root {
+            --bg:#f5f4ef; --card:#ffffff; --ink:#1d1c1a; --ink70:#55524d;
+            --ink50:#8a867f; --ink30:#b8b4ac; --line:#e8e5df; --panel:#f3f1ec;
+        }
+        * { box-sizing:border-box; }
+        body { margin:0; background:var(--bg); color:var(--ink);
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; }
+        .wrap { max-width:920px; margin:0 auto; padding:20px 16px 48px; }
+        h1 { font-size:24px; font-weight:700; margin:0; letter-spacing:-.01em; }
+        .sub { font-size:13px; color:var(--ink50); margin:4px 0 20px; }
+        .card { background:var(--card); border:1px solid var(--line); border-radius:16px;
+                box-shadow:0 1px 2px rgba(0,0,0,.03); padding:18px; margin-bottom:16px; }
+        .card-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:12px; gap:10px; flex-wrap:wrap; }
+        .card-title { font-size:15px; font-weight:650; margin:0; }
+        .card-note { font-size:12px; color:var(--ink50); }
+
+        input, select { font:inherit; font-size:14px; height:40px; padding:0 12px; border:1px solid var(--line);
+                        border-radius:10px; background:#fff; color:var(--ink); width:100%; }
+        input:focus, select:focus { outline:none; border-color:#b7ab8f; box-shadow:0 0 0 3px rgba(0,0,0,.04); }
+        button { font:inherit; font-size:14px; font-weight:600; cursor:pointer; border-radius:10px;
+                 border:1px solid var(--line); background:#fff; color:var(--ink); height:40px; padding:0 14px; }
+        button:hover { background:var(--panel); }
+        button.primary { background:var(--ink); color:#fff; border-color:var(--ink); }
+        button.primary:hover { background:#3a3833; }
+        button.brand { background:#c8613a; color:#fff; border-color:#c8613a; }
+        button.brand:hover { background:#b1522f; }
+        button[disabled] { opacity:.5; cursor:default; }
+        .icon-btn { width:40px; padding:0; font-size:18px; flex-shrink:0; }
+
+        .chat-row { display:flex; gap:8px; }
+        .chat-row input { flex:1; }
+        .divider { display:flex; align-items:center; gap:10px; color:var(--ink30); font-size:12px; margin:16px 0; }
+        .divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--line); }
+        .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .form-grid .full { grid-column:1 / -1; }
+        .amount-row { display:flex; gap:6px; }
+        .amount-row input { flex:1; }
+        .cur-toggle { display:flex; border:1px solid var(--line); border-radius:10px; overflow:hidden; flex-shrink:0; }
+        .cur-toggle button { border:0; border-radius:0; height:40px; width:46px; padding:0; font-weight:700; background:#fff; color:var(--ink50); }
+        .cur-toggle button.on { background:var(--ink); color:#fff; }
+        .confirm { margin-top:12px; border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--panel); }
+        .confirm-note { font-size:12px; color:var(--ink50); margin-bottom:10px; }
+        .pending { font-size:13px; color:var(--ink50); padding:4px 0; }
+
+        .rate { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+        .rate-pill { font-size:14px; font-weight:700; background:var(--panel); border:1px solid var(--line); padding:7px 14px; border-radius:9999px; }
+        .tag { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:9999px; }
+        .tag.TCMB { color:#0a7d33; background:rgba(16,160,64,.12); }
+        .tag.fallback { color:#9a6a00; background:rgba(220,150,0,.15); }
+        .tag.manual { color:#5b53c9; background:rgba(102,90,230,.14); }
+
+        .kpis { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:8px; }
+        @media (min-width:720px){ .kpis { grid-template-columns:repeat(4,1fr); } }
+        .kpi { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+        .kpi-label { font-size:12px; color:var(--ink50); font-weight:600; }
+        .kpi-value { font-size:26px; font-weight:750; margin-top:6px; letter-spacing:-.01em; word-break:break-word; }
+        .kpi-sub { font-size:12px; color:var(--ink50); margin-top:4px; }
+        .native { font-size:12px; color:var(--ink50); margin:6px 2px 22px; }
+
+        table { width:100%; border-collapse:collapse; }
+        th { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--ink50); padding:6px 8px; text-align:right; white-space:nowrap; }
+        th:first-child { text-align:left; }
+        td { font-size:13px; padding:10px 8px; text-align:right; white-space:nowrap; border-top:1px solid var(--line); }
+        td:first-child { text-align:left; font-weight:500; }
+        .num { font-weight:650; }
+        .muted { color:var(--ink50); }
+        .faint { color:var(--ink30); }
+        .chip { font-size:10px; font-weight:600; color:var(--ink50); background:var(--panel); padding:2px 8px; border-radius:9999px; }
+        .dot { width:9px; height:9px; border-radius:9999px; display:inline-block; flex-shrink:0; }
+        .bar { height:6px; border-radius:9999px; background:var(--line); overflow:hidden; margin-top:6px; }
+        .bar > span { display:block; height:100%; border-radius:9999px; }
+        .row-flex { display:flex; align-items:center; gap:8px; }
+        .scroll { overflow-x:auto; }
+        .foot { font-size:11px; color:var(--ink30); text-align:center; margin-top:6px; }
+        .err { color:#b3261e; font-size:13px; }
+        .del { background:transparent; border:0; color:var(--ink30); font-size:16px; height:auto; padding:0 4px; line-height:1; }
+        .del:hover { color:#b3261e; background:transparent; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <a href="home.html" style="display:inline-block;font-size:13px;color:var(--ink50);text-decoration:none;margin-bottom:12px;">‹ Spend Tracker</a>
+        <h1>Turkey Trip</h1>
+        <div class="sub">What I’m spending in Turkey — totalled in Lira, with the £ equivalent</div>
+
+        <!-- Add a spend -->
+        <div class="card">
+            <div class="card-head"><h3 class="card-title">Add a spend</h3><span class="card-note">Type it, or fill the form</span></div>
+            <div class="chat-row">
+                <input id="chatInput" placeholder="e.g. lunch at a lokanta, 320 lira" autocomplete="off" />
+                <button class="brand icon-btn" id="chatSend" aria-label="Send" title="Send">→</button>
+            </div>
+            <button id="scanBtn" style="width:100%; margin-top:8px;">Scan a receipt</button>
+            <input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none;" />
+            <div id="confirmWrap"></div>
+
+            <div class="divider">or enter it manually</div>
+            <div class="form-grid">
+                <input class="full" id="mDesc" placeholder="What was it? e.g. Dinner — kebab place" autocomplete="off" />
+                <div class="amount-row">
+                    <input id="mAmount" inputmode="decimal" placeholder="Amount" autocomplete="off" />
+                    <div class="cur-toggle">
+                        <button type="button" id="curTRY" class="on" aria-label="Turkish Lira">₺</button>
+                        <button type="button" id="curGBP" aria-label="British Pounds">£</button>
+                    </div>
+                </div>
+                <select id="mCategory" aria-label="Category">
+                    <option>Food &amp; Drink</option><option>Groceries</option><option>Transport</option>
+                    <option>Shopping</option><option>Accommodation</option><option>Other</option>
+                </select>
+                <input class="full" type="date" id="mDate" aria-label="Date" />
+                <button class="primary full" id="mAdd">Add expense</button>
+                <div class="full err" id="formErr" style="font-size:12px;"></div>
+            </div>
+        </div>
+
+        <div class="card"><div class="rate" id="rateBanner"><span class="muted" style="font-size:13px;">Loading exchange rate…</span></div></div>
+
+        <div class="kpis" id="kpis"></div>
+        <div class="native" id="nativeSplit"></div>
+
+        <div class="card">
+            <div class="card-head"><h3 class="card-title">Spending by category</h3><span class="card-note">In Lira, with £ equivalent</span></div>
+            <div class="scroll" id="catWrap"></div>
+        </div>
+
+        <div class="card">
+            <div class="card-head"><h3 class="card-title">All entries</h3><span class="card-note">Most recent first</span></div>
+            <div class="scroll" id="entriesWrap"></div>
+        </div>
+
+        <div class="foot">Totals in Lira, with the £ equivalent at the live TCMB rate.</div>
+    </div>
+
+<script>
+    var CAT_COLORS = {
+        'Food & Drink':'#e8663d', 'Groceries':'#3ba55d', 'Transport':'#4a86e8',
+        'Shopping':'#a855c9', 'Accommodation':'#d98b1f', 'Other':'#8a8f98'
+    };
+    var currentCurrency = 'TRY';
+
+    function el(id){ return document.getElementById(id); }
+    function fmtTRY(n){ return '₺' + (parseFloat(n)||0).toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmtGBP(n){ return '£' + (parseFloat(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmtDate(s){ return s ? new Date(s.slice(0,10)+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : ''; }
+    function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+    // ── rendering ──────────────────────────────────────────────────────────
+    function renderRate(rate){
+        var tagCls = ({TCMB:'TCMB',fallback:'fallback',manual:'manual'})[rate.source] || 'fallback';
+        var label  = ({TCMB:'TCMB live',fallback:'approx (offline)',manual:'manual'})[rate.source] || rate.source;
+        var note = rate.source==='fallback' ? '<span class="muted" style="font-size:12px;">Live TCMB rate unavailable — using an approximate rate.</span>' : '';
+        el('rateBanner').innerHTML =
+            '<span class="rate-pill">£1 = '+fmtTRY(rate.tryPerGbp)+'</span>' +
+            '<span class="tag '+tagCls+'">'+label+'</span>' +
+            '<span class="muted" style="font-size:12px;">'+(rate.date||'')+'</span>' + note;
+    }
+    function kpi(label,value,sub){
+        return '<div class="kpi"><div class="kpi-label">'+label+'</div><div class="kpi-value">'+value+'</div><div class="kpi-sub">'+(sub||'')+'</div></div>';
+    }
+    function renderKpis(s){
+        el('kpis').innerHTML =
+            kpi('Total spent', fmtTRY(s.totalTRY), '≈ '+fmtGBP(s.totalGBP)) +
+            kpi('In £ (equivalent)', fmtGBP(s.totalGBP), 'converted at today’s rate') +
+            kpi('Entries', String(s.count), s.dayCount + (s.dayCount===1?' day':' days')) +
+            kpi('Avg / day', fmtTRY(s.avgPerDayTRY), '≈ '+fmtGBP(s.avgPerDayGBP));
+        el('nativeSplit').textContent =
+            'Actually paid: '+fmtTRY(s.nativeTRY)+' in Lira · '+fmtGBP(s.nativeGBP)+' in Pounds';
+    }
+    function renderCategories(s){
+        if(!s.categories.length){ el('catWrap').innerHTML = empty(); return; }
+        var rows = s.categories.map(function(c){
+            var color = CAT_COLORS[c.category] || CAT_COLORS.Other;
+            return '<tr>'+
+                '<td><div class="row-flex"><span class="dot" style="background:'+color+'"></span><span>'+c.category+'</span><span class="chip">'+c.count+'</span></div>'+
+                '<div class="bar"><span style="width:'+c.pct.toFixed(1)+'%;background:'+color+';"></span></div></td>'+
+                '<td><span class="num">'+fmtTRY(c.totalTRY)+'</span></td>'+
+                '<td><span class="muted">'+fmtGBP(c.totalGBP)+'</span></td>'+
+                '<td><span class="muted">'+c.pct.toFixed(0)+'%</span></td>'+
+            '</tr>';
+        }).join('');
+        el('catWrap').innerHTML =
+            '<table><thead><tr><th>Category</th><th>Lira</th><th>£ equiv</th><th>Share</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    function renderEntries(s){
+        if(!s.rows.length){ el('entriesWrap').innerHTML = empty(); return; }
+        var rows = s.rows.map(function(r){
+            var native = r.currency==='GBP' ? fmtGBP(r.amount) : fmtTRY(r.amount);
+            var equiv  = r.currency==='GBP' ? '≈ '+fmtTRY(r.amountTRY) : '<span class="faint">—</span>';
+            return '<tr>'+
+                '<td class="muted">'+fmtDate(r.date)+'</td>'+
+                '<td>'+esc(r.description)+'</td>'+
+                '<td><span class="chip">'+r.category+'</span></td>'+
+                '<td><span class="num">'+native+'</span></td>'+
+                '<td><span class="muted">'+equiv+'</span></td>'+
+                '<td><button class="del" data-id="'+r.id+'" aria-label="Delete" title="Delete">×</button></td>'+
+            '</tr>';
+        }).join('');
+        el('entriesWrap').innerHTML =
+            '<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Paid</th><th>In Lira</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    function empty(){ return '<p class="muted" style="font-size:13px;text-align:center;padding:24px 0;">Nothing logged yet — add your first spend above.</p>'; }
+
+    function load(){
+        fetch('/turkey/summary').then(function(r){ return r.json(); }).then(function(data){
+            renderRate(data.rate);
+            renderKpis(data.summary);
+            renderCategories(data.summary);
+            renderEntries(data.summary);
+        }).catch(function(e){
+            el('rateBanner').innerHTML = '<span class="err">Couldn’t load the trip data: '+e.message+'</span>';
+        });
+    }
+
+    // ── adding ─────────────────────────────────────────────────────────────
+    function setCurrency(c){
+        currentCurrency = (c==='GBP') ? 'GBP' : 'TRY';
+        el('curTRY').classList.toggle('on', currentCurrency==='TRY');
+        el('curGBP').classList.toggle('on', currentCurrency==='GBP');
+    }
+
+    function fileToResizedBase64(file, maxDim, cb){
+        var img = new Image();
+        var url = URL.createObjectURL(file);
+        img.onload = function(){
+            var w = img.width || 1, h = img.height || 1;
+            var scale = Math.min(1, maxDim / Math.max(w, h));
+            var cw = Math.max(1, Math.round(w*scale)), ch = Math.max(1, Math.round(h*scale));
+            var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+            c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+            URL.revokeObjectURL(url);
+            try { cb(c.toDataURL('image/jpeg', 0.82).split(',')[1]); } catch(e){ cb(null); }
+        };
+        img.onerror = function(){ URL.revokeObjectURL(url); cb(null); };
+        img.src = url;
+    }
+
+    function handleScan(file){
+        if(!file) return;
+        el('confirmWrap').innerHTML = '<div class="pending">Reading your receipt…</div>';
+        el('scanBtn').disabled = true;
+        fileToResizedBase64(file, 1600, function(b64){
+            if(!b64){ el('scanBtn').disabled=false; el('confirmWrap').innerHTML = '<div class="confirm"><span class="err">Couldn’t read that image — try a JPG or PNG photo.</span></div>'; return; }
+            fetch('/turkey/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:b64, media_type:'image/jpeg'})})
+                .then(function(r){ return r.json(); })
+                .then(function(d){ el('scanBtn').disabled=false; if(d.error){ el('confirmWrap').innerHTML = '<div class="confirm"><span class="err">'+esc(d.error)+'</span></div>'; return; } showConfirm(d.expense); })
+                .catch(function(e){ el('scanBtn').disabled=false; el('confirmWrap').innerHTML = '<div class="confirm"><span class="err">'+esc(e.message)+'</span></div>'; });
+        });
+    }
+
+    function chatSend(){
+        var text = el('chatInput').value.trim();
+        if(!text) return;
+        var btn = el('chatSend'); btn.disabled = true;
+        el('confirmWrap').innerHTML = '<div class="pending">Reading “'+esc(text)+'”…</div>';
+        fetch('/turkey/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})})
+            .then(function(r){ return r.json(); })
+            .then(function(d){
+                btn.disabled = false;
+                if(d.error){ el('confirmWrap').innerHTML = '<div class="confirm"><span class="err">'+esc(d.error)+'</span></div>'; return; }
+                showConfirm(d.expense);
+            })
+            .catch(function(e){ btn.disabled = false; el('confirmWrap').innerHTML = '<div class="confirm"><span class="err">'+esc(e.message)+'</span></div>'; });
+    }
+
+    function showConfirm(exp){
+        var color = CAT_COLORS[exp.category] || CAT_COLORS.Other;
+        var amt = exp.currency==='GBP' ? fmtGBP(exp.amount) : fmtTRY(exp.amount);
+        el('confirmWrap').innerHTML =
+            '<div class="confirm"><div class="confirm-note">Claude read this as — check it, then save</div>'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">'+
+                '<div class="row-flex"><span class="dot" style="background:'+color+'"></span><span class="chip">'+exp.category+'</span><span class="muted">'+esc(exp.description)+'</span></div>'+
+                '<div style="text-align:right;"><div class="num" style="font-size:16px;">'+amt+'</div><div class="muted" style="font-size:12px;">'+fmtDate(exp.date)+'</div></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:8px;margin-top:12px;">'+
+                '<button class="primary" id="confirmSave" style="flex:1;">Save</button>'+
+                '<button id="confirmEdit" style="flex:1;">Edit</button>'+
+            '</div></div>';
+        el('confirmSave').onclick = function(){ saveExpense(exp, function(){ el('chatInput').value=''; el('confirmWrap').innerHTML=''; }); };
+        el('confirmEdit').onclick = function(){ fillForm(exp); el('confirmWrap').innerHTML=''; };
+    }
+
+    function fillForm(exp){
+        el('mDesc').value = exp.description || '';
+        el('mAmount').value = exp.amount || '';
+        setCurrency(exp.currency);
+        el('mCategory').value = CAT_COLORS[exp.category] ? exp.category : 'Other';
+        el('mDate').value = /^\d{4}-\d{2}-\d{2}$/.test(exp.date||'') ? exp.date : todayStr();
+        el('mDesc').focus();
+    }
+
+    function manualAdd(){
+        var exp = {
+            description: el('mDesc').value.trim(),
+            amount: parseFloat(el('mAmount').value),
+            currency: currentCurrency,
+            category: el('mCategory').value,
+            date: el('mDate').value || todayStr(),
+            source: 'manual'
+        };
+        if(!(exp.amount>0) || !exp.description){ el('formErr').textContent = 'Enter a description and an amount greater than zero.'; return; }
+        el('formErr').textContent = '';
+        saveExpense(exp, function(){ el('mDesc').value=''; el('mAmount').value=''; setCurrency('TRY'); el('mDate').value=todayStr(); });
+    }
+
+    function saveExpense(exp, done){
+        fetch('/turkey/expenses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(exp)})
+            .then(function(r){ return r.json(); })
+            .then(function(d){ if(d.error){ el('formErr').textContent = d.error; return; } if(done) done(); load(); })
+            .catch(function(e){ el('formErr').textContent = e.message; });
+    }
+
+    function delExpense(id){
+        fetch('/turkey/expenses/'+id,{method:'DELETE'}).then(function(){ load(); }).catch(function(){ load(); });
+    }
+
+    // ── wire up ────────────────────────────────────────────────────────────
+    el('chatSend').onclick = chatSend;
+    el('chatInput').addEventListener('keydown', function(e){ if(e.key==='Enter') chatSend(); });
+    el('scanBtn').onclick = function(){ el('scanFile').click(); };
+    el('scanFile').addEventListener('change', function(e){ var f = e.target.files && e.target.files[0]; handleScan(f); e.target.value = ''; });
+    el('curTRY').onclick = function(){ setCurrency('TRY'); };
+    el('curGBP').onclick = function(){ setCurrency('GBP'); };
+    el('mAdd').onclick = manualAdd;
+    el('mDate').value = todayStr();
+    el('entriesWrap').addEventListener('click', function(e){
+        var b = e.target && e.target.closest ? e.target.closest('.del') : null;
+        if(b) delExpense(parseInt(b.getAttribute('data-id'),10));
+    });
+
+    load();
+</script>
+</body>
+</html>
