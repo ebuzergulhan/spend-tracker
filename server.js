@@ -1568,7 +1568,7 @@ async function turkeyRate() {
         const m = xml.match(/<Currency[^>]*CurrencyCode="GBP"[^>]*>[\s\S]*?<ForexSelling>([\d.]+)<\/ForexSelling>/i);
         if (!m) throw new Error('GBP not found');
         const xd = xml.match(/Date="(\d{2})\/(\d{2})\/(\d{4})"/);
-        const date = xd ? `${xd[3]}-${xd[2]}-${xd[1]}` : refDate;
+        const date = xd ? `${xd[3]}-${xd[1]}-${xd[2]}` : refDate; // TCMB's Date attr is mm/dd/yyyy
         return { tryPerGbp: parseFloat(m[1]), date, source: 'TCMB' };
     } catch (e) {
         return { tryPerGbp: 45.0, date: refDate, source: 'fallback' };
