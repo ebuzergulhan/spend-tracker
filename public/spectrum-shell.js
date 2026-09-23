@@ -52,6 +52,9 @@ const SPECTRUM_NAV = [
     { id: 'debts', cat: 'debts' },
     { id: 'loan',  cat: 'loan' },
   ]},
+  { group: 'Account', items: [
+    { id: 'logout', label: 'Log out', href: '/logout' },
+  ]},
 ];
 
 function initSpectrum({ active, title, subtitle = '', period = '', actions = '' } = {}) {

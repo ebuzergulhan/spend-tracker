@@ -13,6 +13,8 @@ const PORT = process.env.PORT || 3001;
 const Anthropic = require('@anthropic-ai/sdk');
 const { Pool } = require('pg');
 const { summarize, CATEGORIES } = require('./turkey-logic');
+const receiptLogic = require('./receipt-logic');
+const createAuth = require('./auth');
 const fs = require('fs');
 if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
 if (!fs.existsSync('uploads/debt-receipts')) fs.mkdirSync('uploads/debt-receipts', { recursive: true });
@@ -26,6 +28,16 @@ const db = new Pool({
     connectionString: process.env.DATABASE_URL
 });
 
+// Behind nginx: trust X-Forwarded-* only when the request comes from localhost.
+app.set('trust proxy', 'loopback');
+
+// Login gate — must stay before every route and the static files.
+const auth = createAuth({
+    username: process.env.APP_USERNAME,
+    password: process.env.APP_PASSWORD,
+    secret: process.env.SESSION_SECRET,
+});
+app.use(auth.middleware);
 
 app.get('/', (req, res) => res.redirect('/home.html'));
 app.use(express.static('public'));
@@ -93,57 +105,53 @@ async function normalizeShopName(name) {
     return name;
 }
 
+// Read one receipt photo with the given model and return the cleaned-up result.
+async function readReceiptWith(model, base64Image, mediaType) {
+    const response = await anthropic.messages.create({
+        model,
+        max_tokens: model === receiptLogic.SCAN_MODEL_STRONG ? 16000 : 4096,
+        messages: [{
+            role: 'user',
+            content: [
+                { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
+                { type: 'text', text: receiptLogic.RECEIPT_PROMPT },
+            ],
+        }],
+    });
+    // Stronger models reply with a reasoning block first, so find the text block.
+    const block = response.content.find(b => b.type === 'text');
+    const receipt = receiptLogic.normalizeReceipt(receiptLogic.parseReceiptText(block ? block.text : ''));
+    receipt.model_used = model;
+    return receipt;
+}
+
+// Fast model first; if its items don't add up to the receipt total, re-read with the stronger model.
+async function scanReceipt(base64Image, mediaType) {
+    let first = null;
+    try {
+        first = await readReceiptWith(receiptLogic.SCAN_MODEL_FAST, base64Image, mediaType);
+        if (first.check.ok) return first;
+        console.log(`Receipt scan: ${first.check.reason} — re-reading with ${receiptLogic.SCAN_MODEL_STRONG}`);
+    } catch (e) {
+        console.error('Fast receipt scan failed:', e.message);
+    }
+    try {
+        return await readReceiptWith(receiptLogic.SCAN_MODEL_STRONG, base64Image, mediaType);
+    } catch (e) {
+        if (first) return first;
+        throw e;
+    }
+}
+
 // Upload and scan a receipt
 app.post('/upload', upload.single('receiptImage'), async (req, res) => {
     try {
         const imageData = fs.readFileSync(req.file.path);
         const base64Image = imageData.toString('base64');
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const mediaType = allowedTypes.includes(req.file.mimetype) ? req.file.mimetype : 'image/jpeg';
 
-        const response = await anthropic.messages.create({
-            model: 'claude-haiku-4-5',
-            max_tokens: 4096,
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'image',
-                            source: {
-                                type: 'base64',
-                                media_type: req.file.mimetype,
-                                data: base64Image
-                            }
-                        },
-                        {
-                            type: 'text',
-                            text: `Extract receipt details and return ONLY a valid JSON object with this exact structure:
-{
-  "shop_name": "store name",
-  "date": "YYYY-MM-DD or null if not visible",
-  "total": 0.00,
-  "items": [
-    { "name": "item name", "price": 0.00, "quantity": 1, "category": "Groceries|Vegetables|Fruit|Dairy|Meat & Fish|Bakery|Drinks|Snacks|Household|Clothing|Electronics|Fuel|Restaurant|Health|Discount|Other" }
-  ]
-}
-
-Rules:
-1. CANCELLED items: if an item is followed by "ITEM CANCELLED" and a matching negative charge, exclude BOTH lines — they were voided and cost nothing.
-2. Discount/savings lines (e.g. "Nectar Price Saving", "Special Offer", "X for £Y" promotions): include as a separate item with a NEGATIVE price and category "Discount". Do NOT subtract from the item price directly.
-3. Prices shown are LINE TOTALS — the total cost for that quantity. Do not divide them.
-4. Quantity in item name: if a name ends with "X4", "X2" etc., or starts with "2 X", "3 X" etc., set quantity to that number. The price is still the line total for all units.
-5. If the same item appears as separate lines (e.g. AVOCADO listed twice at £0.88 each), keep them as separate items with quantity 1 each.
-6. All numbers are plain decimals, no currency symbols.`
-                        }
-                    ]
-                }
-            ]
-        });
-
-        const rawText = response.content[0].text;
-        const cleanText = rawText.replace(/```json\n?|\n?```/g, '').trim();
-        const receipt = JSON.parse(cleanText);
-
-        receipt.total = parseFloat(receipt.total) || 0;
+        const receipt = await scanReceipt(base64Image, mediaType);
         receipt.shop_name = await normalizeShopName(receipt.shop_name);
 
         // Move to permanent receipts folder with a readable name
@@ -165,8 +173,7 @@ Rules:
 app.post('/receipts/confirm', async (req, res) => {
     try {
         const { shop_name, date, total, items, image_filename } = req.body;
-        const today = new Date().toISOString().split('T')[0];
-        const receiptDate = (date && date !== 'null' && date <= today) ? date : null;
+        const receiptDate = receiptLogic.validReceiptDate(date);
         const receiptTotal = parseFloat(total) || 0;
         const normalizedShop = await normalizeShopName(shop_name);
 

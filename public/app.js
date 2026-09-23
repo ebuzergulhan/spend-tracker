@@ -159,18 +159,31 @@ function scanItemRow(name, category, qty, lineTotal) {
         </tr>`;
 }
 
+// Local calendar dates as YYYY-MM-DD (the browser's own timezone, i.e. UK for you).
+function localIsoDate(offsetDays = 0) {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toLocaleDateString('en-CA');
+}
+
 function renderScanReview(receipt) {
     const calcTotal = receipt.items.reduce((s, i) => s + (parseFloat(i.price) || 0), 0);
     const itemRows = receipt.items.map(item =>
         scanItemRow(item.name, item.category, parseFloat(item.quantity) || 1, parseFloat(item.price) || 0)
     ).join('');
+    const doubleChecked = String(receipt.model_used || '').includes('sonnet');
 
     document.getElementById('scan-card-title').textContent = 'Review & Confirm';
     document.getElementById('resultContent').innerHTML = `
         <div class="flex justify-between items-start mb-3">
             <div>
                 <p class="font-semibold text-gray-800">${receipt.shop_name}</p>
-                <p class="text-xs text-gray-400">${receipt.date ? formatDate(receipt.date) : 'Date unknown'}</p>
+                <label class="text-xs text-gray-400 flex items-center gap-2 mt-1">Date
+                    <input type="date" id="scan-date" value="${receipt.date || localIsoDate()}" max="${localIsoDate(1)}"
+                        class="border ${receipt.date ? 'border-gray-200' : 'border-amber-400'} rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:border-purple-400"/>
+                </label>
+                ${receipt.date ? '' : '<p class="text-xs text-amber-600 mt-1">Couldn’t read the date, so it’s set to today. Please check it.</p>'}
+                ${doubleChecked ? '<p class="text-xs text-gray-400 mt-1">Double-checked with a stronger model because the first read didn’t add up.</p>' : ''}
             </div>
             <p class="text-xl font-bold text-gray-800">£${parseFloat(receipt.total).toFixed(2)}</p>
         </div>
@@ -292,7 +305,13 @@ async function confirmSave() {
         const res = await fetch('/receipts/confirm', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ shop_name: pendingReceipt.shop_name, date: pendingReceipt.date, total: pendingReceipt.total, items, image_filename: pendingReceipt.image_filename || null })
+            body: JSON.stringify({
+                shop_name: pendingReceipt.shop_name,
+                date: document.getElementById('scan-date')?.value || pendingReceipt.date || null,
+                total: pendingReceipt.total,
+                items,
+                image_filename: pendingReceipt.image_filename || null,
+            })
         });
         const result = await res.json();
 
@@ -313,6 +332,27 @@ async function confirmSave() {
     }
 }
 
+// Shrink phone photos before upload: keeps them under the AI's 5 MB image limit,
+// and re-encoding to JPEG also fixes iPhone HEIC photos. Falls back to the original file.
+function shrinkImage(file, maxDim) {
+    return new Promise(resolve => {
+        if (!file || !file.type.startsWith('image/')) return resolve(file);
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(blob => resolve(blob ? new File([blob], 'receipt.jpg', { type: 'image/jpeg' }) : file), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}
+
 // Upload form
 document.getElementById('uploadForm').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -326,10 +366,9 @@ document.getElementById('uploadForm').addEventListener('submit', async function 
     document.getElementById('loadingMsg').classList.remove('hidden');
     document.getElementById('resultCard').classList.add('hidden');
 
-    const formData = new FormData();
-    formData.append('receiptImage', fileInput.files[0]);
-
     try {
+        const formData = new FormData();
+        formData.append('receiptImage', await shrinkImage(fileInput.files[0], 2000));
         const response = await fetch('/upload', { method: 'POST', body: formData });
         const receipt = await response.json();
 
