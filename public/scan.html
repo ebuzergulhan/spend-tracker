@@ -40,11 +40,18 @@
         .sec-dot { width:9px; height:9px; border-radius:9999px; display:inline-block; margin-right:6px; vertical-align:middle; }
         details.items { margin-top:10px; }
         details.items summary { cursor:pointer; font-size:13px; color:var(--sp-ink-70, #55524d); }
-        table.it { width:100%; border-collapse:collapse; margin-top:8px; }
-        table.it td { padding:6px 4px; border-top:1px solid var(--sp-ink-04); font-size:13px; vertical-align:middle; }
-        table.it td.name { word-break:break-word; }
-        table.it input.price { width:72px; height:32px; padding:0 6px; border:1px solid var(--sp-ink-08); border-radius:8px; font:inherit; font-size:13px; text-align:right; }
-        table.it select { height:32px; max-width:130px; border:1px solid var(--sp-ink-08); border-radius:8px; font:inherit; font-size:12px; background:#fff; }
+        .items-list { margin-top:8px; }
+        .item { padding:8px 4px; border-top:1px solid var(--sp-ink-04); }
+        .iline1 { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        .iname { font-size:13px; color:var(--sp-ink); word-break:break-word; flex:1; }
+        .iline1 select { height:30px; max-width:140px; border:1px solid var(--sp-ink-08); border-radius:8px; font:inherit; font-size:12px; background:#fff; }
+        .iline2 { display:flex; align-items:center; gap:10px; margin-top:6px; flex-wrap:wrap; font-size:12px; color:var(--sp-ink-50); }
+        .iline2 label { display:inline-flex; align-items:center; gap:4px; }
+        .iline2 input { height:30px; padding:0 6px; border:1px solid var(--sp-ink-08); border-radius:8px; font:inherit; font-size:13px; text-align:right; color:var(--sp-ink); }
+        .iline2 input.qty { width:58px; }
+        .iline2 input.price { width:74px; }
+        .iline2 .unit { color:var(--sp-ink-70, #55524d); font-weight:600; }
+        .iline2 .x { margin-left:auto; }
         .neg { color:#b3261e; }
         .x { background:none; border:0; color:var(--sp-ink-30); font-size:18px; cursor:pointer; padding:0 4px; }
         .x:hover { color:#b3261e; }
@@ -150,13 +157,15 @@
 
     // ── state helpers ─────────────────────────────────────────────────────
     const itemsSum = c => round2((c.receipt.items || []).reduce((s, it) => s + (parseFloat(it.price) || 0), 0));
-    function addsUp(c) {
-        if (!c.receipt) return false;
+    const fmtQty = q => Number.isInteger(q) ? String(q) : String(Math.round(q * 1000) / 1000);
+    function sumMatches(c) {
         const total = parseFloat(c.receipt.total) || 0;
         if (!(total > 0)) return false;
         if (!perLine(c.section)) return true;                    // fuel/parking are saved as one total
         return c.receipt.items.length > 0 && Math.abs(itemsSum(c) - total) < 0.02;
     }
+    // Ready to save: the item line totals add up to the receipt total (same check as the grocery page).
+    const addsUp = c => Boolean(c.receipt) && sumMatches(c);
     const pending = () => cards.filter(c => c.status === 'ready' || c.status === 'saving');
 
     // ── rendering ─────────────────────────────────────────────────────────
@@ -192,13 +201,24 @@
         const status = ok
             ? `<span class="pill ok">Adds up</span>`
             : `<span class="pill check">Check: items ${money(itemsSum(c))} vs total ${money(r.total)}</span>`;
-        const itemRows = (r.items || []).map((it, i) => `
-            <tr>
-              <td class="name">${esc(it.name)}</td>
-              ${perLine(c.section) ? `<td><select data-act="cat" data-id="${c.id}" data-i="${i}">${categoryOptions(c.section, it.category)}</select></td>` : '<td></td>'}
-              <td style="text-align:right;"><input class="price ${it.price < 0 ? 'neg' : ''}" type="number" step="0.01" value="${(parseFloat(it.price) || 0).toFixed(2)}" data-act="price" data-id="${c.id}" data-i="${i}"></td>
-              <td><button class="x" data-act="delitem" data-id="${c.id}" data-i="${i}" aria-label="Remove item">×</button></td>
-            </tr>`).join('');
+        const itemRows = (r.items || []).map((it, i) => {
+            const qty = parseFloat(it.quantity) || 1;
+            const line = parseFloat(it.price) || 0;
+            const unit = line / qty;
+            const a = `data-id="${c.id}" data-i="${i}"`;
+            return `<div class="item">
+              <div class="iline1">
+                <span class="iname">${esc(it.name)}</span>
+                ${perLine(c.section) ? `<select data-act="cat" ${a}>${categoryOptions(c.section, it.category)}</select>` : ''}
+              </div>
+              <div class="iline2">
+                <label>Qty <input class="qty" type="number" step="any" min="0.001" value="${fmtQty(qty)}" data-act="qty" ${a}></label>
+                <label>Line £ <input class="price ${line < 0 ? 'neg' : ''}" type="number" step="0.01" value="${line.toFixed(2)}" data-act="price" ${a}></label>
+                <span class="unit">Unit ${money(unit)}</span>
+                <button class="x" data-act="delitem" ${a} aria-label="Remove item">×</button>
+              </div>
+            </div>`;
+        }).join('');
 
         return `<div class="sp-card rcard"><div class="sp-card-body">
             <div class="rhead">
@@ -222,7 +242,7 @@
             ${c.error ? `<p class="err" style="margin:6px 0 0;">${esc(c.error)}</p>` : ''}
             <details class="items" ${ok ? '' : 'open'}>
               <summary>${(r.items || []).length} item${(r.items || []).length === 1 ? '' : 's'}${c.trip ? ' · trip: ' + esc(c.trip) : ''}</summary>
-              <table class="it"><tbody>${itemRows}</tbody></table>
+              <div class="items-list">${itemRows}</div>
             </details>
             <div class="actions">
               <button class="sp-btn-primary" data-act="save" data-id="${c.id}" ${c.status === 'saving' ? 'disabled' : ''}>${c.status === 'saving' ? 'Saving…' : 'Save'}</button>
@@ -370,6 +390,7 @@
         if (t.dataset.act === 'total') r.total = round2(parseFloat(t.value) || 0);
         if (t.dataset.act === 'litres') r.litres = parseFloat(t.value) || null;
         if (t.dataset.act === 'cat') r.items[Number(t.dataset.i)].category = t.value;
+        if (t.dataset.act === 'qty') r.items[Number(t.dataset.i)].quantity = parseFloat(t.value) > 0 ? parseFloat(t.value) : 1;
         if (t.dataset.act === 'price') r.items[Number(t.dataset.i)].price = round2(parseFloat(t.value) || 0);
         render();
     });

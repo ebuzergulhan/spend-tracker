@@ -22,11 +22,12 @@ function prepareReceipt(body) {
     const items = (Array.isArray(body.items) ? body.items : [])
         .map(it => {
             const price = round2(parseFloat(it.price) || 0);
-            const qty = parseFloat(it.quantity);
+            const qty = Math.round((parseFloat(it.quantity) > 0 ? parseFloat(it.quantity) : 1) * 1000) / 1000;
             return {
                 name: String(it.name || '').trim().slice(0, 200),
                 price,
-                quantity: qty > 0 ? qty : 1,
+                quantity: qty,
+                unit_price: Math.round(price / qty * 10000) / 10000,   // same rule as the grocery page: line total ÷ quantity
                 category: L.categoryForSection(it.category, section, price),
             };
         })
@@ -66,7 +67,7 @@ async function insertRows(client, r, createdAt) {
             await client.query(
                 `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, receipt_image, trip_name)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [r.date, r.shop, it.category, it.name, it.price, it.quantity, it.price / it.quantity, r.total, createdAt, r.image, r.trip]
+                [r.date, r.shop, it.category, it.name, it.price, it.quantity, it.unit_price, r.total, createdAt, r.image, r.trip]
             );
         }
         return r.items.length;
@@ -75,9 +76,9 @@ async function insertRows(client, r, createdAt) {
         const table = r.section === 'outabout' ? 'outing_items' : 'shopping_items';
         for (const it of r.items) {
             await client.query(
-                `INSERT INTO ${table} (date, place_name, category, item_name, item_price, quantity, receipt_total, created_at, trip_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [r.date, r.shop, it.category, it.name, it.price, it.quantity, r.total, createdAt, r.trip]
+                `INSERT INTO ${table} (date, place_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, trip_name)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [r.date, r.shop, it.category, it.name, it.price, it.quantity, it.unit_price, r.total, createdAt, r.trip]
             );
         }
         return r.items.length;

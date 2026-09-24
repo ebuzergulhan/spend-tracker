@@ -616,6 +616,9 @@ app.post('/manual', async (req, res) => {
     await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
     await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
     await db.query(`ALTER TABLE expense_log ADD COLUMN IF NOT EXISTS trip_name TEXT`);
+    // Unit prices for Out & About and Shopping items (items already has one). Existing rows stay NULL.
+    await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
+    await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS loans (
             id SERIAL PRIMARY KEY,

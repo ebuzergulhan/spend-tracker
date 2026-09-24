@@ -46,7 +46,7 @@ ${UK_RULES()}`;
 function UK_RULES() {
     return `1. DATES ARE DAY-FIRST: DD/MM/YYYY or DD/MM/YY. 23/09/2026 is 23 September 2026, so "date" is "2026-09-23". 03/09/26 is 3 September 2026. Never read a UK date month-first.
 2. ONE item per product. A product name often wraps onto 2 or 3 lines: join those lines into one name. The product's price is the amount on the right of its first line.
-3. QUANTITY: a number printed at the far LEFT of a product line (e.g. "2 Cadbury ...") is the quantity. A following line like "£1.40 each", "2 @ £1.40" or "2 x £0.89" (a count times a MONEY amount) confirms the unit price; it is NOT a separate item. With no such number, quantity is 1.
+3. QUANTITY: a number printed at the far LEFT of a product line (e.g. "2 Cadbury ...") is the quantity. A following line like "£1.40 each", "2 @ £1.40" or "2 x £0.89" (a count times a MONEY amount) is NOT a separate item: its count is the quantity ("2 x £0.89" means quantity 2). For items sold by weight, a following line like "0.418 kg @ £1.10/kg" means quantity 0.418. With none of these, quantity is 1.
 4. PACK SIZES ARE NOT QUANTITIES: "6x25g", "4 X 18g", "3 X 20g", "4x85g", "12 pack", "6 x 330ml" are part of the product name. Keep them in the name and do NOT use them as the quantity.
 5. "price" is the LINE TOTAL printed on the right (the cost of all units). Never divide it. Letters after a price such as "1.25 A" or "0.89 B" are VAT codes: ignore them.
 6. LOYALTY AND OFFER LINES belong to the product above them and are NOT products. Examples: "Cc £1.50" (Tesco Clubcard price), "Clubcard Price", "Nectar Price", "More Card", "Price Match", "Price Reduced", "Multibuy", "2 for £3". The amount on the LEFT of such a line (the "Cc £1.50" part) is only the reduced price: ignore it. The NEGATIVE amount on the right (e.g. "-£0.70") is the saving: add exactly ONE item {"name": "<product> saving", "price": -0.70, "quantity": 1, "category": "Discount"}.
@@ -57,31 +57,25 @@ function UK_RULES() {
 11. All numbers are plain decimals with no currency symbols.`;
 }
 
-const SMART_PROMPT = `You are reading a photo of a UK receipt for my spending app. First decide which SECTION of the app it belongs to, then read the receipt. Return ONLY a valid JSON object (no markdown, no code fences) with exactly this structure:
-{
+// The Scan receipts page uses the grocery prompt word for word (it reads receipts well),
+// plus one extra instruction: say which section of the app the receipt belongs to.
+const SMART_PROMPT = `${RECEIPT_PROMPT}
+
+ALSO decide which SECTION of my spending app this receipt belongs to, and add these two fields to the same JSON object:
   "section": "groceries|outabout|shopping|fuel|transport",
-  "shop_name": "business name only, e.g. Tesco, Pizza Express, Amazon, Shell, NCP",
-  "date_raw": "the purchase date EXACTLY as printed, e.g. 23/09/2026 or 23.09.26, or null if not visible",
-  "date": "the same date as YYYY-MM-DD, or null",
-  "subtotal": 0.00,
-  "savings": 0.00,
-  "total": 0.00,
-  "litres": null,
-  "items": [
-    { "name": "product name", "price": 0.00, "quantity": 1, "category": "one category from the list for the chosen section" }
-  ]
-}
-
-SECTIONS. Pick the one that matches where most of the money went:
-- "groceries": supermarkets and food shopping for home, e.g. Tesco, Aldi, Lidl, Morrisons, Sainsbury's, Asda, Co-op, Waitrose, M&S Food, Iceland, butchers, greengrocers. Item categories: ${SECTIONS.groceries.categories.join('|')}
-- "outabout": eating and drinking out and days out: restaurants, cafés, pubs, takeaways, cinemas, museums, attractions, hotels. Item categories: ${SECTIONS.outabout.categories.join('|')}
-- "shopping": non-food shopping in a store or online: Amazon, IKEA, Argos, clothes, electronics, books, sports, pharmacy and beauty. Item categories: ${SECTIONS.shopping.categories.join('|')}
-- "fuel": petrol, diesel or EV charging at a fuel station. Put the litres bought in "litres" (null if not shown). If the receipt also has a snack, still choose "fuel" and list the snack as an item. Item categories: ${SECTIONS.fuel.categories.join('|')}
-- "transport": parking and car parks, trains, buses, coaches, taxis, tolls, car washes. Item categories: ${SECTIONS.transport.categories.join('|')}
-"litres" stays null unless the section is "fuel".
-
-How UK receipts are laid out. Follow these rules exactly:
-${UK_RULES()}`;
+  "litres": null
+Pick the section that matches where most of the money went:
+- "groceries": supermarkets and food shopping for home, e.g. Tesco, Aldi, Lidl, Morrisons, Sainsbury's, Asda, Co-op, Waitrose, M&S Food, Iceland, butchers, greengrocers.
+- "outabout": eating and drinking out and days out: restaurants, cafés, pubs, takeaways, cinemas, museums, attractions, hotels.
+- "shopping": non-food shopping in a store or online: Amazon, IKEA, Argos, clothes, electronics, books, sports, pharmacy and beauty.
+- "fuel": petrol, diesel or EV charging at a fuel station. If the receipt also has a snack, still choose "fuel" and list the snack as an item.
+- "transport": parking and car parks, trains, buses, coaches, taxis, tolls, car washes.
+If the section is not "groceries", choose each item's "category" from that section's list instead of the grocery list:
+- outabout: ${SECTIONS.outabout.categories.join('|')}
+- shopping: ${SECTIONS.shopping.categories.join('|')}
+- fuel: ${SECTIONS.fuel.categories.join('|')}
+- transport: ${SECTIONS.transport.categories.join('|')}
+"litres" is the litres of fuel bought, only for the "fuel" section (null otherwise). Every other rule above stays exactly the same.`;
 
 // Pick a valid category for an item in the given section (keeps it, maps an equivalent, or falls back).
 function categoryForSection(category, section, price) {
