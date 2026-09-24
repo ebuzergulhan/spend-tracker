@@ -15,6 +15,8 @@ const { Pool } = require('pg');
 const { summarize, CATEGORIES } = require('./turkey-logic');
 const receiptLogic = require('./receipt-logic');
 const scanStore = require('./scan-store');
+const receiptEdit = require('./receipt-edit');
+const reportLogic = require('./public/report-logic');
 const createAuth = require('./auth');
 const fs = require('fs');
 if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
@@ -104,6 +106,31 @@ async function normalizeShopName(name) {
     if (match) return match.shop_name;
 
     return name;
+}
+
+// Move an uploaded receipt photo into uploads/receipts so History can show it. Returns the file name (or null).
+function keepReceiptPhoto(file, placeName) {
+    try {
+        const ext = (path.extname(file.originalname || '').toLowerCase().match(/^\.(jpe?g|png|gif|webp)$/) || ['.jpg'])[0];
+        const safeName = String(placeName || 'receipt').replace(/[^a-z0-9]/gi, '_').toLowerCase().slice(0, 40);
+        const filename = `${Date.now()}_${safeName}${ext}`;
+        fs.renameSync(file.path, `uploads/receipts/${filename}`);
+        return filename;
+    } catch (e) {
+        console.error('Could not keep receipt photo:', e.message);
+        return null;
+    }
+}
+
+// History → Edit for Groceries / Out & About / Shopping (see receipt-edit.js: one transaction, nothing lost on error).
+async function editRoute(section, req, res) {
+    try {
+        res.json(await receiptEdit.editReceipt(db, section, req.params.created_at, req.body));
+    } catch (error) {
+        if (error.status) return res.status(error.status).json({ error: error.message });
+        console.error(`Edit error (${section}):`, error.message);
+        res.status(500).json({ error: 'Couldn’t save the changes. Nothing was changed — please try again.' });
+    }
 }
 
 // Read one receipt photo with the given model and return the cleaned-up result.
@@ -369,35 +396,8 @@ app.get('/receipts/:created_at/items', async (req, res) => {
     res.json(result.rows);
 });
 
-// Edit a receipt — delete old rows, insert updated ones
-app.put('/receipts/:created_at', async (req, res) => {
-    try {
-        const { shop_name, date, items } = req.body;
-        const createdAt = req.params.created_at;
-        const receiptTotal = items.reduce((sum, item) => sum + parseFloat(item.price), 0);
-
-        // Preserve the receipt image filename before deleting rows
-        const imgRow = await db.query(`SELECT receipt_image FROM items WHERE created_at = $1 LIMIT 1`, [createdAt]);
-        const receiptImage = imgRow.rows[0]?.receipt_image || null;
-
-        await db.query(`DELETE FROM items WHERE created_at = $1`, [createdAt]);
-
-        for (const item of items) {
-            const qty = parseFloat(item.quantity) || 1;
-            const linePrice = parseFloat(item.price) || 0;
-            const unitPrice = item.unit_price != null ? parseFloat(item.unit_price) : (qty > 0 ? linePrice / qty : linePrice);
-            await db.query(
-                `INSERT INTO items (date, shop_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, receipt_image)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [date || null, shop_name, item.category, item.name, linePrice, qty, unitPrice, receiptTotal, createdAt, receiptImage]
-            );
-        }
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Edit error:', error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
+// Edit a receipt (History → Edit). All-or-nothing; keeps the photo and trip.
+app.put('/receipts/:created_at', (req, res) => editRoute('groceries', req, res));
 
 // Rename a shop across all items
 app.put('/shops/rename', async (req, res) => {
@@ -619,6 +619,9 @@ app.post('/manual', async (req, res) => {
     // Unit prices for Out & About and Shopping items (items already has one). Existing rows stay NULL.
     await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
     await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS unit_price NUMERIC(10,4)`);
+    // Receipt photos for Out & About and Shopping (groceries already has one). Existing rows stay NULL.
+    await db.query(`ALTER TABLE outing_items ADD COLUMN IF NOT EXISTS receipt_image TEXT`);
+    await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS receipt_image TEXT`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS loans (
             id SERIAL PRIMARY KEY,
@@ -1140,7 +1143,7 @@ app.post('/upload/shopping', upload.single('receiptImage'), async (req, res) => 
             messages: [{
                 role: 'user',
                 content: [
-                    { type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: base64Image } },
+                    { type: 'image', source: { type: 'base64', media_type: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(req.file.mimetype) ? req.file.mimetype : 'image/jpeg', data: base64Image } },
                     { type: 'text', text: `Extract the receipt details and return ONLY a valid JSON object:
 {
   "place_name": "shop or website name",
@@ -1164,23 +1167,41 @@ Total and price must be plain numbers only. No currency symbols. quantity is the
             [receipt.place_name, receiptDate, receipt.total]);
         if (dup.rows.length > 0) { fs.unlinkSync(req.file.path); return res.status(409).json({ error: 'Already scanned.' }); }
 
+        const imageFile = keepReceiptPhoto(req.file, receipt.place_name);
         for (const item of receipt.items) {
-            await db.query(`INSERT INTO shopping_items (date,place_name,category,item_name,item_price,quantity,receipt_total,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price)||0, parseFloat(item.quantity)||1, receipt.total, createdAt]);
+            const qty = parseFloat(item.quantity) > 0 ? parseFloat(item.quantity) : 1;
+            const price = parseFloat(item.price) || 0;
+            await db.query(`INSERT INTO shopping_items (date,place_name,category,item_name,item_price,quantity,unit_price,receipt_total,created_at,receipt_image) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                [receiptDate, receipt.place_name, item.category, item.name, price, qty, price / qty, receipt.total, createdAt, imageFile]);
         }
-        fs.unlinkSync(req.file.path);
         res.json(receipt);
     } catch (error) { console.error('Shopping upload error:', error.message); res.status(500).json({ error: error.message }); }
 });
 
+app.post('/shopping/manual', async (req, res) => {
+    try {
+        const { place_name, amount, category, date, trip_name } = req.body || {};
+        const place = String(place_name || '').trim();
+        const total = Math.round((parseFloat(amount) || 0) * 100) / 100;
+        if (!place || !(total > 0)) return res.status(400).json({ error: 'Add a shop name and an amount.' });
+        await db.query(
+            `INSERT INTO shopping_items (date, place_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, trip_name)
+             VALUES ($1, $2, $3, $2, $4, 1, $4, $4, $5, $6)`,
+            [receiptLogic.validReceiptDate(date) || null, place, category || 'Other', total, new Date().toISOString(), receiptLogic.normalizeTripName(trip_name)]
+        );
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/shopping', async (req, res) => {
-    const result = await db.query(`SELECT created_at,place_name,date,receipt_total,MAX(trip_name) AS trip_name FROM shopping_items GROUP BY created_at,place_name,date,receipt_total ORDER BY created_at DESC`);
+    const result = await db.query(`SELECT created_at,place_name,date::text AS date,receipt_total,MAX(trip_name) AS trip_name,MAX(receipt_image) AS receipt_image FROM shopping_items GROUP BY created_at,place_name,date,receipt_total ORDER BY date DESC NULLS LAST, created_at DESC`);
     res.json(result.rows);
 });
 app.get('/shopping/:created_at/items', async (req, res) => {
-    const result = await db.query(`SELECT item_name,item_price,quantity,category FROM shopping_items WHERE created_at=$1 ORDER BY id`, [req.params.created_at]);
+    const result = await db.query(`SELECT item_name,item_price,quantity,unit_price,category FROM shopping_items WHERE created_at=$1 ORDER BY id`, [req.params.created_at]);
     res.json(result.rows);
 });
+app.put('/shopping/:created_at', (req, res) => editRoute('shopping', req, res));
 app.delete('/shopping/:created_at', async (req, res) => {
     await db.query(`DELETE FROM shopping_items WHERE created_at=$1`, [req.params.created_at]);
     res.json({ success: true });
@@ -1194,6 +1215,42 @@ app.get('/stats/shopping/places', async (req, res) => {
     const { from, to } = req.query; const f = from && to;
     const result = await db.query(`SELECT place_name, ROUND(SUM(receipt_total)::numeric,2) as total_spent, COUNT(*) as order_count FROM (SELECT place_name,created_at,MAX(receipt_total) as receipt_total FROM shopping_items ${f?'WHERE date>=$1 AND date<=$2':''} GROUP BY place_name,created_at) t GROUP BY place_name ORDER BY total_spent DESC`, f?[from,to]:[]);
     res.json(result.rows);
+});
+
+// ─── Reports ──────────────────────────────────────────────────────────────────
+
+// Spending data for the Reports page (?section omitted) and the section dashboards (?section=groceries|outabout|shopping).
+// Only SELECTs. Receipts are grouped here; weeks / months / years are worked out in the browser (public/report-logic.js).
+// Dates are read as text so an odd legacy value can never break the query.
+app.get('/report/data', async (req, res) => {
+    try {
+        const only = req.query.section;
+        const want = s => !only || only === s;
+        const receiptRows = (table, place) =>
+            db.query(`SELECT created_at::text AS rid, date::text AS date, ${place} AS place, category, item_price, receipt_total FROM ${table}`);
+        const [groc, out, shop, log, recur] = await Promise.all([
+            want('groceries') ? receiptRows('items', 'shop_name') : { rows: [] },
+            want('outabout') ? receiptRows('outing_items', 'place_name') : { rows: [] },
+            want('shopping') ? receiptRows('shopping_items', 'place_name') : { rows: [] },
+            only ? { rows: [] } : db.query(`SELECT category, amount, date::text AS date FROM expense_log`),
+            !only || only === 'shopping'
+                ? db.query(`SELECT category, amount, frequency, start_date::text AS start_date, total_installments, created_at::text AS created_at FROM recurring_expenses`)
+                : { rows: [] },
+        ]);
+        res.json({
+            today: receiptLogic.londonToday(),
+            receipts: {
+                groceries: reportLogic.groupReceipts(groc.rows),
+                outabout: reportLogic.groupReceipts(out.rows),
+                shopping: reportLogic.groupReceipts(shop.rows),
+            },
+            expenses: log.rows.map(r => ({ category: r.category, amount: parseFloat(r.amount) || 0, date: r.date })),
+            recurring: recur.rows,
+        });
+    } catch (error) {
+        console.error('Report data error:', error.message);
+        res.status(500).json({ error: 'Couldn’t load the report.' });
+    }
 });
 
 // ─── Monthly Report ───────────────────────────────────────────────────────────
@@ -1303,7 +1360,7 @@ app.post('/upload/outing', upload.single('receiptImage'), async (req, res) => {
                 content: [
                     {
                         type: 'image',
-                        source: { type: 'base64', media_type: req.file.mimetype, data: base64Image }
+                        source: { type: 'base64', media_type: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(req.file.mimetype) ? req.file.mimetype : 'image/jpeg', data: base64Image }
                     },
                     {
                         type: 'text',
@@ -1341,15 +1398,17 @@ Total and price must be plain numbers only. No currency symbols. quantity is the
         }
 
         const tripName = (req.body.trip_name || '').trim() || null;
+        const imageFile = keepReceiptPhoto(req.file, receipt.place_name);
         for (const item of receipt.items) {
+            const qty = parseFloat(item.quantity) > 0 ? parseFloat(item.quantity) : 1;
+            const price = parseFloat(item.price) || 0;
             await db.query(
-                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, quantity, receipt_total, created_at, trip_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [receiptDate, receipt.place_name, item.category, item.name, parseFloat(item.price) || 0, parseFloat(item.quantity) || 1, receipt.total, createdAt, tripName]
+                `INSERT INTO outing_items (date, place_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, trip_name, receipt_image)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [receiptDate, receipt.place_name, item.category, item.name, price, qty, price / qty, receipt.total, createdAt, tripName, imageFile]
             );
         }
 
-        fs.unlinkSync(req.file.path);
         res.json(receipt);
     } catch (error) {
         console.error('Outing upload error:', error.message);
@@ -1372,21 +1431,23 @@ app.post('/outings/manual', async (req, res) => {
 
 app.get('/outings', async (req, res) => {
     const result = await db.query(`
-        SELECT created_at, place_name, date, receipt_total, trip_name
+        SELECT created_at, place_name, date::text AS date, receipt_total, trip_name, MAX(receipt_image) AS receipt_image
         FROM outing_items
         GROUP BY created_at, place_name, date, receipt_total, trip_name
-        ORDER BY created_at DESC
+        ORDER BY date DESC NULLS LAST, created_at DESC
     `);
     res.json(result.rows);
 });
 
 app.get('/outings/:created_at/items', async (req, res) => {
     const result = await db.query(
-        `SELECT item_name, item_price, quantity, category FROM outing_items WHERE created_at = $1 ORDER BY id`,
+        `SELECT item_name, item_price, quantity, unit_price, category FROM outing_items WHERE created_at = $1 ORDER BY id`,
         [req.params.created_at]
     );
     res.json(result.rows);
 });
+
+app.put('/outings/:created_at', (req, res) => editRoute('outabout', req, res));
 
 app.delete('/outings/:created_at', async (req, res) => {
     await db.query(`DELETE FROM outing_items WHERE created_at = $1`, [req.params.created_at]);

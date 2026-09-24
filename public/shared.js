@@ -111,3 +111,23 @@ function initSharedPage(activePage) {
         `);
     }
 }
+
+// Shrink phone photos before upload (keeps them under the AI's 5 MB limit and converts iPhone HEIC to JPEG).
+function shrinkImage(file, maxDim) {
+    return new Promise(resolve => {
+        if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file);
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(blob => resolve(blob ? new File([blob], 'receipt.jpg', { type: 'image/jpeg' }) : file), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}

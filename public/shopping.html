@@ -19,14 +19,29 @@
     <div class="sp-body">
 
       <!-- Tab pills -->
-      <div class="flex gap-2 mb-4">
+      <div class="flex gap-2 mb-6 flex-wrap">
+        <button onclick="showTab('stats')" id="tab-stats" class="sp-pill sp-pill-active">Dashboard</button>
         <button onclick="showTab('upload')" id="tab-upload" class="sp-pill">Upload</button>
+        <button onclick="showTab('manual')" id="tab-manual" class="sp-pill">Manual Entry</button>
         <button onclick="showTab('history')" id="tab-history" class="sp-pill">History</button>
-        <button onclick="showTab('stats')" id="tab-stats" class="sp-pill active">Dashboard</button>
+      </div>
+
+      <!-- Dashboard Tab -->
+      <div id="page-stats">
+        <div id="report"></div>
       </div>
 
       <!-- Upload Tab -->
       <div id="page-upload" class="hidden">
+        <a href="scan.html" class="sp-card block" style="max-width:480px;margin:0 auto 16px;text-decoration:none;color:inherit;">
+          <div class="sp-card-body" style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;">
+              <p style="font-size:14px;font-weight:600;color:var(--sp-ink);">Several receipts? Use Scan receipts</p>
+              <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">Take up to 10 photos in a row with the camera, check each one, then save.</p>
+            </div>
+            <span style="font-size:18px;color:var(--sp-ink-50);">→</span>
+          </div>
+        </a>
         <div class="sp-card" style="max-width:480px;margin:0 auto;">
           <div class="sp-card-body" style="padding:32px;">
             <h2 style="font-size:18px;font-weight:600;color:var(--sp-ink);margin-bottom:24px;">Scan a Receipt</h2>
@@ -39,7 +54,7 @@
                   </svg>
                 </div>
                 <p style="color:var(--sp-ink);font-weight:500;">Choose a receipt photo</p>
-                <p style="color:var(--sp-ink-50);font-size:13px;margin-top:4px;">JPG, PNG up to 10MB</p>
+                <p style="color:var(--sp-ink-50);font-size:13px;margin-top:4px;">The photo is kept with the receipt</p>
                 <input type="file" id="receiptImage" accept="image/*" class="hidden"/>
               </label>
               <p id="fileName" class="hidden" style="text-align:center;font-size:13px;color:var(--cat-shopping-fg);font-weight:500;margin-bottom:16px;"></p>
@@ -64,36 +79,52 @@
         </div>
       </div>
 
-      <!-- History Tab -->
-      <div id="page-history" class="hidden">
-        <div class="sp-card mb-6">
-          <div class="sp-card-head"><div><h3 class="sp-card-title">Purchase History</h3></div></div>
-          <div class="sp-card-body"><div id="historyContent"></div></div>
+      <!-- Manual Tab -->
+      <div id="page-manual" class="hidden">
+        <div class="sp-card" style="max-width:480px;margin:0 auto;">
+          <div class="sp-card-head"><div><h3 class="sp-card-title">Add a Purchase Manually</h3></div></div>
+          <div class="sp-card-body">
+            <form id="manualForm" class="space-y-4">
+              <div>
+                <label class="sp-field-label">Shop / Description</label>
+                <input type="text" id="m-name" placeholder="e.g. Amazon" required class="sp-input"/>
+              </div>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="sp-field-label">Amount (&pound;)</label>
+                  <input type="number" id="m-amount" step="0.01" min="0.01" placeholder="0.00" required class="sp-input"/>
+                </div>
+                <div class="flex-1">
+                  <label class="sp-field-label">Date</label>
+                  <input type="date" id="m-date" required class="sp-input"/>
+                </div>
+              </div>
+              <div>
+                <label class="sp-field-label">Category</label>
+                <select id="m-category" class="sp-select">
+                  <option>Amazon</option><option>IKEA</option><option>Clothing</option><option>Electronics</option><option>Books</option>
+                  <option>Sports</option><option>Home &amp; Garden</option><option>Health &amp; Beauty</option><option>Toys &amp; Games</option>
+                  <option>Food &amp; Drink</option><option selected>Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="sp-field-label">Trip <span style="color:var(--sp-ink-50);font-weight:normal;">(optional)</span></label>
+                <input type="text" id="m-trip" placeholder="e.g. Oxford trip" class="sp-input" list="tripList"/>
+              </div>
+              <button type="submit" class="sp-btn-primary w-full" style="padding:12px;">Add Purchase</button>
+            </form>
+          </div>
         </div>
       </div>
 
-      <!-- Stats Tab -->
-      <div id="page-stats">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 sp-grid-2">
-          <div class="sp-kpi"><div class="sp-kpi-label">This Month</div><div class="sp-kpi-value" id="stat-month">—</div></div>
-          <div class="sp-kpi"><div class="sp-kpi-label">Total Spent</div><div class="sp-kpi-value" id="stat-total">—</div></div>
-          <div class="sp-kpi"><div class="sp-kpi-label">Orders</div><div class="sp-kpi-value" id="stat-orders">—</div></div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Category</h3></div></div>
-            <div class="sp-card-body"><div id="categoryStats"></div></div>
-          </div>
-          <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Store</h3></div></div>
-            <div class="sp-card-body"><div id="placeStats"></div></div>
-          </div>
-        </div>
+      <!-- History Tab -->
+      <div id="page-history" class="hidden">
         <div class="sp-card mb-6">
-          <div class="sp-card-head"><div><h3 class="sp-card-title">Monthly Spending</h3></div></div>
-          <div class="sp-card-body"><div id="monthlyStats"></div></div>
+          <div class="sp-card-head"><div><h3 class="sp-card-title">Purchase History</h3><div class="sp-card-sub">Newest first · tap a purchase to see, edit or delete it</div></div></div>
+          <div class="sp-card-body"><div id="historyContent"></div></div>
         </div>
       </div>
+      <datalist id="tripList"></datalist>
 
       <!-- Installment Plans (always visible) -->
       <div class="sp-card mb-4" style="margin-top:24px;">
@@ -140,6 +171,9 @@
 
 <script src="shared.js"></script>
 <script src="spectrum-shell.js"></script>
+<script src="report-logic.js"></script>
+<script src="report-view.js"></script>
+<script src="receipt-history.js"></script>
 <script>
     initSpectrum({
       active: 'shopping',
@@ -147,16 +181,24 @@
       subtitle: 'Amazon, IKEA, clothing & online/in-store purchases',
     });
 
+    const TABS = ['stats', 'upload', 'manual', 'history'];
+    const report = ReportView.mount(document.getElementById('report'), { section: 'shopping', showPlaces: true, showCategories: true });
+    const historyView = ReceiptHistory.mount(document.getElementById('historyContent'), {
+        section: 'shopping', base: '/shopping', onChange: () => report.reload() });
+
     function showTab(name) {
-        ['upload','history','stats'].forEach(t => {
+        TABS.forEach(t => {
             document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
-            document.getElementById('tab-' + t).classList.toggle('active', t === name);
+            document.getElementById('tab-' + t).classList.toggle('sp-pill-active', t === name);
         });
-        if (name === 'history') loadHistory();
-        if (name === 'stats')   loadStats();
+        if (name === 'history') historyView.load();
+        if (name === 'stats') report.reload();
     }
 
-    loadStats();
+    fetch('/trips').then(r => r.json()).then(t => {
+        document.getElementById('tripList').innerHTML = (Array.isArray(t) ? t : []).map(x => `<option value="${String(x.name).replace(/"/g, '&quot;')}">`).join('');
+    }).catch(() => {});
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // Upload
     const fileInput = document.getElementById('receiptImage');
@@ -172,7 +214,7 @@
         document.getElementById('resultCard').classList.add('hidden');
 
         const formData = new FormData();
-        formData.append('receiptImage', fileInput.files[0]);
+        formData.append('receiptImage', await shrinkImage(fileInput.files[0], 2000));
 
         try {
             const res = await fetch('/upload/shopping', { method: 'POST', body: formData });
@@ -188,96 +230,49 @@
             const content = document.getElementById('resultContent');
             card.classList.remove('hidden');
             content.innerHTML = `
-                <p style="font-size:13px;color:var(--sp-ink-50);margin-bottom:12px;">${data.place_name}${data.date ? ' &middot; ' + formatDate(data.date) : ''} &middot; ${fmt(data.total)}</p>
+                <p style="font-size:13px;color:var(--sp-ink-50);margin-bottom:12px;">${esc(data.place_name)}${data.date ? ' &middot; ' + formatDate(data.date) : ''} &middot; ${fmt(data.total)}</p>
                 <div class="space-y-1">
                     ${(data.items || []).map(i => `
                         <div class="flex justify-between" style="font-size:13px;">
-                            <span style="color:var(--sp-ink-70);">${i.name} <span style="font-size:11px;color:var(--sp-ink-50);">${i.category}</span></span>
+                            <span style="color:var(--sp-ink-70);">${esc(i.name)} <span style="font-size:11px;color:var(--sp-ink-50);">${esc(i.category)}</span></span>
                             <span class="sp-num" style="font-weight:500;color:var(--sp-ink);">${fmt(i.price)}</span>
                         </div>
                     `).join('')}
                 </div>
+                <p style="font-size:12px;color:var(--sp-ink-50);margin-top:12px;">Saved. Anything wrong? Fix it in History → Edit receipt.</p>
             `;
             e.target.reset();
             document.getElementById('fileName').classList.add('hidden');
+            report.reload();
         } catch (err) {
             document.getElementById('loadingMsg').classList.add('hidden');
             await showModal({ title: 'Error', message: err.message, type: 'alert' });
         }
     };
 
-    // History
-    let receipts = [];
-    let expandedReceipt = null;
-    const itemsCache = {};
-
-    async function loadHistory() {
-        receipts = await fetch('/shopping').then(r => r.json());
-        renderHistory();
-    }
-
-    function renderHistory() {
-        const el = document.getElementById('historyContent');
-        if (!receipts.length) { el.innerHTML = '<p style="color:var(--sp-ink-50);font-size:13px;text-align:center;padding:24px 0;">No purchases yet.</p>'; return; }
-
-        el.innerHTML = receipts.map(r => {
-            const dateStr = r.date ? formatDate(r.date) : '<span style="color:var(--sp-ink-50);">* Date unread</span>';
-            const isExpanded = expandedReceipt === r.created_at;
-            return `
-                <div style="border-bottom:1px solid var(--sp-ink-04);">
-                    <div class="flex items-center gap-3" style="padding:12px 0;cursor:pointer;" onclick="toggleReceipt('${r.created_at}')">
-                        <div class="flex-1">
-                            <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${r.place_name}${window.tripBadge ? tripBadge(r.trip_name) : ''}</p>
-                            <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${dateStr}</p>
-                        </div>
-                        <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(r.receipt_total)}</p>
-                        <svg style="width:16px;height:16px;color:var(--sp-ink-30);transition:transform 0.2s;${isExpanded ? 'transform:rotate(180deg);' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    </div>
-                    ${isExpanded ? expandedHtml(r) : ''}
-                </div>
-            `;
-        }).join('');
-    }
-
-    function expandedHtml(r) {
-        const items = itemsCache[r.created_at];
-        if (!items) return '<div style="padding:12px 0;font-size:12px;color:var(--sp-ink-50);">Loading...</div>';
-        const addedDate = new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        return `
-            <div style="margin-left:8px;padding-bottom:12px;" class="space-y-1">
-                ${items.map(i => `
-                    <div class="flex justify-between" style="font-size:13px;padding:4px 0;">
-                        <span style="color:var(--sp-ink-70);">${parseFloat(i.quantity) > 1 ? `<span style="font-weight:600;color:var(--cat-shopping-fg);">${parseFloat(i.quantity) % 1 === 0 ? parseInt(i.quantity) : parseFloat(i.quantity)}x</span> ` : ''}${i.item_name} <span style="font-size:11px;color:var(--sp-ink-50);">${i.category}</span></span>
-                        <span class="sp-num" style="color:var(--sp-ink-70);">${fmt(i.item_price)}</span>
-                    </div>
-                `).join('')}
-                <p style="font-size:12px;color:var(--sp-ink-50);padding-top:8px;">Added ${addedDate}</p>
-                <button onclick="deleteReceipt('${r.created_at}')" style="margin-top:8px;font-size:12px;color:var(--sp-up);display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;">
-                    <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    Delete
-                </button>
-            </div>
-        `;
-    }
-
-    async function toggleReceipt(createdAt) {
-        if (expandedReceipt === createdAt) { expandedReceipt = null; renderHistory(); return; }
-        expandedReceipt = createdAt;
-        renderHistory();
-        if (!itemsCache[createdAt]) {
-            itemsCache[createdAt] = await fetch('/shopping/' + encodeURIComponent(createdAt) + '/items').then(r => r.json());
-            renderHistory();
-        }
-    }
-
-    async function deleteReceipt(createdAt) {
-        const ok = await showModal({ title: 'Delete', message: 'Remove this purchase?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-        if (!ok) return;
-        await fetch('/shopping/' + encodeURIComponent(createdAt), { method: 'DELETE' });
-        delete itemsCache[createdAt];
-        expandedReceipt = null;
-        loadHistory();
-    }
+    // Manual entry
+    const todayLocal = () => new Date().toLocaleDateString('en-CA');
+    document.getElementById('m-date').value = todayLocal();
+    document.getElementById('manualForm').onsubmit = async e => {
+        e.preventDefault();
+        const res = await fetch('/shopping/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                place_name: document.getElementById('m-name').value.trim(),
+                amount:     document.getElementById('m-amount').value,
+                category:   document.getElementById('m-category').value,
+                date:       document.getElementById('m-date').value,
+                trip_name:  document.getElementById('m-trip').value.trim() || null
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) { await showModal({ title: 'Not saved', message: data.error || 'Something went wrong.', type: 'alert' }); return; }
+        e.target.reset();
+        document.getElementById('m-date').value = todayLocal();
+        report.reload();
+        await showModal({ title: 'Added', message: 'Purchase saved.', type: 'alert', confirmLabel: 'OK' });
+    };
 
     // Installments
     let instItems = [];
@@ -389,9 +384,12 @@
         list.innerHTML = instItems.map(instRow).join('');
     }
 
+    let instLoaded = false;
     async function loadInst() {
         instItems = await fetch('/recurring?category=shopping').then(r => r.json());
         renderInst();
+        if (instLoaded) report.reload();   // instalments are part of the dashboard totals
+        instLoaded = true;
     }
 
     document.getElementById('instForm').onsubmit = async e => {
@@ -423,89 +421,6 @@
 
     loadInst();
 
-    // Stats
-    async function loadStats() {
-        const now = new Date();
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-        const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
-
-        const [allReceipts, monthCats, cats, places, recurring] = await Promise.all([
-            fetch('/shopping').then(r => r.json()),
-            fetch(`/stats/shopping/categories?from=${monthStart}&to=${monthEnd}`).then(r => r.json()),
-            fetch('/stats/shopping/categories').then(r => r.json()),
-            fetch('/stats/shopping/places').then(r => r.json()),
-            fetch('/recurring').then(r => r.json())
-        ]);
-
-        // Add recurring shopping instalments
-        let recurMonthly = 0;
-        recurring.filter(r => r.category === 'shopping' && parseFloat(r.amount) > 0).forEach(r => {
-            if (!r.start_date) return;
-            const start = new Date(r.start_date.split('T')[0] + 'T12:00:00');
-            const sy = start.getFullYear(), sm = start.getMonth() + 1;
-            if (now.getFullYear() < sy || (now.getFullYear() === sy && now.getMonth() + 1 < sm)) return;
-            if (r.total_installments) {
-                const elapsed = (now.getFullYear() - sy) * 12 + (now.getMonth() + 1 - sm);
-                if (elapsed >= parseInt(r.total_installments)) return;
-            }
-            const freq = r.frequency || 'monthly';
-            let amt = parseFloat(r.amount);
-            if (freq === 'annual') amt /= 12;
-            else if (freq === 'weekly') amt = amt * 52 / 12;
-            else if (freq === 'quarterly') amt /= 3;
-            recurMonthly += amt;
-        });
-
-        const monthTotal = monthCats.reduce((s, c) => s + parseFloat(c.total_spent), 0) + recurMonthly;
-        const allTotal   = allReceipts.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
-        document.getElementById('stat-month').textContent  = fmt(monthTotal);
-        document.getElementById('stat-total').textContent  = fmt(allTotal);
-        document.getElementById('stat-orders').textContent = allReceipts.length;
-
-        const maxCat = Math.max(...cats.map(c => parseFloat(c.total_spent)), 1);
-        document.getElementById('categoryStats').innerHTML = cats.length ? cats.map(c => `
-            <div class="flex items-center gap-3 mb-3">
-                <span style="font-size:13px;color:var(--sp-ink-70);width:128px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.category}</span>
-                <div class="flex-1" style="background:var(--sp-ink-08);border-radius:999px;height:4px;">
-                    <div style="height:4px;border-radius:999px;width:${(parseFloat(c.total_spent)/maxCat*100).toFixed(1)}%;background:var(--cat-shopping-dot);transition:width 0.7s;"></div>
-                </div>
-                <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(c.total_spent)}</span>
-            </div>
-        `).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-
-        const maxPlace = Math.max(...places.map(p => parseFloat(p.total_spent)), 1);
-        document.getElementById('placeStats').innerHTML = places.length ? places.map(p => `
-            <div class="flex items-center gap-3 mb-3">
-                <span style="font-size:13px;color:var(--sp-ink-70);width:128px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.place_name}</span>
-                <div class="flex-1" style="background:var(--sp-ink-08);border-radius:999px;height:4px;">
-                    <div style="height:4px;border-radius:999px;width:${(parseFloat(p.total_spent)/maxPlace*100).toFixed(1)}%;background:var(--cat-shopping-dot);opacity:0.7;transition:width 0.7s;"></div>
-                </div>
-                <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(p.total_spent)}</span>
-            </div>
-        `).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-
-        // Monthly spending grouped from allReceipts
-        const monthMap = {};
-        allReceipts.forEach(r => {
-            const m = (r.date || r.created_at || '').slice(0, 7);
-            if (m) monthMap[m] = (monthMap[m] || 0) + parseFloat(r.receipt_total);
-        });
-        const monthlyArr = Object.entries(monthMap).sort((a,b) => b[0].localeCompare(a[0]));
-        const maxMonth = Math.max(...monthlyArr.map(([,v]) => v), 1);
-        document.getElementById('monthlyStats').innerHTML = monthlyArr.length ? monthlyArr.map(([m, v]) => {
-            const [y, mo] = m.split('-');
-            const label = new Date(y, mo - 1).toLocaleString('en-GB', { month: 'short', year: 'numeric' });
-            return `
-                <div class="flex items-center gap-3 mb-3">
-                    <span style="font-size:13px;color:var(--sp-ink-70);width:80px;flex-shrink:0;">${label}</span>
-                    <div class="flex-1" style="background:var(--sp-ink-08);border-radius:999px;height:4px;">
-                        <div style="height:4px;border-radius:999px;width:${(v/maxMonth*100).toFixed(1)}%;background:var(--cat-shopping-dot);opacity:0.8;transition:width 0.7s;"></div>
-                    </div>
-                    <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(v)}</span>
-                </div>
-            `;
-        }).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-    }
 </script>
 </body>
 </html>

@@ -62,6 +62,35 @@
         .savebar button { flex:1; min-width:200px; }
         @media (min-width:768px) { .savebar { bottom:16px; } }
         .done { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+
+        .pickrow { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .pickrow .pick { margin:0; font:inherit; background:none; width:100%; }
+        .pick-ico { font-size:22px; line-height:1; }
+        .thumbs { display:flex; flex-wrap:wrap; gap:8px; margin:4px 0 8px; }
+        .thumb { position:relative; width:64px; height:84px; border-radius:10px; overflow:hidden; background:var(--sp-panel); border:1px solid var(--sp-ink-08); }
+        .thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        .thumb button { position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:999px; border:0; background:rgba(0,0,0,.6);
+                        color:#fff; font-size:14px; line-height:22px; padding:0; cursor:pointer; }
+        .picked { font-size:12px; color:var(--sp-ink-50); margin:0 0 12px; }
+
+        /* In-page camera: take several photos in a row without leaving the page (nothing is saved to the phone). */
+        .cam { position:fixed; inset:0; z-index:80; background:#000; display:flex; flex-direction:column; color:#fff; }
+        .cam video { flex:1; min-height:0; width:100%; object-fit:contain; background:#000; }
+        .cam-top, .cam-bottom { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; }
+        .cam-top { padding-top:max(12px, env(safe-area-inset-top)); }
+        .cam-bottom { padding-bottom:max(18px, env(safe-area-inset-bottom)); }
+        .cam button.txt { font:inherit; font-size:15px; font-weight:600; color:#fff; background:rgba(255,255,255,.14); border:0; border-radius:999px; padding:9px 16px; cursor:pointer; min-width:84px; }
+        .cam button.txt:disabled { opacity:.4; }
+        .cam-count { font-size:14px; font-weight:600; }
+        .cam-shutter { width:74px; height:74px; border-radius:999px; border:4px solid #fff; background:rgba(255,255,255,.25); cursor:pointer; flex-shrink:0; }
+        .cam-shutter:active { background:#fff; }
+        .cam-strip { display:flex; gap:6px; padding:0 16px; min-height:52px; overflow-x:auto; }
+        .cam-strip img { height:52px; width:40px; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,.4); }
+        .cam-hint { font-size:12px; opacity:.75; text-align:center; padding:4px 16px 0; }
+        .cam-flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:opacity .25s; }
+        .cam-flash.on { opacity:.7; transition:none; }
+        .cam-msg { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; font-size:15px; }
+        .cam-msg label { font-weight:600; background:#fff; color:#000; border-radius:999px; padding:10px 18px; cursor:pointer; }
     </style>
 </head>
 <body>
@@ -77,11 +106,20 @@
           </div>
         </div>
         <div class="sp-card-body">
-          <label class="pick" for="files">
-            <span class="pick-title">Choose receipt photos</span>
-            <span class="pick-sub" id="picked">JPG or PNG · up to 10</span>
-          </label>
+          <div class="pickrow">
+            <button type="button" class="pick" id="camBtn">
+              <span class="pick-ico">📷</span><span class="pick-title">Take photos</span>
+              <span class="pick-sub">Snap one receipt after another</span>
+            </button>
+            <label class="pick" for="files">
+              <span class="pick-ico">🖼️</span><span class="pick-title">Choose photos</span>
+              <span class="pick-sub">From your gallery</span>
+            </label>
+          </div>
           <input type="file" id="files" accept="image/*" multiple style="display:none;">
+          <input type="file" id="camFallback" accept="image/*" capture="environment" style="display:none;">
+          <div id="thumbs" class="thumbs"></div>
+          <p class="picked" id="picked">Up to 10 receipts at a time.</p>
 
           <label class="sp-field-label" for="trip">Trip (optional)</label>
           <input id="trip" class="ctl" list="tripNames" placeholder="e.g. Oxford trip" autocomplete="off">
@@ -94,6 +132,24 @@
       </div>
 
       <div id="results"></div>
+
+      <div id="cam" class="cam" hidden>
+        <div class="cam-top">
+          <button type="button" class="txt" id="camCancel">Cancel</button>
+          <span class="cam-count" id="camCount">0 of 10</span>
+          <button type="button" class="txt" id="camDone" disabled>Done</button>
+        </div>
+        <video id="camVideo" playsinline autoplay muted></video>
+        <div class="cam-msg" id="camMsg" hidden></div>
+        <div class="cam-hint" id="camHint">One receipt per photo · fill the frame · hold steady</div>
+        <div class="cam-strip" id="camStrip"></div>
+        <div class="cam-bottom">
+          <span style="min-width:84px"></span>
+          <button type="button" class="cam-shutter" id="camShutter" aria-label="Take photo"></button>
+          <span style="min-width:84px"></span>
+        </div>
+        <div class="cam-flash" id="camFlash"></div>
+      </div>
 
       <div id="saveBar" class="savebar" hidden>
         <button id="saveAllBtn" class="sp-btn-primary" style="padding:12px;">Save all that add up</button>
@@ -115,7 +171,7 @@
     const SECTION_COLOR = { groceries: 'var(--cat-groceries-dot)', outabout: 'var(--cat-outabout-dot)', shopping: 'var(--cat-shopping-dot)',
                             fuel: 'var(--cat-transport-dot)', transport: 'var(--cat-transport-dot)' };
     let SECTIONS = {}, ALIASES = {};
-    let chosenFiles = [];
+    let chosen = [];          // photos waiting to be scanned: { file, url } (url = thumbnail)
     let cards = [];           // one per photo: { id, fileName, status, receipt, section, error, trip }
     let batchTrip = null;
 
@@ -198,9 +254,7 @@
         }
 
         const ok = addsUp(c);
-        const status = ok
-            ? `<span class="pill ok">Adds up</span>`
-            : `<span class="pill check">Check: items ${money(itemsSum(c))} vs total ${money(r.total)}</span>`;
+        const status = statusPill(c);
         const itemRows = (r.items || []).map((it, i) => {
             const qty = parseFloat(it.quantity) || 1;
             const line = parseFloat(it.price) || 0;
@@ -214,7 +268,7 @@
               <div class="iline2">
                 <label>Qty <input class="qty" type="number" step="any" min="0.001" value="${fmtQty(qty)}" data-act="qty" ${a}></label>
                 <label>Line £ <input class="price ${line < 0 ? 'neg' : ''}" type="number" step="0.01" value="${line.toFixed(2)}" data-act="price" ${a}></label>
-                <span class="unit">Unit ${money(unit)}</span>
+                <span class="unit" data-unit="${c.id}-${i}">Unit ${money(unit)}</span>
                 <button class="x" data-act="delitem" ${a} aria-label="Remove item">×</button>
               </div>
             </div>`;
@@ -223,8 +277,8 @@
         return `<div class="sp-card rcard"><div class="sp-card-body">
             <div class="rhead">
               <div><div class="rshop"><span class="sec-dot" style="background:${SECTION_COLOR[c.section]}"></span>${esc(r.shop_name)}</div>
-                <div style="margin-top:4px;">${status}</div></div>
-              <div class="rtotal">${money(r.total)}</div>
+                <div style="margin-top:4px;" data-pill="${c.id}">${status}</div></div>
+              <div class="rtotal" data-rtotal="${c.id}">${money(r.total)}</div>
             </div>
             <div class="controls">
               <div><label>Section${c.section === r.section ? ' (suggested)' : ''}</label>
@@ -237,6 +291,7 @@
               ${c.section === 'fuel' ? `<div><label>Litres</label><input class="ctl" type="number" step="0.01" value="${r.litres || ''}" data-act="litres" data-id="${c.id}"></div>` : ''}
             </div>
             ${r.date ? '' : '<p class="warn" style="margin:4px 0 0;">Couldn’t read the date, so it’s set to today. Please check it.</p>'}
+            ${r.image_filename ? `<p style="margin:6px 0 0;font-size:12px;"><a href="/uploads/receipts/${encodeURIComponent(r.image_filename)}" target="_blank" rel="noopener" style="color:var(--sp-ink-70);">View photo</a></p>` : ''}
             ${String(r.model_used || '').includes('sonnet') ? '<p class="muted" style="font-size:12px;margin:4px 0 0;">Double-checked with a stronger model because the first read didn’t add up.</p>' : ''}
             ${!perLine(c.section) ? `<p class="muted" style="font-size:12px;margin:6px 0 0;">Saved as one ${c.section === 'fuel' ? 'fuel' : 'parking/travel'} entry of ${money(r.total)} on the Transport page.</p>` : ''}
             ${c.error ? `<p class="err" style="margin:6px 0 0;">${esc(c.error)}</p>` : ''}
@@ -251,8 +306,19 @@
         </div></div>`;
     }
 
+    function statusPill(c) {
+        return addsUp(c)
+            ? `<span class="pill ok">Adds up</span>`
+            : `<span class="pill check">Check: items ${money(itemsSum(c))} vs total ${money(c.receipt.total)}</span>`;
+    }
+
     function render() {
         el('results').innerHTML = cards.map(renderCard).join('');
+        renderBar();
+    }
+
+    // The save bar and counts (also refreshed on their own while someone is typing in a card).
+    function renderBar() {
         const ready = cards.filter(c => c.status === 'ready');
         const matching = ready.filter(addsUp);
         const saved = cards.filter(c => c.status === 'saved').length;
@@ -288,13 +354,15 @@
     }
 
     async function startScan() {
-        if (!chosenFiles.length) { el('picked').textContent = 'Choose at least one photo first'; return; }
+        if (!chosen.length) { el('picked').innerHTML = '<span class="err">Take or choose at least one photo first.</span>'; return; }
         if (cards.some(c => c.status === 'ready')) {
             const go = await showModal({ title: 'Start a new batch?', message: 'Receipts above that aren’t saved yet will be cleared.', type: 'confirm', confirmLabel: 'Start new batch' });
             if (!go) return;
         }
         batchTrip = (el('trip').value || '').replace(/\s+/g, ' ').trim() || null;
-        cards = chosenFiles.map((f, i) => ({ id: i + 1, order: i, fileName: f.name, status: 'queued', trip: batchTrip }));
+        const files = chosen.map(c => c.file);
+        clearChosen();
+        cards = files.map((f, i) => ({ id: i + 1, order: i, fileName: `Receipt ${i + 1}`, status: 'queued', trip: batchTrip }));
         el('scanBtn').disabled = true;
         el('progress').hidden = false;
         render();
@@ -308,7 +376,7 @@
         const worker = async () => {
             while (next < cards.length) {
                 const i = next++;
-                await scanOne(cards[i], chosenFiles[i]);
+                await scanOne(cards[i], files[i]);
                 done++; updateProgress(); render();
             }
         };
@@ -318,9 +386,6 @@
         cards.sort((a, b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31') || a.order - b.order);
         el('progress').hidden = true;
         el('scanBtn').disabled = false;
-        chosenFiles = [];
-        el('files').value = '';
-        el('picked').textContent = 'JPG or PNG · up to 10';
         render();
     }
 
@@ -354,17 +419,110 @@
     }
 
     // ── events ────────────────────────────────────────────────────────────
-    el('files').addEventListener('change', e => {
-        const files = [...e.target.files];
-        if (files.length > MAX_FILES) {
-            chosenFiles = [];
-            e.target.value = '';
-            el('picked').innerHTML = `<span class="err">You picked ${files.length} photos — please choose up to ${MAX_FILES} at a time.</span>`;
+    // ── choosing / taking photos ──────────────────────────────────────────
+    function renderChosen(note) {
+        el('thumbs').innerHTML = chosen.map((c, i) => `<div class="thumb"><img src="${c.url}" alt="Receipt photo ${i + 1}">
+            <button type="button" data-rm="${i}" aria-label="Remove photo ${i + 1}">×</button></div>`).join('');
+        const left = MAX_FILES - chosen.length;
+        el('picked').innerHTML = note ? note : chosen.length
+            ? `${chosen.length} photo${chosen.length === 1 ? '' : 's'} ready${left ? ` · you can add ${left} more` : ' · that’s the maximum'} — then tap <strong>Scan receipts</strong>.`
+            : 'Up to 10 receipts at a time.';
+        el('scanBtn').textContent = chosen.length ? `Scan ${chosen.length} receipt${chosen.length === 1 ? '' : 's'}` : 'Scan receipts';
+    }
+    function addFiles(files) {
+        const images = [...files].filter(f => !f.type || f.type.startsWith('image/'));
+        const room = MAX_FILES - chosen.length;
+        images.slice(0, Math.max(0, room)).forEach(file => chosen.push({ file, url: URL.createObjectURL(file) }));
+        renderChosen(images.length > room ? `<span class="err">Only ${MAX_FILES} photos at a time — ${images.length - Math.max(0, room)} left out. Scan these first, then add the rest.</span>` : '');
+    }
+    function clearChosen() {
+        chosen.forEach(c => URL.revokeObjectURL(c.url));
+        chosen = [];
+        el('files').value = ''; el('camFallback').value = '';
+        renderChosen();
+    }
+    el('files').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+    el('camFallback').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+    el('thumbs').addEventListener('click', e => {
+        const b = e.target.closest('[data-rm]');
+        if (!b) return;
+        const [c] = chosen.splice(Number(b.dataset.rm), 1);
+        if (c) URL.revokeObjectURL(c.url);
+        renderChosen();
+    });
+
+    // In-page camera: live view + shutter, so several receipts can be photographed in a row.
+    // Photos stay in the page (they're not saved to the phone's gallery). If the camera can't be opened,
+    // the phone's own camera is offered instead (one photo per tap).
+    let camStream = null;
+    function camMessage(html) {
+        el('camVideo').hidden = !!html; el('camMsg').hidden = !html; el('camMsg').innerHTML = html || '';
+        el('camShutter').disabled = !!html; el('camShutter').style.visibility = html ? 'hidden' : ''; el('camHint').hidden = !!html;
+    }
+    function camUpdate() {
+        el('camCount').textContent = `${chosen.length} of ${MAX_FILES}`;
+        el('camDone').disabled = !chosen.length;
+        el('camDone').textContent = chosen.length ? `Done (${chosen.length})` : 'Done';
+        el('camStrip').innerHTML = chosen.map(c => `<img src="${c.url}" alt="">`).join('');
+        el('camStrip').scrollLeft = el('camStrip').scrollWidth;
+    }
+    async function openCamera() {
+        if (chosen.length >= MAX_FILES) { renderChosen(`<span class="err">That’s ${MAX_FILES} photos already — scan these first.</span>`); return; }
+        el('cam').hidden = false;
+        document.body.style.overflow = 'hidden';
+        camUpdate();
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            camMessage('This browser can’t show the camera inside the page.<label for="camFallback">Use the phone camera</label>');
             return;
         }
-        chosenFiles = files;
-        el('picked').textContent = files.length ? `${files.length} photo${files.length === 1 ? '' : 's'} ready` : 'JPG or PNG · up to 10';
-    });
+        camMessage('Starting the camera…');
+        try {
+            camStream = await navigator.mediaDevices.getUserMedia({ audio: false,
+                video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+            if (el('cam').hidden) { stopCamera(); return; }   // closed while starting
+            el('camVideo').srcObject = camStream;
+            await el('camVideo').play().catch(() => {});
+            camMessage('');
+        } catch (e) {
+            const blocked = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+            camMessage(`${blocked ? 'Camera access is turned off for this site.' : 'Couldn’t start the camera.'}
+                <label for="camFallback">Use the phone camera instead</label>
+                <span style="font-size:12px;opacity:.7">(one photo per tap — or allow camera access for this site in your browser settings)</span>`);
+        }
+    }
+    function stopCamera() {
+        if (camStream) camStream.getTracks().forEach(t => t.stop());
+        camStream = null;
+        el('camVideo').srcObject = null;
+    }
+    function closeCamera() {
+        stopCamera();
+        el('cam').hidden = true;
+        document.body.style.overflow = '';
+        renderChosen();
+    }
+    function takePhoto() {
+        const v = el('camVideo');
+        if (!camStream || !v.videoWidth || chosen.length >= MAX_FILES) return;
+        const c = document.createElement('canvas');
+        c.width = v.videoWidth; c.height = v.videoHeight;
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        el('camFlash').classList.add('on');
+        setTimeout(() => el('camFlash').classList.remove('on'), 60);
+        c.toBlob(blob => {
+            if (!blob) return;
+            const file = new File([blob], `receipt-${chosen.length + 1}.jpg`, { type: 'image/jpeg' });
+            chosen.push({ file, url: URL.createObjectURL(file) });
+            camUpdate();
+            if (chosen.length >= MAX_FILES) closeCamera();
+        }, 'image/jpeg', 0.92);
+    }
+    el('camBtn').addEventListener('click', openCamera);
+    el('camShutter').addEventListener('click', takePhoto);
+    el('camDone').addEventListener('click', closeCamera);
+    el('camCancel').addEventListener('click', closeCamera);
+    el('camFallback').addEventListener('change', () => { if (!el('cam').hidden) closeCamera(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && camStream) closeCamera(); });
     el('scanBtn').addEventListener('click', startScan);
     el('saveAllBtn').addEventListener('click', saveAllMatching);
 
@@ -386,17 +544,29 @@
             c.section = t.value;
             r.items.forEach(it => { it.category = categoryForSection(it.category, c.section, it.price); });
         }
+        if (t.dataset.act === 'section') { render(); return; }   // new category lists → redraw the card
         if (t.dataset.act === 'date') c.date = t.value;
         if (t.dataset.act === 'total') r.total = round2(parseFloat(t.value) || 0);
         if (t.dataset.act === 'litres') r.litres = parseFloat(t.value) || null;
         if (t.dataset.act === 'cat') r.items[Number(t.dataset.i)].category = t.value;
         if (t.dataset.act === 'qty') r.items[Number(t.dataset.i)].quantity = parseFloat(t.value) > 0 ? parseFloat(t.value) : 1;
         if (t.dataset.act === 'price') r.items[Number(t.dataset.i)].price = round2(parseFloat(t.value) || 0);
-        render();
+        // Typed fields are updated in place (no redraw), so tapping the next box keeps the cursor and keyboard.
+        if (t.dataset.act === 'qty' || t.dataset.act === 'price') {
+            const it = r.items[Number(t.dataset.i)];
+            const u = el('results').querySelector(`[data-unit="${c.id}-${t.dataset.i}"]`);
+            if (u) u.textContent = `Unit ${money((parseFloat(it.price) || 0) / (parseFloat(it.quantity) || 1))}`;
+            if (t.dataset.act === 'price') t.classList.toggle('neg', it.price < 0);
+        }
+        const head = el('results').querySelector(`[data-rtotal="${c.id}"]`);
+        if (head) head.textContent = money(r.total);
+        const pill = el('results').querySelector(`[data-pill="${c.id}"]`);
+        if (pill) pill.innerHTML = statusPill(c);
+        renderBar();
     });
 
     window.addEventListener('beforeunload', e => {
-        if (cards.some(c => ['queued', 'reading', 'ready', 'saving'].includes(c.status))) { e.preventDefault(); e.returnValue = ''; }
+        if (chosen.length || cards.some(c => ['queued', 'reading', 'ready', 'saving'].includes(c.status))) { e.preventDefault(); e.returnValue = ''; }
     });
 
     // ── start ─────────────────────────────────────────────────────────────

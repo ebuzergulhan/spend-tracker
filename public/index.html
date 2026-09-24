@@ -21,9 +21,9 @@
 
       <!-- Tab pills -->
       <div class="flex gap-2 mb-6 flex-wrap">
+        <button onclick="showTab('dashboard')" id="tab-dashboard" class="sp-pill sp-pill-active">Dashboard</button>
         <button onclick="showTab('upload')" id="tab-upload" class="sp-pill">Upload</button>
         <button onclick="showTab('manual')" id="tab-manual" class="sp-pill">Manual Entry</button>
-        <button onclick="showTab('dashboard')" id="tab-dashboard" class="sp-pill sp-pill-active">Dashboard</button>
         <button onclick="showTab('history')" id="tab-history" class="sp-pill">History</button>
       </div>
 
@@ -95,52 +95,20 @@
 
       <!-- Dashboard Tab -->
       <div id="page-dashboard">
-        <div class="flex justify-end mb-4">
-          <select id="dashPeriod" onchange="setDashboardPeriod(this.value)" class="sp-select" style="width:auto;">
-            <option value="all">All Time</option>
-            <option value="this-month">This Month</option>
-            <option value="last-month">Last Month</option>
-            <option value="last-3-months">Last 3 Months</option>
-            <option value="last-6-months">Last 6 Months</option>
-            <option value="this-year">This Year</option>
-            <option value="last-year">Last Year</option>
-          </select>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 sp-grid-2">
-          <div class="sp-kpi">
-            <div class="sp-kpi-label" id="stat-month-label">This Month</div>
-            <div class="sp-kpi-value" id="stat-month">&mdash;</div>
-          </div>
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">Total Spent</div>
-            <div class="sp-kpi-value" id="stat-total">&mdash;</div>
-          </div>
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">Receipts</div>
-            <div class="sp-kpi-value" id="stat-receipts">&mdash;</div>
-          </div>
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">Top Shop</div>
-            <div class="sp-kpi-value truncate" id="stat-topshop">&mdash;</div>
-          </div>
-        </div>
+        <div id="report"></div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">Monthly Spending</h3></div></div>
-            <div class="sp-card-body"><div id="monthlyStats"></div></div>
+            <div class="sp-card-head"><div><h3 class="sp-card-title">By Category</h3><div class="sp-card-sub dash-range"></div></div></div>
+            <div class="sp-card-body"><div id="categoryStats"></div></div>
           </div>
           <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Category</h3></div></div>
-            <div class="sp-card-body"><div id="categoryStats"></div></div>
+            <div class="sp-card-head"><div><h3 class="sp-card-title">By Shop</h3><div class="sp-card-sub dash-range"></div></div></div>
+            <div class="sp-card-body"><div id="shopStats"></div></div>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Shop</h3></div></div>
-            <div class="sp-card-body"><div id="shopStats"></div></div>
-          </div>
-          <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">Most Bought Items</h3></div></div>
+            <div class="sp-card-head"><div><h3 class="sp-card-title">Most Bought Items</h3><div class="sp-card-sub dash-range"></div></div></div>
             <div class="sp-card-body"><div id="frequentItems"></div></div>
           </div>
         </div>
@@ -226,6 +194,8 @@
 
 <script src="shared.js"></script>
 <script src="spectrum-shell.js"></script>
+<script src="report-logic.js"></script>
+<script src="report-view.js"></script>
 <script src="app.js"></script>
 <script>
     initSpectrum({
@@ -233,7 +203,11 @@
       title: 'Spend Tracker',
       subtitle: 'Track every penny you spend',
     });
-    loadDashboard();
+    // The report's period / range (or a tapped row) drives the category, shop and item lists below it.
+    window.groceryReport = ReportView.mount(document.getElementById('report'), {
+      section: 'groceries',
+      onRange: (from, to, label) => setDashboardRange(from, to, label),
+    });
 </script>
 </body>
 </html>

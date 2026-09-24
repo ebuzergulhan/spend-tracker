@@ -15,15 +15,29 @@
     <div class="sp-body">
 
       <!-- Tab pills -->
-      <div class="flex gap-2 mb-6">
-        <button onclick="showTab('upload')" id="tab-upload" class="sp-pill">Upload</button>
-        <button onclick="showTab('manual')" id="tab-manual" class="sp-pill">Manual</button>
-        <button onclick="showTab('history')" id="tab-history" class="sp-pill">History</button>
+      <div class="flex gap-2 mb-6 flex-wrap">
         <button onclick="showTab('stats')" id="tab-stats" class="sp-pill sp-pill-active">Dashboard</button>
+        <button onclick="showTab('upload')" id="tab-upload" class="sp-pill">Upload</button>
+        <button onclick="showTab('manual')" id="tab-manual" class="sp-pill">Manual Entry</button>
+        <button onclick="showTab('history')" id="tab-history" class="sp-pill">History</button>
+      </div>
+
+      <!-- Dashboard Tab -->
+      <div id="page-stats">
+        <div id="report"></div>
       </div>
 
       <!-- Upload Tab -->
       <div id="page-upload" class="hidden">
+        <a href="scan.html" class="sp-card max-w-lg mx-auto block mb-4" style="text-decoration:none;color:inherit;">
+          <div class="sp-card-body" style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;">
+              <p style="font-size:14px;font-weight:600;color:var(--sp-ink);">Several receipts? Use Scan receipts</p>
+              <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">Take up to 10 photos in a row with the camera, check each one, then save.</p>
+            </div>
+            <span style="font-size:18px;color:var(--sp-ink-50);">→</span>
+          </div>
+        </a>
         <div class="sp-card max-w-lg mx-auto">
           <div class="sp-card-head"><div><h3 class="sp-card-title">Scan a Receipt</h3></div></div>
           <div class="sp-card-body">
@@ -36,13 +50,13 @@
                   </svg>
                 </div>
                 <p style="font-size:14px;font-weight:500;color:var(--sp-ink);">Choose a receipt photo</p>
-                <p style="font-size:13px;color:var(--sp-ink-50);margin-top:4px;">JPG, PNG up to 10MB</p>
+                <p style="font-size:13px;color:var(--sp-ink-50);margin-top:4px;">The photo is kept with the receipt</p>
                 <input type="file" id="receiptImage" accept="image/*" class="hidden"/>
               </label>
               <p id="fileName" class="text-center text-sm font-medium mb-4 hidden" style="color:var(--cat-outabout-fg);"></p>
               <div class="mb-4">
                 <label class="sp-field-label">Trip / Event name <span style="color:var(--sp-ink-50);font-weight:normal;">(optional — groups receipts together)</span></label>
-                <input type="text" id="tripName" placeholder="e.g. Oxford Trip" class="sp-input"/>
+                <input type="text" id="tripName" placeholder="e.g. Oxford Trip" class="sp-input" list="tripList"/>
               </div>
               <button type="submit" class="sp-btn-primary w-full" style="padding:12px;">Scan Receipt</button>
             </form>
@@ -55,8 +69,8 @@
         <div id="resultCard" class="sp-card max-w-lg mx-auto mt-4 hidden">
           <div class="sp-card-body">
             <div class="flex items-center gap-2 mb-4">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--sp-up-bg);">
-                <svg class="w-4 h-4" style="color:var(--sp-up);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center" style="background:var(--sp-down-bg);">
+                <svg class="w-4 h-4" style="color:var(--sp-down);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
               </div>
@@ -104,7 +118,7 @@
               </div>
               <div>
                 <label class="sp-field-label">Trip / Event name <span style="color:var(--sp-ink-50);font-weight:normal;">(optional)</span></label>
-                <input type="text" id="m-trip" placeholder="e.g. Oxford Trip" class="sp-input"/>
+                <input type="text" id="m-trip" placeholder="e.g. Oxford Trip" class="sp-input" list="tripList"/>
               </div>
               <button type="submit" class="sp-btn-primary w-full" style="padding:12px;">Add Expense</button>
             </form>
@@ -115,49 +129,21 @@
       <!-- History Tab -->
       <div id="page-history" class="hidden">
         <div class="sp-card mb-6">
-          <div class="sp-card-head"><div><h3 class="sp-card-title">Receipt History</h3></div></div>
+          <div class="sp-card-head"><div><h3 class="sp-card-title">Receipt History</h3><div class="sp-card-sub">Newest first · tap a receipt to see, edit or delete it</div></div></div>
           <div class="sp-card-body"><div id="historyContent"></div></div>
         </div>
       </div>
 
-      <!-- Stats Tab -->
-      <div id="page-stats">
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 sp-grid-2">
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">This Month</div>
-            <div class="sp-kpi-value" id="stat-month">&mdash;</div>
-          </div>
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">Total Spent</div>
-            <div class="sp-kpi-value" id="stat-total">&mdash;</div>
-          </div>
-          <div class="sp-kpi">
-            <div class="sp-kpi-label">Visits</div>
-            <div class="sp-kpi-value" id="stat-visits">&mdash;</div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Category</h3></div></div>
-            <div class="sp-card-body"><div id="categoryStats"></div></div>
-          </div>
-          <div class="sp-card">
-            <div class="sp-card-head"><div><h3 class="sp-card-title">By Place</h3></div></div>
-            <div class="sp-card-body"><div id="placeStats"></div></div>
-          </div>
-        </div>
-        <div class="sp-card mb-6">
-          <div class="sp-card-head"><div><h3 class="sp-card-title">Monthly Spending</h3></div></div>
-          <div class="sp-card-body"><div id="monthlyStats"></div></div>
-        </div>
-      </div>
-
+      <datalist id="tripList"></datalist>
     </div>
   </main>
 </div>
 
 <script src="shared.js"></script>
 <script src="spectrum-shell.js"></script>
+<script src="report-logic.js"></script>
+<script src="report-view.js"></script>
+<script src="receipt-history.js"></script>
 <script>
     initSpectrum({
       active: 'outabout',
@@ -165,17 +151,23 @@
       subtitle: 'Restaurants, coffee, parking & more',
     });
 
+    const TABS = ['stats', 'upload', 'manual', 'history'];
+    const report = ReportView.mount(document.getElementById('report'), { section: 'outabout', showPlaces: true, showCategories: true });
+    const historyView = ReceiptHistory.mount(document.getElementById('historyContent'), {
+        section: 'outabout', base: '/outings', groupTrips: true, onChange: () => report.reload() });
+
     function showTab(name) {
-        ['upload','manual','history','stats'].forEach(t => {
+        TABS.forEach(t => {
             document.getElementById('page-' + t).classList.toggle('hidden', t !== name);
-            const btn = document.getElementById('tab-' + t);
-            btn.classList.toggle('sp-pill-active', t === name);
+            document.getElementById('tab-' + t).classList.toggle('sp-pill-active', t === name);
         });
-        if (name === 'history') loadHistory();
-        if (name === 'stats')   loadStats();
+        if (name === 'history') historyView.load();
+        if (name === 'stats') report.reload();
     }
 
-    loadStats();
+    fetch('/trips').then(r => r.json()).then(t => {
+        document.getElementById('tripList').innerHTML = (Array.isArray(t) ? t : []).map(x => `<option value="${String(x.name).replace(/"/g, '&quot;')}">`).join('');
+    }).catch(() => {});
 
     // ── Upload ─────────────────────────────────────────────────────────────
     const fileInput = document.getElementById('receiptImage');
@@ -191,7 +183,7 @@
         document.getElementById('resultCard').classList.add('hidden');
 
         const formData = new FormData();
-        formData.append('receiptImage', fileInput.files[0]);
+        formData.append('receiptImage', await shrinkImage(fileInput.files[0], 2000));
         const tripName = document.getElementById('tripName').value.trim();
         if (tripName) formData.append('trip_name', tripName);
 
@@ -205,22 +197,25 @@
                 return;
             }
 
+            const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
             const card = document.getElementById('resultCard');
             const content = document.getElementById('resultContent');
             card.classList.remove('hidden');
             content.innerHTML = `
-                <p style="font-size:13px;color:var(--sp-ink-50);margin-bottom:12px;">${data.place_name}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}${tripName ? ' · <span style="color:var(--cat-outabout-fg);font-weight:500;">' + tripName + '</span>' : ''}</p>
+                <p style="font-size:13px;color:var(--sp-ink-50);margin-bottom:12px;">${esc(data.place_name)}${data.date ? ' · ' + formatDate(data.date) : ''} · ${fmt(data.total)}${tripName ? ' · <span style="color:var(--cat-outabout-fg);font-weight:500;">' + esc(tripName) + '</span>' : ''}</p>
                 <div class="space-y-1">
                     ${(data.items || []).map(i => `
                         <div class="flex justify-between text-sm">
-                            <span style="color:var(--sp-ink);">${i.name} <span style="color:var(--sp-ink-50);font-size:12px;">${i.category}</span></span>
+                            <span style="color:var(--sp-ink);">${esc(i.name)} <span style="color:var(--sp-ink-50);font-size:12px;">${esc(i.category)}</span></span>
                             <span class="sp-num" style="font-weight:500;color:var(--sp-ink);">${fmt(i.price)}</span>
                         </div>
                     `).join('')}
                 </div>
+                <p style="font-size:12px;color:var(--sp-ink-50);margin-top:12px;">Saved. Anything wrong? Fix it in History → Edit receipt.</p>
             `;
             e.target.reset();
             document.getElementById('fileName').classList.add('hidden');
+            report.reload();
         } catch (err) {
             document.getElementById('loadingMsg').classList.add('hidden');
             await showModal({ title: 'Error', message: err.message, type: 'alert' });
@@ -228,7 +223,8 @@
     };
 
     // ── Manual entry ───────────────────────────────────────────────────────
-    document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+    const todayLocal = () => new Date().toLocaleDateString('en-CA');
+    document.getElementById('m-date').value = todayLocal();
 
     document.getElementById('manualForm').onsubmit = async e => {
         e.preventDefault();
@@ -244,203 +240,10 @@
             })
         });
         e.target.reset();
-        document.getElementById('m-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('m-date').value = todayLocal();
+        report.reload();
         await showModal({ title: 'Added', message: 'Expense saved.', type: 'alert', confirmLabel: 'OK' });
     };
-
-    // ── History ────────────────────────────────────────────────────────────
-    let outings = [];
-    let expandedOuting = null;
-    let expandedTrip = null;
-    const outingItemsCache = {};
-
-    async function loadHistory() {
-        outings = await fetch('/outings').then(r => r.json());
-        renderHistory();
-    }
-
-    function renderHistory() {
-        const el = document.getElementById('historyContent');
-        if (!outings.length) { el.innerHTML = '<p style="color:var(--sp-ink-50);font-size:13px;text-align:center;padding:24px 0;">No outings yet.</p>'; return; }
-
-        const tripMap = {};
-        const individuals = [];
-        outings.forEach(r => {
-            if (r.trip_name) {
-                if (!tripMap[r.trip_name]) tripMap[r.trip_name] = [];
-                tripMap[r.trip_name].push(r);
-            } else {
-                individuals.push(r);
-            }
-        });
-
-        let html = '';
-
-        Object.entries(tripMap).forEach(([tripName, receipts]) => {
-            const tripTotal = receipts.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
-            const dates = receipts.map(r => r.date).filter(Boolean).sort();
-            const dateStr = dates.length
-                ? (dates[0] === dates[dates.length-1] ? formatDate(dates[0]) : formatDate(dates[0]) + ' – ' + formatDate(dates[dates.length-1]))
-                : '';
-            const isOpen = expandedTrip === tripName;
-            html += `
-                <div class="mb-3">
-                    <div class="flex items-center gap-3 py-3 cursor-pointer rounded-xl px-3 -mx-1 transition" style="transition:background 0.15s;" onmouseover="this.style.background='var(--cat-outabout-bg)'" onmouseout="this.style.background='transparent'" onclick="toggleTrip('${tripName.replace(/'/g, "\\'")}')">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style="background:var(--cat-outabout-bg);">
-                            <svg class="w-4 h-4" style="color:var(--cat-outabout-fg);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                        </div>
-                        <div class="flex-1">
-                            <p style="font-size:13px;font-weight:600;color:var(--sp-ink);">${tripName}</p>
-                            <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${dateStr} · ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''}</p>
-                        </div>
-                        <p class="sp-num" style="font-size:13px;font-weight:700;color:var(--cat-outabout-fg);">${fmt(tripTotal)}</p>
-                        <svg class="w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}" style="color:var(--sp-ink-30);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </div>
-                    ${isOpen ? `
-                        <div class="ml-4 pl-4 mb-2" style="border-left:2px solid var(--cat-outabout-bg);">
-                            ${receipts.map(r => receiptRow(r, true)).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            `;
-        });
-
-        if (individuals.length) {
-            if (Object.keys(tripMap).length) {
-                html += `<p style="font-size:11px;font-weight:600;color:var(--sp-ink-50);text-transform:uppercase;letter-spacing:0.05em;margin-top:16px;margin-bottom:8px;">Individual</p>`;
-            }
-            html += individuals.map(r => `<div style="border-bottom:1px solid var(--sp-ink-04);">${receiptRow(r, false)}</div>`).join('');
-        }
-
-        el.innerHTML = html;
-    }
-
-    function receiptRow(r, inTrip) {
-        const dateStr = r.date ? formatDate(r.date) : '<span style="color:var(--sp-ink-50);">* Date unread</span>';
-        const isExpanded = expandedOuting === r.created_at;
-        return `
-            <div>
-                <div class="flex items-center gap-3 py-2.5 cursor-pointer rounded-xl px-2 -mx-2 transition" onclick="toggleOuting('${r.created_at}')">
-                    <div class="flex-1">
-                        <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${r.place_name}</p>
-                        <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${dateStr}</p>
-                    </div>
-                    <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(r.receipt_total)}</p>
-                    <svg class="w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}" style="color:var(--sp-ink-30);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                    </svg>
-                </div>
-                ${isExpanded ? expandedHtml(r) : ''}
-            </div>
-        `;
-    }
-
-    function expandedHtml(r) {
-        const items = outingItemsCache[r.created_at];
-        if (!items) return '<div style="padding:8px;font-size:12px;color:var(--sp-ink-50);">Loading...</div>';
-        const addedDate = new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        return `
-            <div class="ml-2 pb-3 space-y-1">
-                ${items.map(i => `
-                    <div class="flex justify-between text-sm py-1">
-                        <span style="color:var(--sp-ink);">${parseFloat(i.quantity) > 1 ? `<span style="font-weight:600;color:var(--cat-outabout-fg);">${parseFloat(i.quantity) % 1 === 0 ? parseInt(i.quantity) : parseFloat(i.quantity)}x</span> ` : ''}${i.item_name} <span style="font-size:12px;color:var(--sp-ink-50);">${i.category}</span></span>
-                        <span class="sp-num" style="color:var(--sp-ink);">${fmt(i.item_price)}</span>
-                    </div>
-                `).join('')}
-                <p style="font-size:12px;color:var(--sp-ink-50);padding-top:8px;">Added ${addedDate}</p>
-                <button onclick="deleteOuting('${r.created_at}')" class="mt-2 flex items-center gap-1 transition" style="font-size:12px;color:var(--sp-down);opacity:0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
-                    Delete
-                </button>
-            </div>
-        `;
-    }
-
-    function toggleTrip(tripName) {
-        expandedTrip = expandedTrip === tripName ? null : tripName;
-        renderHistory();
-    }
-
-    async function toggleOuting(createdAt) {
-        if (expandedOuting === createdAt) { expandedOuting = null; renderHistory(); return; }
-        expandedOuting = createdAt;
-        renderHistory();
-        if (!outingItemsCache[createdAt]) {
-            outingItemsCache[createdAt] = await fetch('/outings/' + encodeURIComponent(createdAt) + '/items').then(r => r.json());
-            renderHistory();
-        }
-    }
-
-    async function deleteOuting(createdAt) {
-        const ok = await showModal({ title: 'Delete', message: 'Remove this outing?', type: 'confirm', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
-        if (!ok) return;
-        await fetch('/outings/' + encodeURIComponent(createdAt), { method: 'DELETE' });
-        delete outingItemsCache[createdAt];
-        expandedOuting = null;
-        loadHistory();
-    }
-
-    // ── Stats ──────────────────────────────────────────────────────────────
-    async function loadStats() {
-        const now = new Date();
-        const monthStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-        const monthEnd   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
-
-        const [allOutings, monthCats, cats, places, monthly] = await Promise.all([
-            fetch('/outings').then(r => r.json()),
-            fetch(`/stats/outings/categories?from=${monthStart}&to=${monthEnd}`).then(r => r.json()),
-            fetch('/stats/outings/categories').then(r => r.json()),
-            fetch('/stats/outings/places').then(r => r.json()),
-            fetch('/stats/outings/monthly').then(r => r.json())
-        ]);
-
-        const monthTotal = monthCats.reduce((s, c) => s + parseFloat(c.total_spent), 0);
-        const allTotal   = allOutings.reduce((s, r) => s + parseFloat(r.receipt_total), 0);
-        document.getElementById('stat-month').textContent  = fmt(monthTotal);
-        document.getElementById('stat-total').textContent  = fmt(allTotal);
-        document.getElementById('stat-visits').textContent = allOutings.length;
-
-        const maxCat = Math.max(...cats.map(c => parseFloat(c.total_spent)), 1);
-        document.getElementById('categoryStats').innerHTML = cats.length ? cats.map(c => `
-            <div class="flex items-center gap-3 mb-3">
-                <span style="font-size:13px;color:var(--sp-ink);width:128px;flex-shrink:0;" class="truncate">${c.category}</span>
-                <div class="flex-1 rounded-full h-2" style="background:var(--sp-ink-08);">
-                    <div class="h-2 rounded-full transition-all duration-700" style="width:${(parseFloat(c.total_spent)/maxCat*100).toFixed(1)}%;background:var(--cat-outabout-dot);"></div>
-                </div>
-                <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(c.total_spent)}</span>
-            </div>
-        `).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-
-        const maxPlace = Math.max(...places.map(p => parseFloat(p.total_spent)), 1);
-        document.getElementById('placeStats').innerHTML = places.length ? places.map(p => `
-            <div class="flex items-center gap-3 mb-3">
-                <span style="font-size:13px;color:var(--sp-ink);width:128px;flex-shrink:0;" class="truncate">${p.place_name}</span>
-                <div class="flex-1 rounded-full h-2" style="background:var(--sp-ink-08);">
-                    <div class="h-2 rounded-full transition-all duration-700" style="width:${(parseFloat(p.total_spent)/maxPlace*100).toFixed(1)}%;background:var(--cat-outabout-fg);opacity:0.7;"></div>
-                </div>
-                <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(p.total_spent)}</span>
-            </div>
-        `).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-
-        const maxMonth = Math.max(...monthly.map(m => parseFloat(m.total_spent)), 1);
-        document.getElementById('monthlyStats').innerHTML = monthly.length ? monthly.map(m => {
-            const [y, mo] = m.month.split('-');
-            const label = new Date(y, mo - 1).toLocaleString('en-GB', { month: 'short', year: 'numeric' });
-            return `
-                <div class="flex items-center gap-3 mb-3">
-                    <span style="font-size:13px;color:var(--sp-ink);width:80px;flex-shrink:0;">${label}</span>
-                    <div class="flex-1 rounded-full h-2" style="background:var(--sp-ink-08);">
-                        <div class="h-2 rounded-full transition-all duration-700" style="width:${(parseFloat(m.total_spent)/maxMonth*100).toFixed(1)}%;background:var(--cat-outabout-dot);"></div>
-                    </div>
-                    <span class="sp-num" style="font-size:13px;font-weight:500;color:var(--sp-ink);width:64px;text-align:right;">${fmt(m.total_spent)}</span>
-                </div>
-            `;
-        }).join('') : '<p style="color:var(--sp-ink-50);font-size:13px;">No data yet.</p>';
-    }
 </script>
 </body>
 </html>

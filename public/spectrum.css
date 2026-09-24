@@ -146,6 +146,9 @@ body { font-family: var(--sp-sans); font-feature-settings: 'cv02','cv11'; }
 .sp-btn-ghost:hover { background: var(--sp-ink-04); color: var(--sp-ink); }
 .sp-pill { background: var(--sp-paper); color: var(--sp-ink-70); border-color: var(--sp-ink-15); }
 .sp-pill::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: var(--sp-ink-70); }
+/* Selected tab (pages use either class) */
+.sp-pill.sp-pill-active, .sp-pill.active { background: var(--sp-ink); color: var(--sp-bg); border-color: var(--sp-ink); font-weight: 600; }
+.sp-pill.sp-pill-active::before, .sp-pill.active::before { background: var(--sp-bg); }
 
 /* ── Card ─────────────────────────────────────────────────────────────── */
 .sp-card {

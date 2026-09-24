@@ -76,9 +76,9 @@ async function insertRows(client, r, createdAt) {
         const table = r.section === 'outabout' ? 'outing_items' : 'shopping_items';
         for (const it of r.items) {
             await client.query(
-                `INSERT INTO ${table} (date, place_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, trip_name)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [r.date, r.shop, it.category, it.name, it.price, it.quantity, it.unit_price, r.total, createdAt, r.trip]
+                `INSERT INTO ${table} (date, place_name, category, item_name, item_price, quantity, unit_price, receipt_total, created_at, trip_name, receipt_image)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [r.date, r.shop, it.category, it.name, it.price, it.quantity, it.unit_price, r.total, createdAt, r.trip, r.image]
             );
         }
         return r.items.length;

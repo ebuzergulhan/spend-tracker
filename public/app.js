@@ -83,38 +83,29 @@ function formatMonth(monthStr) {
     return new Date(year, parseInt(month) - 1).toLocaleString('en-GB', { month: 'short', year: 'numeric' });
 }
 
-// Returns { from, to } date strings for a period, or null for "all time"
-function getPeriodDates(period) {
-    if (period === 'all') return null;
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    if (period === 'this-month')    return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)),     to: fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0)) };
-    if (period === 'last-month')    return { from: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: fmt(new Date(now.getFullYear(), now.getMonth(), 0)) };
-    if (period === 'last-3-months') return { from: fmt(new Date(now.getFullYear(), now.getMonth() - 3, 1)), to: fmt(now) };
-    if (period === 'last-6-months') return { from: fmt(new Date(now.getFullYear(), now.getMonth() - 6, 1)), to: fmt(now) };
-    if (period === 'this-year')     return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` };
-    if (period === 'last-year')     return { from: `${now.getFullYear() - 1}-01-01`, to: `${now.getFullYear() - 1}-12-31` };
-    return null;
+// Date range for the dashboard lists, set by the report at the top of the Dashboard tab.
+let dashboardRange = { from: null, to: null, label: 'all time' };
+
+function setDashboardRange(from, to, label) {
+    dashboardRange = { from, to, label };
+    loadDashboard();
 }
 
-let dashboardPeriod = 'all';
-
-function setDashboardPeriod(period) {
-    dashboardPeriod = period;
-    loadDashboard();
+function dashboardQs() {
+    const { from, to } = dashboardRange;
+    return from || to ? `?from=${from || '2000-01-01'}&to=${to || '9999-12-31'}` : '';
 }
 
 // Tab navigation
 function showTab(tab) {
     TABS.forEach(t => {
         document.getElementById('page-' + t).classList.add('hidden');
-        document.getElementById('tab-' + t).classList.remove('active');
+        document.getElementById('tab-' + t).classList.remove('active', 'sp-pill-active');
     });
     document.getElementById('page-' + tab).classList.remove('hidden');
-    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('sp-pill-active');
 
-    if (tab === 'dashboard') loadDashboard();
+    if (tab === 'dashboard' && window.groceryReport) groceryReport.reload();
     if (tab === 'history') loadHistory();
     if (tab === 'manual') initManualForm();
 }
@@ -325,6 +316,7 @@ async function confirmSave() {
         document.getElementById('resultCard').classList.add('hidden');
         document.getElementById('scan-card-title').textContent = 'Receipt Scanned';
         await showModal({ title: '✓ Saved', message: `${result.item_count} items from ${result.shop_name} saved successfully.` });
+        if (window.groceryReport) groceryReport.reload();
         loadDashboard();
     } catch (err) {
         await showModal({ title: 'Something went wrong', message: 'Could not save. Please try again.' });
@@ -448,6 +440,7 @@ document.getElementById('manualForm').addEventListener('submit', async function 
 
         if (result.success) {
             await showModal({ title: 'Saved', message: 'Your entry has been saved successfully.' });
+            if (window.groceryReport) groceryReport.reload();
             document.getElementById('manualForm').reset();
             document.getElementById('manualItems').innerHTML = '';
             addManualItem();
@@ -458,59 +451,20 @@ document.getElementById('manualForm').addEventListener('submit', async function 
     }
 });
 
-// Dashboard
+// Dashboard lists (the report at the top of the tab has the totals)
+let dashboardLoadId = 0;
 async function loadDashboard() {
-    const dates = getPeriodDates(dashboardPeriod);
-    const qs = dates ? `?from=${dates.from}&to=${dates.to}` : '';
-
-    const [shops, cats, frequent, monthly] = await Promise.all([
+    const qs = dashboardQs();
+    const loadId = ++dashboardLoadId;
+    const [shops, cats, frequent] = await Promise.all([
         fetch('/stats/shops' + qs).then(r => r.json()),
         fetch('/stats/categories' + qs).then(r => r.json()),
         fetch('/stats/frequent-items' + qs).then(r => r.json()),
-        fetch('/stats/monthly' + qs).then(r => r.json())
     ]);
-
-    const totalAll = shops.reduce((s, r) => s + parseFloat(r.total_spent), 0);
-
-    let periodTotal, periodLabel;
-    if (dashboardPeriod === 'all') {
-        const curMonth = new Date().toISOString().slice(0, 7);
-        periodTotal = parseFloat(monthly.find(m => m.month === curMonth)?.total_spent) || 0;
-        periodLabel = 'This Month';
-    } else {
-        periodTotal = totalAll;
-        const labels = { 'this-month': 'This Month', 'last-month': 'Last Month', 'last-3-months': 'Last 3 Months', 'last-6-months': 'Last 6 Months', 'this-year': 'This Year', 'last-year': 'Last Year' };
-        periodLabel = labels[dashboardPeriod] || 'Period';
-    }
-
-    const receiptsCount = await fetch('/receipts' + qs).then(r => r.json()).then(d => d.length);
-
-    document.getElementById('stat-month-label').textContent = periodLabel;
-    document.getElementById('stat-month').textContent = '£' + periodTotal.toFixed(2);
-    document.getElementById('stat-total').textContent = '£' + totalAll.toFixed(2);
-    document.getElementById('stat-receipts').textContent = receiptsCount;
-    document.getElementById('stat-topshop').textContent = shops[0]?.shop_name || '—';
-
-    const monthlyEl = document.getElementById('monthlyStats');
-    if (monthly.length === 0) {
-        monthlyEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
-    } else {
-        const max = Math.max(...monthly.map(m => parseFloat(m.total_spent)));
-        monthlyEl.innerHTML = monthly.map(m => `
-            <div class="mb-3">
-                <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>${formatMonth(m.month)}</span>
-                    <span class="font-semibold text-gray-700">£${m.total_spent}</span>
-                </div>
-                <div class="rounded-full overflow-hidden" style="background:var(--sp-ink-08);">
-                    <div class="bar" style="width:${(parseFloat(m.total_spent) / max * 100).toFixed(0)}%;background:var(--cat-groceries-dot);"></div>
-                </div>
-            </div>
-        `).join('');
-    }
+    if (loadId !== dashboardLoadId) return;   // a newer range was picked while this one was loading
+    document.querySelectorAll('.dash-range').forEach(el => { el.textContent = dashboardRange.label || ''; });
 
     const catEl = document.getElementById('categoryStats');
-    const catColors = ['#667eea','#48bb78','#ed8936','#e53e3e','#38b2ac','#9f7aea','#f6ad55','#fc8181'];
     if (cats.length === 0) {
         catEl.innerHTML = '<p class="text-gray-300 text-sm">No data yet.</p>';
     } else {
@@ -522,7 +476,7 @@ async function loadDashboard() {
                     <span class="font-semibold text-gray-700">£${c.total_spent}</span>
                 </div>
                 <div class="rounded-full overflow-hidden" style="background:var(--sp-ink-08);">
-                    <div class="bar" style="width:${(parseFloat(c.total_spent) / max * 100).toFixed(0)}%; background:${catColors[i % catColors.length]}"></div>
+                    <div class="bar" style="width:${Math.max(0, parseFloat(c.total_spent) / max * 100).toFixed(0)}%; background:var(--cat-groceries-dot)"></div>
                 </div>
             </div>
         `).join('');
@@ -647,12 +601,15 @@ async function saveReceiptEdit() {
             body: JSON.stringify({ shop_name: shop, date, items })
         });
         const result = await res.json();
-        if (result.success) {
-            delete receiptItemsCache[createdAt];
-            editingReceipt = null;
-            expandedReceipt = createdAt;
-            await loadHistory();
+        if (!res.ok || !result.success) {
+            await showModal({ title: 'Not saved', message: result.error || 'Could not save changes. Please try again.' });
+            return;
         }
+        delete receiptItemsCache[createdAt];
+        editingReceipt = null;
+        expandedReceipt = createdAt;
+        await loadHistory();
+        if (window.groceryReport) groceryReport.reload();
     } catch (error) {
         await showModal({ title: 'Something went wrong', message: 'Could not save changes. Please try again.' });
         console.error(error);
@@ -809,9 +766,7 @@ async function showCategoryDetail(category, totalSpent) {
     contentEl.innerHTML = '<p class="text-gray-400 text-sm py-4 text-center">Loading...</p>';
     overlay.classList.remove('hidden');
 
-    const dates = getPeriodDates(dashboardPeriod);
-    const qs = dates ? `?from=${dates.from}&to=${dates.to}` : '';
-    const items = await fetch(`/stats/categories/${encodeURIComponent(category)}/items${qs}`).then(r => r.json());
+    const items = await fetch(`/stats/categories/${encodeURIComponent(category)}/items${dashboardQs()}`).then(r => r.json());
 
     if (items.length === 0) {
         contentEl.innerHTML = '<p class="text-gray-400 text-sm py-4 text-center">No items found.</p>';
@@ -862,4 +817,5 @@ async function deleteReceipt(createdAt) {
     if (expandedReceipt === createdAt) expandedReceipt = null;
     if (editingReceipt === createdAt) editingReceipt = null;
     loadHistory();
+    if (window.groceryReport) groceryReport.reload();
 }

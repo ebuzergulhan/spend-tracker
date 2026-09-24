@@ -35,7 +35,7 @@ const SPECTRUM_NAV = [
     { id: 'home',     label: 'Home',           href: 'home.html' },
     { id: 'scan',     label: 'Scan receipts',  href: 'scan.html' },
     { id: 'upcoming', label: 'Upcoming',       href: 'upcoming.html' },
-    { id: 'monthly',  label: 'Monthly Report', href: 'monthly.html' },
+    { id: 'monthly',  label: 'Reports',        href: 'monthly.html' },
     { id: 'trips',    label: 'Trips',          href: 'trips.html' },
     { id: 'turkey',   label: 'Turkey Trip',    href: 'turkey.html' },
   ]},
@@ -127,7 +127,7 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
       { id: 'home',     label: 'Home',     href: 'home.html',     icon: 'home' },
       { id: 'upcoming', label: 'Upcoming', href: 'upcoming.html', icon: 'clock' },
       { id: 'add',      label: 'Add',      href: 'scan.html',     icon: 'plus', fab: true },
-      { id: 'monthly',  label: 'Monthly',  href: 'monthly.html',  icon: 'bars' },
+      { id: 'monthly',  label: 'Reports',  href: 'monthly.html',  icon: 'bars' },
       { id: 'more',     label: 'More',     href: '#',             icon: 'menu', openMenu: true },
     ];
     const ICONS = {
