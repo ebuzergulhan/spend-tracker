@@ -14,6 +14,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { Pool } = require('pg');
 const { summarize, CATEGORIES } = require('./turkey-logic');
 const receiptLogic = require('./receipt-logic');
+const scanStore = require('./scan-store');
 const createAuth = require('./auth');
 const fs = require('fs');
 if (!fs.existsSync('uploads/debt-docs')) fs.mkdirSync('uploads/debt-docs', { recursive: true });
@@ -106,7 +107,8 @@ async function normalizeShopName(name) {
 }
 
 // Read one receipt photo with the given model and return the cleaned-up result.
-async function readReceiptWith(model, base64Image, mediaType) {
+// smart: use the smart-scan prompt, which also picks the app section (Scan receipts page).
+async function readReceiptWith(model, base64Image, mediaType, smart = false) {
     const response = await anthropic.messages.create({
         model,
         max_tokens: model === receiptLogic.SCAN_MODEL_STRONG ? 16000 : 4096,
@@ -114,29 +116,29 @@ async function readReceiptWith(model, base64Image, mediaType) {
             role: 'user',
             content: [
                 { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } },
-                { type: 'text', text: receiptLogic.RECEIPT_PROMPT },
+                { type: 'text', text: smart ? receiptLogic.SMART_PROMPT : receiptLogic.RECEIPT_PROMPT },
             ],
         }],
     });
     // Stronger models reply with a reasoning block first, so find the text block.
     const block = response.content.find(b => b.type === 'text');
-    const receipt = receiptLogic.normalizeReceipt(receiptLogic.parseReceiptText(block ? block.text : ''));
+    const receipt = receiptLogic.normalizeReceipt(receiptLogic.parseReceiptText(block ? block.text : ''), undefined, { smart });
     receipt.model_used = model;
     return receipt;
 }
 
 // Fast model first; if its items don't add up to the receipt total, re-read with the stronger model.
-async function scanReceipt(base64Image, mediaType) {
+async function scanReceipt(base64Image, mediaType, smart = false) {
     let first = null;
     try {
-        first = await readReceiptWith(receiptLogic.SCAN_MODEL_FAST, base64Image, mediaType);
+        first = await readReceiptWith(receiptLogic.SCAN_MODEL_FAST, base64Image, mediaType, smart);
         if (first.check.ok) return first;
         console.log(`Receipt scan: ${first.check.reason} — re-reading with ${receiptLogic.SCAN_MODEL_STRONG}`);
     } catch (e) {
         console.error('Fast receipt scan failed:', e.message);
     }
     try {
-        return await readReceiptWith(receiptLogic.SCAN_MODEL_STRONG, base64Image, mediaType);
+        return await readReceiptWith(receiptLogic.SCAN_MODEL_STRONG, base64Image, mediaType, smart);
     } catch (e) {
         if (first) return first;
         throw e;
@@ -202,6 +204,55 @@ app.post('/receipts/confirm', async (req, res) => {
         res.json({ success: true, shop_name: normalizedShop, item_count: items.length });
     } catch (error) {
         console.error('Confirm save error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ─── Smart scan (Scan receipts page) & trips ─────────────────────────────────
+
+// Section names and category lists, so the page's dropdowns match what the server accepts.
+app.get('/scan/sections', (req, res) => {
+    res.json({ sections: receiptLogic.SECTIONS, aliases: receiptLogic.CATEGORY_ALIASES });
+});
+
+// Read one receipt and suggest its section. Nothing is saved until /scan/save.
+app.post('/scan', upload.single('receiptImage'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No image received.' });
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const mediaType = allowedTypes.includes(req.file.mimetype) ? req.file.mimetype : 'image/jpeg';
+        const receipt = await scanReceipt(fs.readFileSync(req.file.path).toString('base64'), mediaType, true);
+
+        const ext = path.extname(req.file.originalname || '.jpg').toLowerCase() || '.jpg';
+        const safeName = receipt.shop_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const receiptFilename = `${Date.now()}_${safeName}${ext}`;
+        fs.renameSync(req.file.path, `uploads/receipts/${receiptFilename}`);
+        receipt.image_filename = receiptFilename;
+        res.json(receipt);
+    } catch (error) {
+        console.error('Smart scan error:', error.message);
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        res.status(500).json({ error: 'Couldn’t read this receipt. Try a clearer photo.' });
+    }
+});
+
+// Save one reviewed receipt into its section (all-or-nothing; duplicates are skipped, not saved twice).
+app.post('/scan/save', async (req, res) => {
+    try {
+        res.json(await scanStore.saveReceipt(db, req.body, { normalizeShopName }));
+    } catch (error) {
+        if (error.status === 400) return res.status(400).json({ error: error.message });
+        console.error('Scan save error:', error.message);
+        res.status(500).json({ error: 'Couldn’t save this receipt. Nothing was saved — please try again.' });
+    }
+});
+
+// All trips across sections, with totals per section and their receipts.
+app.get('/trips', async (req, res) => {
+    try {
+        res.json(await scanStore.listTrips(db));
+    } catch (error) {
+        console.error('Trips error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -300,7 +351,7 @@ app.get('/receipts', async (req, res) => {
     const { from, to } = req.query;
     const f = from && to;
     const result = await db.query(`
-        SELECT created_at, shop_name, date, receipt_total, MAX(receipt_image) AS receipt_image
+        SELECT created_at, shop_name, date, receipt_total, MAX(receipt_image) AS receipt_image, MAX(trip_name) AS trip_name
         FROM items
         ${f ? 'WHERE date >= $1 AND date <= $2' : ''}
         GROUP BY created_at, shop_name, date, receipt_total
@@ -561,6 +612,10 @@ app.post('/manual', async (req, res) => {
             created_at TIMESTAMPTZ DEFAULT NOW()
         )
     `);
+    // Trips: an optional label on any receipt (outing_items already has it). Existing rows stay untouched (NULL).
+    await db.query(`ALTER TABLE items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
+    await db.query(`ALTER TABLE shopping_items ADD COLUMN IF NOT EXISTS trip_name TEXT`);
+    await db.query(`ALTER TABLE expense_log ADD COLUMN IF NOT EXISTS trip_name TEXT`);
     await db.query(`
         CREATE TABLE IF NOT EXISTS loans (
             id SERIAL PRIMARY KEY,
@@ -1116,7 +1171,7 @@ Total and price must be plain numbers only. No currency symbols. quantity is the
 });
 
 app.get('/shopping', async (req, res) => {
-    const result = await db.query(`SELECT created_at,place_name,date,receipt_total FROM shopping_items GROUP BY created_at,place_name,date,receipt_total ORDER BY created_at DESC`);
+    const result = await db.query(`SELECT created_at,place_name,date,receipt_total,MAX(trip_name) AS trip_name FROM shopping_items GROUP BY created_at,place_name,date,receipt_total ORDER BY created_at DESC`);
     res.json(result.rows);
 });
 app.get('/shopping/:created_at/items', async (req, res) => {

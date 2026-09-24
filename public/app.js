@@ -768,7 +768,7 @@ function renderHistory() {
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-gray-800">${r.shop_name}</p>
+                        <p class="text-sm font-semibold text-gray-800">${r.shop_name}${window.tripBadge ? tripBadge(r.trip_name) : ''}</p>
                         <p class="text-xs text-gray-400">${dateEstimated ? `<span class="text-orange-400 font-semibold">*</span> ${formatDate(r.date || uploadDate)}` : formatDate(r.date)}</p>
                     </div>
                 </div>

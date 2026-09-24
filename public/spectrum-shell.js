@@ -33,8 +33,10 @@ const SPECTRUM_CATS = {
 const SPECTRUM_NAV = [
   { group: 'Overview', items: [
     { id: 'home',     label: 'Home',           href: 'home.html' },
+    { id: 'scan',     label: 'Scan receipts',  href: 'scan.html' },
     { id: 'upcoming', label: 'Upcoming',       href: 'upcoming.html' },
     { id: 'monthly',  label: 'Monthly Report', href: 'monthly.html' },
+    { id: 'trips',    label: 'Trips',          href: 'trips.html' },
     { id: 'turkey',   label: 'Turkey Trip',    href: 'turkey.html' },
   ]},
   { group: 'Spending', items: [
@@ -124,7 +126,7 @@ function initSpectrum({ active, title, subtitle = '', period = '', actions = '' 
     const BOTTOM_ITEMS = [
       { id: 'home',     label: 'Home',     href: 'home.html',     icon: 'home' },
       { id: 'upcoming', label: 'Upcoming', href: 'upcoming.html', icon: 'clock' },
-      { id: 'add',      label: 'Add',      href: 'index.html',    icon: 'plus', fab: true },
+      { id: 'add',      label: 'Add',      href: 'scan.html',     icon: 'plus', fab: true },
       { id: 'monthly',  label: 'Monthly',  href: 'monthly.html',  icon: 'bars' },
       { id: 'more',     label: 'More',     href: '#',             icon: 'menu', openMenu: true },
     ];
@@ -210,6 +212,14 @@ window.badge = function(catNameOrKey, label) {
   const key = SPECTRUM_CATS[catNameOrKey] ? catNameOrKey : catKey(catNameOrKey);
   const lbl = label || (SPECTRUM_CATS[key] && SPECTRUM_CATS[key].label) || catNameOrKey;
   return `<span class="sp-badge" data-cat="${key}">${lbl}</span>`;
+};
+
+// tripBadge(name) → small link to the Trips page, e.g. next to a receipt that belongs to "Oxford trip"
+window.tripBadge = function(name) {
+  if (!name) return '';
+  const safe = String(name).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return ` <a href="trips.html" onclick="event.stopPropagation()" style="display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;margin-left:4px;` +
+    `border-radius:9999px;background:var(--sp-ink-08);color:var(--sp-ink-70,#55524d);text-decoration:none;vertical-align:middle;">✈ ${safe}</a>`;
 };
 
 window.SPECTRUM_CATS = SPECTRUM_CATS;

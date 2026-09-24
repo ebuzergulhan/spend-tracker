@@ -1,8 +1,26 @@
-// receipt-logic.js — prompt, parsing and checks for grocery receipt scans.
+// receipt-logic.js — prompts, parsing and checks for receipt scans (grocery page and smart scan page).
 // No dependencies, so it can be tested on its own (server.js does the API call).
 
 const CATEGORIES = ['Groceries', 'Vegetables', 'Fruit', 'Dairy', 'Meat & Fish', 'Bakery', 'Drinks', 'Snacks',
     'Household', 'Clothing', 'Electronics', 'Fuel', 'Restaurant', 'Health', 'Discount', 'Other'];
+
+// Where a smart-scanned receipt can be saved. Category lists match what each section's page already uses.
+const SECTIONS = {
+    groceries: { label: 'Groceries', default: 'Groceries', categories: CATEGORIES },
+    outabout: { label: 'Out & About', default: 'Other', categories: ['Restaurant', 'Fast Food', 'Coffee & Drinks', 'Parking',
+        'Entertainment', 'Shopping', 'Health & Beauty', 'Hotel', 'Transport', 'Other', 'Discount'] },
+    shopping: { label: 'Shopping', default: 'Other', categories: ['Amazon', 'IKEA', 'Clothing', 'Electronics', 'Books', 'Sports',
+        'Home & Garden', 'Health & Beauty', 'Toys & Games', 'Food & Drink', 'Other', 'Discount'] },
+    fuel: { label: 'Transport · Fuel', default: 'Fuel', categories: ['Fuel', 'Other', 'Discount'] },
+    transport: { label: 'Transport · Parking & travel', default: 'Transport', categories: ['Transport', 'Other', 'Discount'] },
+};
+
+// Equivalent item categories when an item moves to another section (user changed the section).
+const CATEGORY_ALIASES = {
+    'Drinks': 'Coffee & Drinks', 'Coffee & Drinks': 'Drinks', 'Health': 'Health & Beauty', 'Health & Beauty': 'Health',
+    'Groceries': 'Food & Drink', 'Food & Drink': 'Groceries', 'Snacks': 'Food & Drink', 'Household': 'Home & Garden',
+    'Home & Garden': 'Household', 'Parking': 'Transport', 'Fast Food': 'Restaurant',
+};
 
 // Cheap model first; the stronger one only re-reads receipts whose sums don't add up.
 const SCAN_MODEL_FAST = 'claude-haiku-4-5';
@@ -22,7 +40,11 @@ const RECEIPT_PROMPT = `You are reading a photo of a UK shop receipt (supermarke
 }
 
 How UK receipts are laid out. Follow these rules exactly:
-1. DATES ARE DAY-FIRST: DD/MM/YYYY or DD/MM/YY. 23/09/2026 is 23 September 2026, so "date" is "2026-09-23". 03/09/26 is 3 September 2026. Never read a UK date month-first.
+${UK_RULES()}`;
+
+// The UK layout rules shared by both prompts (a function so it can sit below the prompts it's used in).
+function UK_RULES() {
+    return `1. DATES ARE DAY-FIRST: DD/MM/YYYY or DD/MM/YY. 23/09/2026 is 23 September 2026, so "date" is "2026-09-23". 03/09/26 is 3 September 2026. Never read a UK date month-first.
 2. ONE item per product. A product name often wraps onto 2 or 3 lines: join those lines into one name. The product's price is the amount on the right of its first line.
 3. QUANTITY: a number printed at the far LEFT of a product line (e.g. "2 Cadbury ...") is the quantity. A following line like "£1.40 each", "2 @ £1.40" or "2 x £0.89" (a count times a MONEY amount) confirms the unit price; it is NOT a separate item. With no such number, quantity is 1.
 4. PACK SIZES ARE NOT QUANTITIES: "6x25g", "4 X 18g", "3 X 20g", "4x85g", "12 pack", "6 x 330ml" are part of the product name. Keep them in the name and do NOT use them as the quantity.
@@ -33,6 +55,49 @@ How UK receipts are laid out. Follow these rules exactly:
 9. The same product on separate lines stays as separate items, quantity 1 each.
 10. CHECK YOUR WORK before answering: the non-Discount prices must add up to "subtotal", the Discount prices must add up to minus "savings", and all item prices together must equal "total". If they do not match, re-read the receipt line by line and fix the items.
 11. All numbers are plain decimals with no currency symbols.`;
+}
+
+const SMART_PROMPT = `You are reading a photo of a UK receipt for my spending app. First decide which SECTION of the app it belongs to, then read the receipt. Return ONLY a valid JSON object (no markdown, no code fences) with exactly this structure:
+{
+  "section": "groceries|outabout|shopping|fuel|transport",
+  "shop_name": "business name only, e.g. Tesco, Pizza Express, Amazon, Shell, NCP",
+  "date_raw": "the purchase date EXACTLY as printed, e.g. 23/09/2026 or 23.09.26, or null if not visible",
+  "date": "the same date as YYYY-MM-DD, or null",
+  "subtotal": 0.00,
+  "savings": 0.00,
+  "total": 0.00,
+  "litres": null,
+  "items": [
+    { "name": "product name", "price": 0.00, "quantity": 1, "category": "one category from the list for the chosen section" }
+  ]
+}
+
+SECTIONS. Pick the one that matches where most of the money went:
+- "groceries": supermarkets and food shopping for home, e.g. Tesco, Aldi, Lidl, Morrisons, Sainsbury's, Asda, Co-op, Waitrose, M&S Food, Iceland, butchers, greengrocers. Item categories: ${SECTIONS.groceries.categories.join('|')}
+- "outabout": eating and drinking out and days out: restaurants, cafés, pubs, takeaways, cinemas, museums, attractions, hotels. Item categories: ${SECTIONS.outabout.categories.join('|')}
+- "shopping": non-food shopping in a store or online: Amazon, IKEA, Argos, clothes, electronics, books, sports, pharmacy and beauty. Item categories: ${SECTIONS.shopping.categories.join('|')}
+- "fuel": petrol, diesel or EV charging at a fuel station. Put the litres bought in "litres" (null if not shown). If the receipt also has a snack, still choose "fuel" and list the snack as an item. Item categories: ${SECTIONS.fuel.categories.join('|')}
+- "transport": parking and car parks, trains, buses, coaches, taxis, tolls, car washes. Item categories: ${SECTIONS.transport.categories.join('|')}
+"litres" stays null unless the section is "fuel".
+
+How UK receipts are laid out. Follow these rules exactly:
+${UK_RULES()}`;
+
+// Pick a valid category for an item in the given section (keeps it, maps an equivalent, or falls back).
+function categoryForSection(category, section, price) {
+    const s = SECTIONS[section] || SECTIONS.groceries;
+    if (s.categories.includes(category)) return category;
+    if (price < 0) return 'Discount';
+    const alias = CATEGORY_ALIASES[category];
+    if (alias && s.categories.includes(alias)) return alias;
+    return s.default;
+}
+
+// Trip names are free text; tidy them so "  Oxford   trip " and "Oxford trip" match.
+function normalizeTripName(name) {
+    const s = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    return s || null;
+}
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
@@ -95,11 +160,15 @@ function parseReceiptText(text) {
 }
 
 // Clean up the model's output and check whether its sums match the receipt.
-function normalizeReceipt(r, today = londonToday()) {
+// smart: the result came from SMART_PROMPT, so it carries a section (and litres for fuel).
+function normalizeReceipt(r, today = londonToday(), { smart = false } = {}) {
+    const section = smart && SECTIONS[r.section] ? r.section : 'groceries';
     const items = (Array.isArray(r.items) ? r.items : [])
         .map(it => {
             let price = round2(num(it.price));
-            let category = CATEGORIES.includes(it.category) ? it.category : (price < 0 ? 'Discount' : 'Other');
+            let category = smart
+                ? categoryForSection(it.category, section, price)
+                : (CATEGORIES.includes(it.category) ? it.category : (price < 0 ? 'Discount' : 'Other'));
             if (category === 'Discount' && price > 0) price = -price;
             const qty = num(it.quantity);
             return { name: String(it.name || '').trim(), price, quantity: qty > 0 ? qty : 1, category };
@@ -114,7 +183,13 @@ function normalizeReceipt(r, today = londonToday()) {
     const itemsSum = round2(items.reduce((s, it) => s + it.price, 0));
     const ok = total > 0 && items.length > 0 && Math.abs(itemsSum - total) < 0.02;
 
+    const smartFields = smart ? {
+        section,
+        litres: section === 'fuel' && num(r.litres) > 0 ? round2(num(r.litres)) : null,
+    } : {};
+
     return {
+        ...smartFields,
         shop_name: String(r.shop_name || 'Unknown shop').trim(),
         date,
         date_raw: r.date_raw || null,
@@ -133,6 +208,7 @@ function normalizeReceipt(r, today = londonToday()) {
 }
 
 module.exports = {
-    CATEGORIES, SCAN_MODEL_FAST, SCAN_MODEL_STRONG, RECEIPT_PROMPT,
+    CATEGORIES, SECTIONS, CATEGORY_ALIASES, SCAN_MODEL_FAST, SCAN_MODEL_STRONG, RECEIPT_PROMPT, SMART_PROMPT,
     parseUkDate, londonToday, addDays, validReceiptDate, parseReceiptText, normalizeReceipt,
+    categoryForSection, normalizeTripName,
 };

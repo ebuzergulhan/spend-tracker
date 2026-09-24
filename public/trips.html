@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Trips</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+    <link rel="stylesheet" href="spectrum.css"/>
+    <style>
+        .hidden, [hidden] { display:none !important; } /* other pages get .hidden from Tailwind; this page doesn't load it */
+        .trip { margin-bottom:14px; }
+        .thead { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+        .tname { font-weight:650; font-size:16px; color:var(--sp-ink); word-break:break-word; }
+        .tdates { font-size:12px; color:var(--sp-ink-50); margin-top:2px; }
+        .ttotal { font-weight:750; font-size:22px; color:var(--sp-ink); white-space:nowrap; }
+        .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+        .chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:5px 10px; border-radius:9999px;
+                background:var(--sp-panel); color:var(--sp-ink); text-decoration:none; border:1px solid var(--sp-ink-08); }
+        .dot { width:8px; height:8px; border-radius:9999px; display:inline-block; }
+        .stack { display:flex; height:8px; border-radius:9999px; overflow:hidden; margin-top:12px; background:var(--sp-ink-08); }
+        details.rc { margin-top:12px; }
+        details.rc summary { cursor:pointer; font-size:13px; color:var(--sp-ink-70, #55524d); }
+        table.rt { width:100%; border-collapse:collapse; margin-top:8px; }
+        table.rt td { padding:8px 4px; border-top:1px solid var(--sp-ink-04); font-size:13px; }
+        table.rt td.amt { text-align:right; font-weight:600; white-space:nowrap; }
+        .muted { color:var(--sp-ink-50); }
+        .empty { text-align:center; padding:28px 12px; color:var(--sp-ink-50); font-size:14px; }
+    </style>
+</head>
+<body>
+<div class="sp-shell">
+  <main class="sp-main">
+    <div class="sp-body">
+      <div id="trips"><p class="muted">Loading trips…</p></div>
+    </div>
+  </main>
+</div>
+
+<script src="shared.js"></script>
+<script src="spectrum-shell.js"></script>
+<script>
+    initSpectrum({ active: 'trips', title: 'Trips', subtitle: 'What each trip cost, across every section' });
+
+    const GROUPS = {
+        groceries: { label: 'Groceries', href: 'index.html', color: 'var(--cat-groceries-dot)' },
+        outabout: { label: 'Out & About', href: 'outabout.html', color: 'var(--cat-outabout-dot)' },
+        shopping: { label: 'Shopping', href: 'shopping.html', color: 'var(--cat-shopping-dot)' },
+        transport: { label: 'Transport', href: 'transport.html', color: 'var(--cat-transport-dot)' },
+    };
+    const RECEIPT_LABEL = { groceries: 'Groceries', outabout: 'Out & About', shopping: 'Shopping', fuel: 'Fuel', transport: 'Parking & travel' };
+    const groupOf = s => (s === 'fuel' || s === 'transport') ? 'transport' : s;
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const money = n => '£' + (parseFloat(n) || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const day = s => s ? new Date(s + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No date';
+
+    function dateRange(t) {
+        if (!t.start) return 'No dates';
+        return t.start === t.end ? day(t.start) : `${day(t.start)} – ${day(t.end)}`;
+    }
+
+    function renderTrip(t) {
+        const groups = Object.keys(GROUPS).filter(g => t.by_section[g]);
+        const chips = groups.map(g => `<a class="chip" href="${GROUPS[g].href}"><span class="dot" style="background:${GROUPS[g].color}"></span>
+            ${GROUPS[g].label} ${money(t.by_section[g])}</a>`).join('');
+        const stack = groups.map(g => `<span style="width:${(t.by_section[g] / t.total * 100).toFixed(1)}%;background:${GROUPS[g].color};"></span>`).join('');
+        const rows = t.receipts.map(r => `<tr>
+            <td class="muted" style="white-space:nowrap;">${r.date ? new Date(r.date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</td>
+            <td>${esc(r.place)}<div class="muted" style="font-size:11px;"><span class="dot" style="background:${GROUPS[groupOf(r.section)].color}"></span> ${RECEIPT_LABEL[r.section] || esc(r.section)}</div></td>
+            <td class="amt">${money(r.total)}</td></tr>`).join('');
+        return `<div class="sp-card trip"><div class="sp-card-body">
+            <div class="thead">
+              <div><div class="tname">${esc(t.name)}</div><div class="tdates">${dateRange(t)} · ${t.count} receipt${t.count === 1 ? '' : 's'}</div></div>
+              <div class="ttotal">${money(t.total)}</div>
+            </div>
+            <div class="stack">${stack}</div>
+            <div class="chips">${chips}</div>
+            <details class="rc"><summary>Show receipts</summary><table class="rt"><tbody>${rows}</tbody></table></details>
+        </div></div>`;
+    }
+
+    (async () => {
+        try {
+            const trips = await fetch('/trips').then(r => r.json());
+            if (!Array.isArray(trips)) throw new Error(trips.error || 'Unexpected reply');
+            document.getElementById('trips').innerHTML = trips.length
+                ? trips.map(renderTrip).join('')
+                : `<div class="sp-card"><div class="empty">No trips yet.<br>When you scan receipts, type a trip name (e.g. “Oxford trip”) and they’ll be grouped here.
+                   <br><br><a class="sp-btn-primary" href="scan.html" style="display:inline-block;padding:10px 16px;text-decoration:none;">Scan receipts</a></div></div>`;
+        } catch (e) {
+            document.getElementById('trips').innerHTML = `<div class="sp-card"><div class="empty">Couldn’t load trips: ${esc(e.message)}</div></div>`;
+        }
+    })();
+</script>
+</body>
+</html>

@@ -227,7 +227,7 @@
                 <div style="border-bottom:1px solid var(--sp-ink-04);">
                     <div class="flex items-center gap-3" style="padding:12px 0;cursor:pointer;" onclick="toggleReceipt('${r.created_at}')">
                         <div class="flex-1">
-                            <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${r.place_name}</p>
+                            <p style="font-size:13px;font-weight:500;color:var(--sp-ink);">${r.place_name}${window.tripBadge ? tripBadge(r.trip_name) : ''}</p>
                             <p style="font-size:12px;color:var(--sp-ink-50);margin-top:2px;">${dateStr}</p>
                         </div>
                         <p class="sp-num" style="font-size:13px;font-weight:600;color:var(--sp-ink);">${fmt(r.receipt_total)}</p>
